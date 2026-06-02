@@ -49,8 +49,22 @@ function learnedRules(): Record<string, string> {
   try { return JSON.parse(localStorage.getItem(LEARNED_RULES_KEY) ?? '{}') as Record<string, string> }
   catch { return {} }
 }
+export interface CategoryRule { pattern: string; categoryId: string }
+export function listCategoryRules(): CategoryRule[] {
+  return Object.entries(learnedRules()).map(([pattern, categoryId]) => ({ pattern, categoryId }))
+}
+export function saveCategoryRule(pattern: string, categoryId: string): void {
+  const normalized = clean(pattern)
+  if (!normalized || !categoryId) return
+  localStorage.setItem(LEARNED_RULES_KEY, JSON.stringify({ ...learnedRules(), [normalized]: categoryId }))
+}
+export function deleteCategoryRule(pattern: string): void {
+  const rules = learnedRules()
+  delete rules[clean(pattern)]
+  localStorage.setItem(LEARNED_RULES_KEY, JSON.stringify(rules))
+}
 export function learnCategoryRule(note: string, categoryId: string): void {
-  try { localStorage.setItem(LEARNED_RULES_KEY, JSON.stringify({ ...learnedRules(), [clean(note)]: categoryId })) }
+  try { saveCategoryRule(note, categoryId) }
   catch { /* Storage can be unavailable in private or test contexts. */ }
 }
 const splitCsvLine = (line: string, delimiter: string) => {

@@ -5,7 +5,7 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmtCompact, monthKeys, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
-import type { Account, AccountType, ViewProps } from '@/types'
+import type { Account, AccountType, OverdraftPolicy, ViewProps } from '@/types'
 import { Empty, MiniStat } from './shared'
 
 const COLORS = ['#3b82f6', '#22c55e', '#a78bfa', '#f59e0b', '#f472b6', '#38bdf8']
@@ -79,6 +79,7 @@ function AccountForm({ account, onClose, onSave, onDelete }: { account?: Account
     <div className="field-row"><div className="field"><label htmlFor="account-short">Etiqueta</label><input id="account-short" className="select" value={fields.short} onChange={event => patch('short', event.target.value)} placeholder="Ej. Débito" /></div><div className="field"><label htmlFor="account-type">Tipo</label><select id="account-type" className="select" value={fields.type} onChange={event => patch('type', event.target.value as AccountType)}><option value="debit">Débito</option><option value="savings">Ahorros</option><option value="credit">Crédito</option><option value="cash">Efectivo</option></select></div></div>
     <div className="field-row"><div className="field"><label htmlFor="account-balance">Saldo inicial</label><input id="account-balance" className="select" type="number" value={fields.balance} onChange={event => patch('balance', Number(event.target.value))} /></div><div className="field"><label htmlFor="account-last4">Últimos 4 dígitos</label><input id="account-last4" className="select" maxLength={4} value={fields.last4 ?? ''} onChange={event => patch('last4', event.target.value)} placeholder="Opcional" /></div></div>
     {fields.type === 'credit' && <div className="field"><label htmlFor="account-limit">Límite de crédito</label><input id="account-limit" className="select" type="number" value={fields.limit ?? ''} onChange={event => patch('limit', Number(event.target.value) || undefined)} /></div>}
+    {fields.type !== 'credit' && <div className="field"><label htmlFor="account-overdraft">Política de sobregiro</label><select id="account-overdraft" className="select" value={fields.overdraftPolicy ?? ''} onChange={event => patch('overdraftPolicy', (event.target.value || undefined) as OverdraftPolicy | undefined)}><option value="">Usar configuración global</option><option value="block">Bloquear gastos sin saldo</option><option value="warn">Permitir con advertencia</option><option value="allow">Permitir sin advertencia</option></select></div>}
     <div className="color-list" aria-label="Color de la cuenta">{COLORS.map(color => <button aria-label={`Usar color ${color}`} className={fields.color === color ? 'selected' : ''} key={color} onClick={() => patch('color', color)} style={{ background: color }} />)}</div>
     <footer className="modal-actions">{account && <button className="btn-danger" onClick={() => onDelete(account.id)}><Icon name="trash" size={15} /> Eliminar</button>}<button className="btn-ghost" onClick={onClose}>Cancelar</button><button className="btn-primary" onClick={submit}>Guardar</button></footer>
   </section></div>

@@ -1,61 +1,51 @@
 import { useEffect, useRef } from 'react'
-import { useFinance } from '@/store/finance'
-import { currentMonthKey, monthKey } from '@/data/helpers'
 import { toast } from '@/components/ui/Toast'
+import { useFinance } from '@/store/finance'
+import type { RecurrenceFrequency, Transaction } from '@/types'
 
-const PROCESSED_KEY = 'sharky-recurring-v1'
+export function advanceRecurrenceDate(date: string, frequency: RecurrenceFrequency): string {
+  const next = new Date(`${date}T00:00:00`)
+  if (frequency === 'weekly') next.setDate(next.getDate() + 7)
+  else next.setMonth(next.getMonth() + 1)
+  return next.toISOString().slice(0, 10)
+}
 
-/**
- * Detecta transacciones marcadas como `recurring: 'monthly'` del mes anterior
- * y las copia al mes actual si aún no existen. Se ejecuta una vez por mes.
- */
-export function useRecurring() {
-  const { transactions, addTx } = useFinance()
+export function firstRecurrenceDate(tx: Transaction): string {
+  return tx.recurringNext ?? advanceRecurrenceDate(tx.recurringStart ?? tx.date, tx.recurring ?? 'monthly')
+}
+
+export function useRecurring(): void {
+  const { transactions, addTx, updateTx } = useFinance()
   const ran = useRef(false)
 
   useEffect(() => {
     if (ran.current) return
     ran.current = true
-
-    const curKey  = currentMonthKey()
-    const processed: string[] = JSON.parse(localStorage.getItem(PROCESSED_KEY) ?? '[]')
-    if (processed.includes(curKey)) return
-
-    // mes anterior
-    const [y, m] = curKey.split('-').map(Number)
-    const prevDate = new Date(y, m - 2, 1)
-    const prevKey  = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
-
-    const recurring = transactions.filter(
-      tx => tx.recurring === 'monthly' && monthKey(tx.date) === prevKey
-    )
-
+    const today = new Date().toISOString().slice(0, 10)
     let created = 0
-    recurring.forEach(tx => {
-      // no duplicar si ya existe en el mes actual con misma nota + categoría + cuenta
-      const exists = transactions.some(t =>
-        monthKey(t.date) === curKey &&
-        t.note        === tx.note &&
-        t.categoryId  === tx.categoryId &&
-        t.accountId   === tx.accountId
-      )
-      if (exists) return
-      addTx({
-        type: tx.type, amount: tx.amount, note: tx.note,
-        date: `${curKey}-01`,
-        accountId: tx.accountId, categoryId: tx.categoryId,
-        recurring: 'monthly',
-      })
-      created++
+
+    transactions.filter(tx => tx.recurring).forEach(template => {
+      let next = firstRecurrenceDate(template)
+      let generated = 0
+      while (next <= today && (!template.recurringEnd || next <= template.recurringEnd) && generated < 24) {
+        const exists = transactions.some(tx => tx.date === next && tx.note === template.note
+          && tx.categoryId === template.categoryId && tx.accountId === template.accountId)
+        if (!exists) {
+          addTx({
+            type: template.type, amount: template.amount, note: template.note,
+            date: next, accountId: template.accountId, categoryId: template.categoryId,
+            tags: template.tags,
+          })
+          created++
+        }
+        next = advanceRecurrenceDate(next, template.recurring!)
+        generated++
+      }
+      if (next !== template.recurringNext) updateTx(template.id, { recurringNext: next })
     })
 
-    if (created > 0) {
-      toast(
-        `${created} gasto${created > 1 ? 's' : ''} recurrente${created > 1 ? 's' : ''} generado${created > 1 ? 's' : ''} para este mes`,
-        { icon: 'calendar', type: 'ok' }
-      )
-    }
-
-    localStorage.setItem(PROCESSED_KEY, JSON.stringify([...processed, curKey]))
-  }, [])
+    if (created > 0) toast(`${created} movimiento${created > 1 ? 's' : ''} recurrente${created > 1 ? 's' : ''} generado${created > 1 ? 's' : ''}`, {
+      icon: 'calendar', type: 'ok',
+    })
+  }, [addTx, transactions, updateTx])
 }

@@ -64,28 +64,21 @@ Estado: completada el 2026-06-01 como `v0.3.0`.
 
 Objetivo: convertir el registro manual en una herramienta diaria solida.
 
-Estado: en desarrollo desde el 2026-06-01 como `v0.4.0`.
+Estado: completada el 2026-06-02 como `v0.4.0`.
 
 ### Cerrado en esta iteracion
 
 - Accion global de agregar movimiento simplificada: se elimina el duplicado de la cabecera.
 - Creacion de metas renovada con modal dedicado, fecha objetivo opcional y color identificativo.
-
-### Agregar
-
-- Politica de sobregiro configurable por cuenta: bloquear, advertir o permitir.
-- Gastos recurrentes editables con frecuencia, fecha de inicio, fecha final y proxima ejecucion.
-- Vista de calendario financiero con pagos esperados.
-- Reglas de categorizacion editables para importacion bancaria.
-- Historial de aportes a metas con `goalId`, fecha, cuenta origen y notas.
-- Filtros guardados para transacciones.
-
-### Mejorar
-
-- Presupuestos semanales y anuales ademas del limite mensual.
-- Alertas configurables al 50%, 80%, 100% y sobregiro.
-- Transferencias con historial mas claro y filtros especificos.
-- Edicion masiva de movimientos importados.
+- Politica de sobregiro configurable por cuenta con fallback al ajuste global.
+- Recurrencias semanales o mensuales con inicio, fin opcional y proxima ejecucion editable.
+- Vista de calendario financiero para revisar proximos movimientos esperados.
+- Reglas de categorizacion bancaria administrables desde Configuracion.
+- Historial de aportes a metas con fecha, cuenta origen y nota opcional.
+- Filtros de transacciones guardables, reutilizables y eliminables.
+- Presupuestos semanales, mensuales y anuales editables.
+- Alertas de presupuesto configurables al 50%, 80% y 100%.
+- Transferencias filtrables y edicion masiva para recategorizar, exportar o eliminar movimientos.
 
 ### Criterios de salida
 
@@ -97,19 +90,36 @@ Estado: en desarrollo desde el 2026-06-01 como `v0.4.0`.
 
 Objetivo: permitir uso real en mas de un dispositivo sin depender de `localStorage`.
 
+Estado: completada el 2026-06-02 como `v0.5.0`.
+
+### Cerrado en esta iteracion
+
+- Ledger de categorias de presupuesto consolidado en un solo sistema responsive.
+- Filas convertidas en tarjetas compactas cuando el ancho disponible no permite la tabla completa.
+- Prueba E2E responsive para evitar regresiones de desborde, iconos y edicion de limites.
+- Snapshots automaticos locales con retencion de cinco versiones y restauracion desde Configuracion.
+- Punto de recuperacion manual y auditoria local de cuenta, backups, restauraciones e importaciones CSV.
+- Infraestructura cloud elegida: Supabase Cloud `us-east-1`, Postgres con RLS y Auth por correo con PKCE.
+- ADR tecnico agregado en `docs/ADR-001-supabase-auth-sync.md`.
+- Proyecto Supabase aprovisionado con esquema relacional, indices, triggers de revision y RLS por usuario.
+- Registro e inicio de sesion cloud integrados con confirmacion de correo, recuperacion de contraseña y cierre remoto.
+- Modo local offline conservado como alternativa explicita para quien no quiera crear una cuenta cloud.
+- Sincronizacion cloud manual bidireccional con baseline local, tombstones y conflictos visibles sin sobrescritura silenciosa.
+- Cache local aislado por cuenta cloud para evitar mezclar datos al cambiar de usuario en un mismo equipo.
+- Cola local de cambios con sincronizacion automatica agrupada y reintento al recuperar conexion.
+- Base de datos cloud cifrada en reposo por Supabase.
+- Backups cloud cifrados en cliente con frase secreta independiente, bucket privado, restauracion por version y retencion de diez copias.
+- Exportacion JSON portable conservada como mecanismo independiente de recuperacion manual.
+- Sesion Supabase de Tauri movida fuera de `localStorage` al Administrador de credenciales de Windows mediante comandos Rust.
+- Limpieza automatica de tokens Supabase heredados en `localStorage` al iniciar la app de escritorio.
+- Sincronizacion ampliada para politicas de sobregiro, presupuestos semanales y anuales, agenda recurrente e historial de aportes.
+
 ### Agregar
 
-- Backend con usuarios, sesiones, recuperacion de contraseña y cierre remoto.
-- Base de datos cifrada en reposo.
-- Sincronizacion incremental con timestamps y resolucion de conflictos.
-- Backup automatico cifrado y restauracion por version.
-- Exportacion manual portable como mecanismo de recuperacion.
 
 ### Mejorar
 
-- Mover secretos y tokens fuera del frontend.
-- Mantener modo local opcional para quien no quiera crear cuenta cloud.
-- Registrar auditoria basica: inicio de sesion, importaciones y restauraciones.
+- Validar manualmente el flujo cloud completo en el `.exe` firmado antes del release publico.
 
 ### Criterios de salida
 

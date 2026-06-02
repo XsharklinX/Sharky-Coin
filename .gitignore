@@ -22,6 +22,10 @@ coverage/
 *.log
 node_modules/.tmp/
 
+# Local environment
+.env.local
+.env.*.local
+
 # Editor / OS files
 .DS_Store
 Thumbs.db

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { makeDemo, makeEmpty, newId } from '@/data/seed'
 import { useSettings } from '@/store/settings'
-import type { Account, Category, Transaction, Goal, CurrencyCode, OverdraftPolicy } from '@/types'
+import type { Account, Category, Transaction, Goal, GoalContribution, CurrencyCode, OverdraftPolicy } from '@/types'
 
 // ── Helpers de balance (inmutables) ──────────────────────
 function applyBalance(accounts: Account[], tx: Transaction, sign: 1 | -1): Account[] {
@@ -42,7 +42,8 @@ export function canDeleteCategory(categoryId: string, txns: Transaction[]): bool
 
 function assertManualExpenseBalance(accounts: Account[], tx: Transaction, policy = useSettings.getState().overdraftPolicy): void {
   if (tx.type !== 'expense' || !tx.accountId) return
-  if (policy !== 'block') return
+  const accountPolicy = accounts.find(account => account.id === tx.accountId)?.overdraftPolicy ?? policy
+  if (accountPolicy !== 'block') return
   assertAvailableBalance(accounts, tx.accountId, tx.amount)
 }
 
@@ -59,6 +60,7 @@ export interface FinanceState {
   transactions: Transaction[]
   categories:   Category[]
   goals:        Goal[]
+  goalContributions: GoalContribution[]
   currency:     CurrencyCode
 
   // Transacciones
@@ -77,7 +79,7 @@ export interface FinanceState {
   addGoal:     (g: Omit<Goal, 'id'>) => void
   updateGoal:  (id: string, fields: Partial<Goal>) => void
   deleteGoal:  (id: string) => void
-  contribute:  (goalId: string, amount: number, fromAccountId: string) => void
+  contribute:  (goalId: string, amount: number, fromAccountId: string, note?: string) => void
 
   // Categorías
   addCategory:    (c: Omit<Category, 'id'>) => void
@@ -90,7 +92,7 @@ export interface FinanceState {
   // Datos
   startDemo:  () => void
   startEmpty: () => void
-  restoreBackup: (data: Pick<FinanceState, 'accounts' | 'transactions' | 'categories' | 'goals' | 'currency'>) => void
+  restoreBackup: (data: Pick<FinanceState, 'accounts' | 'transactions' | 'categories' | 'goals' | 'goalContributions' | 'currency'>) => void
 }
 
 // ── Store ─────────────────────────────────────────────────
@@ -98,6 +100,7 @@ export const useFinance = create<FinanceState>()(
   persist(
     (set) => ({
       ...makeDemo(),
+      goalContributions: [],
       currency: 'DOP',
 
       // ── Transacciones ──────────────────────────────────
@@ -167,6 +170,7 @@ export const useFinance = create<FinanceState>()(
 
       deleteAccount: (id) => set(s => {
         if (!canDeleteAccount(id, s.transactions)) throw new Error('No puedes eliminar una cuenta con movimientos registrados.')
+        if (s.goalContributions.some(contribution => contribution.fromAccountId === id)) throw new Error('No puedes eliminar una cuenta con aportes a metas registrados.')
         return { accounts: s.accounts.filter(account => account.id !== id) }
       }),
 
@@ -181,14 +185,24 @@ export const useFinance = create<FinanceState>()(
 
       deleteGoal: (id) => set(s => ({
         goals: s.goals.filter(g => g.id !== id),
+        goalContributions: s.goalContributions.filter(contribution => contribution.goalId !== id),
       })),
 
-      contribute: (goalId, amount, fromAccountId) => set(s => {
+      contribute: (goalId, amount, fromAccountId, note) => set(s => {
         assertAvailableBalance(s.accounts, fromAccountId, amount)
         if (!s.goals.some(g => g.id === goalId)) throw new Error('La meta seleccionada no existe.')
+        const contribution: GoalContribution = {
+          id: 'contrib_' + Date.now().toString(36),
+          goalId,
+          amount,
+          fromAccountId,
+          date: new Date().toISOString().slice(0, 10),
+          note: note?.trim() || undefined,
+        }
         return {
           goals:    s.goals.map(g => g.id === goalId ? { ...g, saved: g.saved + amount } : g),
           accounts: s.accounts.map(a => a.id === fromAccountId ? { ...a, balance: a.balance - amount } : a),
+          goalContributions: [contribution, ...s.goalContributions],
         }
       }),
 
@@ -210,9 +224,9 @@ export const useFinance = create<FinanceState>()(
       setCurrency: (currency) => set({ currency }),
 
       // ── Datos demo / vacío ─────────────────────────────
-      startDemo:  () => set({ ...makeDemo(),  currency: 'DOP' }),
-      startEmpty: () => set({ ...makeEmpty(), currency: 'DOP' }),
-      restoreBackup: (data) => set(data),
+      startDemo:  () => set({ ...makeDemo(), goalContributions: [], currency: 'DOP' }),
+      startEmpty: () => set({ ...makeEmpty(), goalContributions: [], currency: 'DOP' }),
+      restoreBackup: (data) => set({ ...data, goalContributions: data.goalContributions ?? [] }),
     }),
     {
       name:    'sharky-finance-v2',

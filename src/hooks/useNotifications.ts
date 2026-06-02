@@ -1,59 +1,42 @@
 import { useEffect } from 'react'
+import { currentMonthKey, fmtCompact, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
-import { currentMonthKey, txForMonth } from '@/data/helpers'
-import { fmtCompact } from '@/data/helpers'
+import { useSettings } from '@/store/settings'
 
-const NOTIFIED_KEY = 'sharky-notified-v1'
-const THRESHOLD = 0.8   // 80% del presupuesto
+const NOTIFIED_KEY = 'sharky-notified-v2'
 
-/**
- * Solicita permiso de notificaciones y avisa cuando una categoría
- * supera el 80% del presupuesto. Notifica una vez por categoría por mes.
- */
-export function useNotifications() {
+export function useNotifications(): void {
   const { transactions, categories, currency } = useFinance()
+  const thresholds = useSettings(state => state.budgetAlertThresholds)
 
   useEffect(() => {
     if (!('Notification' in window) || Notification.permission === 'denied') return
-
-    const curKey   = currentMonthKey()
-    const monthTx  = txForMonth(transactions, curKey)
-    const notified: Record<string, string[]> =
-      JSON.parse(localStorage.getItem(NOTIFIED_KEY) ?? '{}')
+    const curKey = currentMonthKey()
+    const monthTx = txForMonth(transactions, curKey)
+    const notified: Record<string, string[]> = JSON.parse(localStorage.getItem(NOTIFIED_KEY) ?? '{}')
     const done = new Set(notified[curKey] ?? [])
-
-    // categorías que superaron el umbral y aún no han sido notificadas
-    const toNotify = categories.filter(cat => {
-      if (cat.type !== 'expense' || !cat.budget || done.has(cat.id)) return false
-      const spent = monthTx
-        .filter(t => t.categoryId === cat.id && t.type === 'expense')
-        .reduce((s, t) => s + t.amount, 0)
-      return spent >= cat.budget * THRESHOLD
+    const alerts = categories.flatMap(cat => {
+      if (cat.type !== 'expense' || !cat.budget) return []
+      const spent = monthTx.filter(tx => tx.categoryId === cat.id && tx.type === 'expense')
+        .reduce((sum, tx) => sum + tx.amount, 0)
+      return thresholds.filter(threshold => spent >= cat.budget * threshold / 100 && !done.has(`${cat.id}:${threshold}`))
+        .map(threshold => ({ cat, spent, threshold }))
     })
-
-    if (toNotify.length === 0) return
+    if (!alerts.length) return
 
     const send = () => {
-      toNotify.forEach(cat => {
-        const spent = monthTx
-          .filter(t => t.categoryId === cat.id && t.type === 'expense')
-          .reduce((s, t) => s + t.amount, 0)
-        const pct = Math.round((spent / cat.budget) * 100)
-        new Notification(`$harky — ${cat.name}`, {
-          body: `Llevas ${fmtCompact(spent, currency)} (${pct}%) de tu presupuesto de ${fmtCompact(cat.budget, currency)}.`,
+      alerts.forEach(({ cat, spent, threshold }) => {
+        const pct = Math.round(spent / cat.budget * 100)
+        new Notification(`$harky - ${cat.name}`, {
+          body: `Alerta del ${threshold}%: llevas ${fmtCompact(spent, currency)} (${pct}%) de ${fmtCompact(cat.budget, currency)}.`,
           icon: '/icons/icon-192.png',
-          tag:  `budget-${cat.id}-${curKey}`,
+          tag: `budget-${cat.id}-${threshold}-${curKey}`,
         })
       })
-      const ids = toNotify.map(c => c.id)
-      notified[curKey] = [...(notified[curKey] ?? []), ...ids]
+      notified[curKey] = [...(notified[curKey] ?? []), ...alerts.map(({ cat, threshold }) => `${cat.id}:${threshold}`)]
       localStorage.setItem(NOTIFIED_KEY, JSON.stringify(notified))
     }
-
-    if (Notification.permission === 'granted') {
-      send()
-    } else {
-      Notification.requestPermission().then(p => { if (p === 'granted') send() })
-    }
-  }, [transactions, categories, currency])
+    if (Notification.permission === 'granted') send()
+    else void Notification.requestPermission().then(permission => { if (permission === 'granted') send() })
+  }, [categories, currency, thresholds, transactions])
 }

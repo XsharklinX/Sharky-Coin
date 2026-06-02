@@ -11,10 +11,13 @@ import { Welcome } from '@/modals/Welcome'
 import { AuthGate } from '@/modals/AuthGate'
 import { TransactionForm } from '@/modals/TransactionForm'
 import { SettingsModal } from '@/modals/SettingsModal'
-import { Dashboard, Transactions, Accounts, Budgets, Goals } from '@/views'
+import { Dashboard, Transactions, Accounts, Budgets, Goals, Calendar } from '@/views'
 import { useAuth } from '@/store/auth'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useAutoBackup } from '@/hooks/useAutoBackup'
+import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
+import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
 const Stats  = lazy(() => import('@/views/Stats').then(m => ({ default: m.Stats })))
@@ -27,6 +30,7 @@ const NAV: { id: ViewId; label: string; icon: Parameters<typeof Icon>[0]['name']
   { id: 'stats',        label: 'Estadísticas',    icon: 'chart'  },
   { id: 'budgets',      label: 'Presupuestos',    icon: 'target' },
   { id: 'goals',        label: 'Metas',           icon: 'trend'  },
+  { id: 'calendar',     label: 'Calendario',      icon: 'calendar' },
   { id: 'annual',       label: 'Resumen anual',   icon: 'shark'  },
 ]
 
@@ -37,13 +41,13 @@ const NAV_GROUPS = [
 
 const VIEWS: Record<ViewId, React.ComponentType<ViewProps>> = {
   dashboard: Dashboard, transactions: Transactions, accounts: Accounts,
-  stats: Stats, budgets: Budgets, goals: Goals, annual: Annual,
+  stats: Stats, budgets: Budgets, goals: Goals, calendar: Calendar, annual: Annual,
 }
 
-// Atajos de teclado para navegar por vista (1-7)
+// Atajos de teclado para navegar por vista (1-8)
 const VIEW_KEYS: Record<string, ViewId> = {
   '1': 'dashboard', '2': 'transactions', '3': 'accounts',
-  '4': 'stats', '5': 'budgets', '6': 'goals', '7': 'annual',
+  '4': 'stats', '5': 'budgets', '6': 'goals', '7': 'calendar', '8': 'annual',
 }
 
 // ─── Componente de bottom nav (móvil) ────────────────────
@@ -68,7 +72,7 @@ function BottomNav({ view, setView, onAdd }: { view: ViewId; setView: (v: ViewId
 // ─── App principal ────────────────────────────────────────
 export default function App() {
   const s = useSettings()
-  const { user } = useAuth()
+  const { user, initialized, recoveryMode, initialize } = useAuth()
   const { transactions, currency, setCurrency, addTx, deleteTx } = useFinance()
 
   const [view,    setView]    = useState<ViewId>('dashboard')
@@ -80,6 +84,13 @@ export default function App() {
   // hooks de funcionalidad
   useRecurring()
   useNotifications()
+  useAutoBackup()
+  useCloudWorkspace()
+  useAutoCloudSync()
+
+  useEffect(() => {
+    void initialize()
+  }, [initialize])
 
   // ── Keyboard shortcuts ──────────────────────────────────
   useEffect(() => {
@@ -112,7 +123,11 @@ export default function App() {
   }
 
   // Auth es opcional — solo se activa si el usuario lo habilitó en Configuración
-  if (s.authEnabled && !user) return (
+  if (s.authEnabled && !initialized) return (
+    <div className="app" {...themeProps}><div className="fatal-error"><p>Restaurando sesión segura...</p></div></div>
+  )
+
+  if ((s.authEnabled && !user) || recoveryMode) return (
     <div className="app" {...themeProps}><AuthGate /></div>
   )
 

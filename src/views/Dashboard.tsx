@@ -19,13 +19,13 @@ const ROADMAP = [
   {
     version: 'v0.4',
     name: 'Control inteligente',
-    status: 'Ahora',
+    status: 'Completado',
     features: ['Sobregiro por cuenta', 'Gastos recurrentes editables', 'Alertas configurables', 'Reglas CSV avanzadas'],
   },
   {
     version: 'v0.5',
     name: 'Sincronización',
-    status: 'Planificado',
+    status: 'Completado',
     features: ['Backend seguro', 'Sesiones multidispositivo', 'Backups automáticos', 'Recuperación de cuenta'],
   },
   {
@@ -149,7 +149,7 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
     const seen = new Set<string>()
     const result = []
     for (const tx of txns) {
-      if (tx.recurring !== 'monthly') continue
+      if (!tx.recurring) continue
       const key = `${tx.note}|${tx.categoryId}|${tx.accountId}`
       if (!seen.has(key)) { seen.add(key); result.push(tx) }
     }
@@ -310,7 +310,7 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
         </div>
         <div className="roadmap-foot">
           <Icon name="trend" size={15} />
-          Próximo foco recomendado: sobregiro por cuenta, recurrencias editables y reglas CSV administrables.
+          Próximo foco recomendado: proyección de flujo de caja, detección de suscripciones y gastos atípicos.
         </div>
       </Card>
     </div>

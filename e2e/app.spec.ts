@@ -8,9 +8,9 @@ async function openDemo(page: Page) {
   await expect(page.getByRole('heading', { name: 'Inicio' })).toBeVisible()
 }
 
-test('recorre las siete vistas sin caer en el error boundary', async ({ page }) => {
+test('recorre las ocho vistas sin caer en el error boundary', async ({ page }) => {
   await openDemo(page)
-  for (const view of ['Transacciones', 'Cuentas', 'Estadísticas', 'Presupuestos', 'Metas', 'Resumen anual', 'Inicio']) {
+  for (const view of ['Transacciones', 'Cuentas', 'Estadísticas', 'Presupuestos', 'Metas', 'Calendario', 'Resumen anual', 'Inicio']) {
     await page.getByRole('button', { name: new RegExp(view) }).first().click()
     await expect(page.getByRole('heading', { name: view })).toBeVisible()
   }
@@ -43,6 +43,42 @@ test('aplica los cuatro temas desde el selector principal', async ({ page }) => 
     await theme.selectOption(value)
     await expect(page.locator('.app')).toHaveAttribute('data-theme', value)
   }
+})
+
+test('mantiene las categorías de presupuesto utilizables en ventanas estrechas', async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 900 })
+  await openDemo(page)
+  await page.getByRole('button', { name: /Presupuestos/ }).first().click()
+
+  const rows = page.locator('.budget-row')
+  await expect(rows).toHaveCount(9)
+  const categoriesFit = await rows.evaluateAll(items => items.every(row => {
+    const bounds = row.getBoundingClientRect()
+    const icon = row.querySelector('.budget-category-main > span')?.getBoundingClientRect()
+    const input = row.querySelector('.budget-input')?.getBoundingClientRect()
+    const available = row.querySelector('.budget-available')?.getBoundingClientRect()
+    if (!icon || !input || !available) return false
+    return icon.x >= bounds.x
+      && icon.x + icon.width <= bounds.x + bounds.width
+      && input.x >= bounds.x
+      && input.x + input.width <= bounds.x + bounds.width
+      && available.x >= bounds.x
+      && available.x + available.width <= bounds.x + bounds.width
+  }))
+  expect(categoriesFit).toBe(true)
+})
+
+test('crea puntos de recuperación locales y registra actividad', async ({ page }) => {
+  await openDemo(page)
+  await page.getByRole('button', { name: /Mi cuenta/ }).click()
+  await page.getByRole('button', { name: 'Datos' }).click()
+  await expect(page.getByText('Recuperación automática')).toBeVisible()
+  await page.getByRole('button', { name: 'Crear punto' }).click()
+  await expect(page.getByText('Creado manualmente')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Cuenta', exact: true }).click()
+  await expect(page.getByText('Actividad reciente')).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Configuración' }).getByText('Punto de recuperación creado')).toBeVisible()
 })
 
 test('muestra estados vacíos profesionales y confirma acciones destructivas', async ({ page }) => {

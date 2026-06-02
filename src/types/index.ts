@@ -5,6 +5,7 @@ export type CurrencyCode = 'DOP' | 'USD' | 'EUR'
 export type ThemeName    = 'midnight' | 'slate' | 'carbon' | 'light'
 export type DensityName  = 'compact' | 'regular' | 'comfy'
 export type OverdraftPolicy = 'block' | 'warn' | 'allow'
+export type RecurrenceFrequency = 'weekly' | 'monthly'
 export type IconName =
   // categorías
   | 'home' | 'cart' | 'food' | 'car' | 'bolt' | 'play' | 'heart'
@@ -30,6 +31,7 @@ export interface Account {
   balance: number
   last4:   string | null
   limit?:  number
+  overdraftPolicy?: OverdraftPolicy
 }
 
 export interface Category {
@@ -38,6 +40,8 @@ export interface Category {
   type:   'expense' | 'income'
   color:  string
   budget: number
+  weeklyBudget?: number
+  annualBudget?: number
   icon:   IconName
 }
 
@@ -51,7 +55,10 @@ export interface Transaction {
   accountId?:   string              // income / expense
   fromAccount?: string              // transfer
   toAccount?:   string              // transfer
-  recurring?:   'monthly' | null    // auto-genera copia al inicio de cada mes
+  recurring?:   RecurrenceFrequency | null
+  recurringStart?: string
+  recurringEnd?: string
+  recurringNext?: string
   tags?:        string[]            // ej. ['trabajo', 'viaje']
 }
 
@@ -63,6 +70,15 @@ export interface Goal {
   color:     string
   icon:      IconName
   deadline?: string          // YYYY-MM-DD
+}
+
+export interface GoalContribution {
+  id: string
+  goalId: string
+  amount: number
+  fromAccountId: string
+  date: string
+  note?: string
 }
 
 export interface Currency {
@@ -110,6 +126,7 @@ export type ViewId =
   | 'budgets'
   | 'goals'
   | 'annual'
+  | 'calendar'
 
 export interface ViewProps {
   txns:        Transaction[]

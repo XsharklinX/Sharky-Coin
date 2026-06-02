@@ -6,6 +6,12 @@ import { useSettings } from '@/store/settings'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
 import { createBackup, parseBackup } from '@/data/backup'
+import { listAuditEvents, recordAuditEvent } from '@/data/audit'
+import { createRecoverySnapshot, listRecoverySnapshots, readRecoverySnapshot } from '@/data/recovery'
+import { useCloudSync } from '@/data/cloudSync'
+import { useCloudBackup } from '@/data/cloudBackup'
+import { usesNativeCredentialStorage } from '@/lib/secureAuthStorage'
+import { deleteCategoryRule, listCategoryRules, saveCategoryRule } from '@/data/bankCsv'
 import { saveBackup, openBackup, isTauri } from '@/hooks/useTauri'
 import type { ThemeName, DensityName, CurrencyCode, OverdraftPolicy } from '@/types'
 
@@ -26,15 +32,28 @@ export function SettingsModal({ onClose }: Props) {
   const s        = useSettings()
   const finance  = useFinance()
   const { user, logout } = useAuth()
+  const cloudSync = useCloudSync()
+  const cloudBackup = useCloudBackup()
+  const [backupPassphrase, setBackupPassphrase] = useState('')
   const [tab, setTab] = useState<'appearance' | 'data' | 'account' | 'about'>('appearance')
   const [confirmReset, setConfirmReset] = useState<'demo' | 'empty' | null>(null)
   const [busyData, setBusyData] = useState<'export' | 'import' | null>(null)
+  const [snapshots, setSnapshots] = useState(listRecoverySnapshots)
+  const [auditEvents, setAuditEvents] = useState(listAuditEvents)
+  const [categoryRules, setCategoryRules] = useState(listCategoryRules)
+  const [rulePattern, setRulePattern] = useState('')
+  const [ruleCategoryId, setRuleCategoryId] = useState('')
+
+  const refreshRecovery = () => setSnapshots(listRecoverySnapshots())
+  const refreshAudit = () => setAuditEvents(listAuditEvents())
 
   const exportBackup = async () => {
     setBusyData('export')
     try {
       const json = JSON.stringify(createBackup(finance), null, 2)
       await saveBackup(json)
+      recordAuditEvent('backup', 'Backup JSON exportado')
+      refreshAudit()
       toast('Backup exportado', { icon: 'download', type: 'ok' })
     } catch (error) {
       toast(error instanceof Error ? error.message : 'No se pudo exportar el backup.', { icon: 'alert' })
@@ -50,6 +69,8 @@ export function SettingsModal({ onClose }: Props) {
       if (!text) return
       const data = parseBackup(text)
       finance.restoreBackup(data)
+      recordAuditEvent('backup', 'Backup JSON restaurado')
+      refreshAudit()
       toast('Backup restaurado correctamente', { icon: 'check', type: 'ok' })
       onClose()
     } catch (e) {
@@ -59,12 +80,80 @@ export function SettingsModal({ onClose }: Props) {
     }
   }
 
+  const saveRecoveryPoint = () => {
+    createRecoverySnapshot(useFinance.getState(), 'manual')
+    recordAuditEvent('recovery', 'Punto de recuperación creado')
+    refreshRecovery()
+    refreshAudit()
+    toast('Punto de recuperación creado', { icon: 'check', type: 'ok' })
+  }
+
+  const restoreRecoveryPoint = (id: string) => {
+    if (!window.confirm('Este punto de recuperación reemplazará los datos actuales. ¿Deseas continuar?')) return
+    try {
+      finance.restoreBackup(readRecoverySnapshot(id))
+      recordAuditEvent('recovery', 'Punto de recuperación restaurado')
+      refreshAudit()
+      toast('Datos recuperados correctamente', { icon: 'refresh', type: 'ok' })
+      onClose()
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'No se pudo restaurar el punto de recuperación.', { icon: 'alert' })
+    }
+  }
+
   const doReset = (mode: 'demo' | 'empty') => {
     if (mode === 'demo') finance.startDemo()
     else                 finance.startEmpty()
     toast(mode === 'demo' ? 'Datos demo cargados' : 'Datos limpiados', { icon: 'refresh' })
     setConfirmReset(null)
     onClose()
+  }
+
+  const syncNow = async () => {
+    try {
+      await cloudSync.syncNow()
+      refreshAudit()
+      const conflictCount = useCloudSync.getState().conflicts.length
+      toast(conflictCount ? 'Sincronización completada con conflictos pendientes' : 'Datos sincronizados', {
+        icon: conflictCount ? 'alert' : 'check',
+        type: conflictCount ? undefined : 'ok',
+      })
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'No se pudo sincronizar.', { icon: 'alert' })
+    }
+  }
+
+  const unlockCloudBackups = () => {
+    try {
+      cloudBackup.unlock(backupPassphrase)
+      setBackupPassphrase('')
+      void cloudBackup.refresh()
+      toast('Backups cloud desbloqueados durante esta sesión', { icon: 'check', type: 'ok' })
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'No se pudo desbloquear.', { icon: 'alert' })
+    }
+  }
+
+  const createCloudBackup = async () => {
+    try {
+      await cloudBackup.createNow()
+      refreshAudit()
+      toast('Backup cloud cifrado creado', { icon: 'check', type: 'ok' })
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'No se pudo crear el backup cloud.', { icon: 'alert' })
+    }
+  }
+
+  const restoreCloudBackup = async (path: string) => {
+    if (!window.confirm('Este backup cloud reemplazará los datos actuales. ¿Deseas continuar?')) return
+    try {
+      await cloudBackup.restore(path)
+      refreshAudit()
+      toast('Backup cloud restaurado', { icon: 'refresh', type: 'ok' })
+      onClose()
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'No se pudo restaurar el backup cloud.', { icon: 'alert' })
+    }
   }
 
   return (
@@ -170,6 +259,43 @@ export function SettingsModal({ onClose }: Props) {
                 </p>
               </SettingGroup>
 
+              <SettingGroup label="Alertas de presupuesto">
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {[50, 80, 100].map(threshold => (
+                    <label className="recurring-toggle" key={threshold}>
+                      <input type="checkbox" checked={s.budgetAlertThresholds.includes(threshold)}
+                        onChange={event => s.setBudgetAlertThresholds(event.target.checked
+                          ? [...s.budgetAlertThresholds, threshold].sort((a, b) => a - b)
+                          : s.budgetAlertThresholds.filter(value => value !== threshold))} />
+                      <span>{threshold}%</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="setting-hint">Elige cuándo recibir avisos antes de exceder el límite mensual.</p>
+              </SettingGroup>
+
+              <SettingGroup label="Reglas de categorización bancaria">
+                <div className="field-row">
+                  <input className="select" value={rulePattern} onChange={event => setRulePattern(event.target.value)}
+                    placeholder="Descripción del banco" />
+                  <select className="select" value={ruleCategoryId} onChange={event => setRuleCategoryId(event.target.value)}>
+                    <option value="">Categoría...</option>
+                    {finance.categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                  </select>
+                  <button className="btn-primary" onClick={() => {
+                    saveCategoryRule(rulePattern, ruleCategoryId)
+                    setCategoryRules(listCategoryRules()); setRulePattern(''); setRuleCategoryId('')
+                  }}>Agregar</button>
+                </div>
+                {categoryRules.length > 0 && <div className="recovery-list">
+                  {categoryRules.map(rule => <div className="recovery-item" key={rule.pattern}>
+                    <div><b>{rule.pattern}</b><span>{finance.categories.find(category => category.id === rule.categoryId)?.name ?? 'Categoría eliminada'}</span></div>
+                    <button className="btn-ghost" onClick={() => { deleteCategoryRule(rule.pattern); setCategoryRules(listCategoryRules()) }}>Eliminar</button>
+                  </div>)}
+                </div>}
+                <p className="setting-hint">Las reglas aprendidas se aplican automáticamente durante la vista previa CSV.</p>
+              </SettingGroup>
+
               <SettingGroup label="Backup">
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button className="btn-ghost" disabled={busyData !== null} aria-busy={busyData === 'export'} onClick={exportBackup}>
@@ -185,6 +311,59 @@ export function SettingsModal({ onClose }: Props) {
                   El backup incluye todas tus cuentas, transacciones, categorías y metas.
                 </p>
               </SettingGroup>
+
+              <SettingGroup label="Recuperación automática">
+                <div className="recovery-head">
+                  <p className="setting-hint">Se conservan hasta cinco snapshots locales recientes cuando cambian tus datos.</p>
+                  <button className="btn-ghost" onClick={saveRecoveryPoint}>
+                    <Icon name="refresh" size={15} />Crear punto
+                  </button>
+                </div>
+                {snapshots.length > 0 ? (
+                  <div className="recovery-list">
+                    {snapshots.map(snapshot => (
+                      <div className="recovery-item" key={snapshot.id}>
+                        <div>
+                          <b>{formatLocalDate(snapshot.createdAt)}</b>
+                          <span>{snapshot.reason === 'manual' ? 'Creado manualmente' : 'Snapshot automático'}</span>
+                        </div>
+                        <button className="btn-ghost" onClick={() => restoreRecoveryPoint(snapshot.id)}>Restaurar</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="setting-hint">Todavía no hay puntos de recuperación.</p>}
+                <p className="setting-hint">Estos snapshots permanecen en este dispositivo. No sustituyen un backup exportado.</p>
+              </SettingGroup>
+
+              {user?.mode === 'cloud' && <SettingGroup label="Backups cloud cifrados">
+                {!cloudBackup.unlocked ? <>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <input className="select" type="password" value={backupPassphrase}
+                      onChange={event => setBackupPassphrase(event.target.value)}
+                      placeholder="Frase secreta para cifrado" autoComplete="new-password" />
+                    <button className="btn-primary" onClick={unlockCloudBackups}>Desbloquear</button>
+                  </div>
+                  <p className="setting-hint">Usa una frase distinta a tu contraseña. No se envía a Supabase ni se guarda en disco.</p>
+                </> : <>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button className="btn-primary" disabled={cloudBackup.busy} onClick={() => void createCloudBackup()}>
+                      <Icon name="upload" size={15} />Crear backup ahora
+                    </button>
+                    <button className="btn-ghost" disabled={cloudBackup.busy} onClick={() => void cloudBackup.refresh()}>
+                      <Icon name="refresh" size={15} />Actualizar lista
+                    </button>
+                    <button className="btn-ghost" onClick={cloudBackup.lock}>Bloquear</button>
+                  </div>
+                  <p className="setting-hint">Mientras esté desbloqueado, se crea una versión automática después de sincronizar como máximo cada diez minutos.</p>
+                  {cloudBackup.versions.length > 0 && <div className="recovery-list">
+                    {cloudBackup.versions.map(version => <div className="recovery-item" key={version.path}>
+                      <div><b>{formatLocalDate(version.createdAt)}</b><span>Backup cloud cifrado</span></div>
+                      <button className="btn-ghost" onClick={() => void restoreCloudBackup(version.path)}>Restaurar</button>
+                    </div>)}
+                  </div>}
+                </>}
+                {cloudBackup.error && <p className="auth-error">{cloudBackup.error}</p>}
+              </SettingGroup>}
 
               <SettingGroup label="Reiniciar datos">
                 {!confirmReset ? (
@@ -227,34 +406,87 @@ export function SettingsModal({ onClose }: Props) {
                   <div>
                     <div style={{ fontWeight: 650, color: 'var(--text)' }}>{user?.name}</div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{user?.email}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--accent)', marginTop: 3 }}>
+                      {user?.mode === 'cloud' ? 'Cuenta cloud sincronizable' : user ? 'Cuenta local de este equipo' : 'Sin sesión activa'}
+                    </div>
                   </div>
                 </div>
               </SettingGroup>
 
-              <SettingRow label="Proteger con contraseña"
-                sub="Requiere login al abrir la app. Útil si compartes el dispositivo.">
+              <SettingRow label="Requerir inicio de sesión"
+                sub="Solicita una cuenta cloud o local al abrir la app.">
                 <Toggle value={s.authEnabled} onChange={v => {
                   s.setAuthEnabled(v)
-                  if (!v) logout()   // al deshabilitar, cerrar sesión activa
+                  if (!v) void logout()
                 }} />
               </SettingRow>
 
               {s.authEnabled && user && (
                 <SettingGroup label="Sesión activa">
-                  <button className="btn-danger" onClick={() => { logout(); onClose() }}>
+                  <button className="btn-danger" onClick={() => { void logout(); onClose() }}>
                     <Icon name="logout" size={15} />Cerrar sesión
                   </button>
-                  <p className="setting-hint">Los datos quedan guardados en este dispositivo.</p>
+                  {user.mode === 'cloud' && <button className="btn-ghost" style={{ marginLeft: 8 }}
+                    onClick={() => { void logout('global'); onClose() }}>
+                    <Icon name="logout" size={15} />Cerrar en todos los dispositivos
+                  </button>}
+                  <p className="setting-hint">Los datos locales permanecen disponibles en este dispositivo.</p>
+                </SettingGroup>
+              )}
+
+              {user?.mode === 'cloud' && (
+                <SettingGroup label="Sincronización cloud">
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn-primary" disabled={cloudSync.busy} onClick={() => void syncNow()}>
+                      {cloudSync.busy ? <span className="spinner" /> : <Icon name="refresh" size={15} />}
+                      {cloudSync.busy ? 'Sincronizando…' : 'Sincronizar ahora'}
+                    </button>
+                    <span className="setting-hint">
+                      {cloudSync.pending
+                        ? 'Hay cambios pendientes de sincronizar.'
+                        : cloudSync.lastSyncAt
+                          ? `Última sincronización: ${formatLocalDate(cloudSync.lastSyncAt)}`
+                          : 'Todavía no has sincronizado este equipo.'}
+                    </span>
+                  </div>
+                  {cloudSync.error && <p className="auth-error">{cloudSync.error}</p>}
+                  {cloudSync.conflicts.length > 0 && <div className="sync-conflicts">
+                    <b>Conflictos pendientes</b>
+                    <p className="setting-hint">Se conservaron tus datos locales. Revisa estos elementos antes de sincronizar otra vez.</p>
+                    {cloudSync.conflicts.map(conflict => <span key={`${conflict.table}:${conflict.localId}`}>
+                      {conflict.table}: {conflict.label}
+                    </span>)}
+                  </div>}
+                  <p className="setting-hint">Cada cuenta cloud mantiene un cache local separado en este dispositivo.</p>
+                  <p className="setting-hint">{usesNativeCredentialStorage
+                    ? 'La sesión cloud se guarda en el Administrador de credenciales de Windows.'
+                    : 'La sesión cloud se guarda en el almacenamiento seguro disponible del navegador.'}</p>
                 </SettingGroup>
               )}
 
               {!s.authEnabled && (
                 <div className="setting-hint" style={{ padding: '10px 14px', background: 'var(--track)',
                   borderRadius: 10, fontSize: 12.5 }}>
-                  💡 La app abre directamente sin contraseña. Activa la protección si quieres
-                  añadir seguridad o prepararla para sincronización futura entre dispositivos.
+                  La app abre directamente sin contraseña. Activa el inicio de sesión para usar
+                  una cuenta cloud sincronizable o una cuenta local protegida.
                 </div>
               )}
+
+              <SettingGroup label="Actividad reciente">
+                {auditEvents.length > 0 ? (
+                  <div className="audit-list">
+                    {auditEvents.slice(0, 8).map(event => (
+                      <div className="audit-item" key={event.id}>
+                        <i />
+                        <div>
+                          <b>{event.label}</b>
+                          <span>{formatLocalDate(event.createdAt)}{event.detail ? ` · ${event.detail}` : ''}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="setting-hint">Todavía no hay eventos registrados.</p>}
+              </SettingGroup>
 
               <SettingGroup label="Atajos de teclado">
                 <div className="shortcuts-list">
@@ -285,7 +517,7 @@ export function SettingsModal({ onClose }: Props) {
                   <div style={{ fontSize: 20, fontWeight: 800 }}>
                     <span style={{ color: 'var(--accent)' }}>$</span>harky
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v0.4 — Finanzas personales</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v0.5 — Finanzas personales</div>
                 </div>
               </div>
 
@@ -293,15 +525,16 @@ export function SettingsModal({ onClose }: Props) {
                 <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7 }}>
                   Vite 6 + React 18 + TypeScript + Zustand<br />
                   Lucide React + jsPDF + ExcelJS<br />
-                  Datos locales — sin backend, sin tracking
+                  Supabase Auth + Postgres con RLS<br />
+                  Datos locales primero — sin tracking
                 </div>
               </SettingGroup>
 
               <SettingGroup label="Próximamente">
                 <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7 }}>
-                  v0.4: Control financiero y metas renovadas<br />
-                  v0.5: Seguridad y sincronización multidispositivo<br />
+                  v0.5: Estabilidad visual y base de sincronización<br />
                   v0.6: Inteligencia financiera y proyecciones<br />
+                  v0.7: Integraciones bancarias dominicanas<br />
                   v1.0: App instalable, accesibilidad AA y pruebas E2E
                 </div>
               </SettingGroup>
@@ -344,4 +577,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
       <i />
     </button>
   )
+}
+
+function formatLocalDate(value: string): string {
+  return new Date(value).toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' })
 }

@@ -1,5 +1,5 @@
 import type { FinanceState } from '@/store/finance'
-import type { Account, Category, CurrencyCode, Goal, Transaction } from '@/types'
+import type { Account, Category, CurrencyCode, Goal, GoalContribution, Transaction } from '@/types'
 
 export interface FinanceBackup {
   version: 1
@@ -8,6 +8,7 @@ export interface FinanceBackup {
     accounts: Account[]
     categories: Category[]
     goals: Goal[]
+    goalContributions: GoalContribution[]
     transactions: Transaction[]
     currency: CurrencyCode
   }
@@ -21,6 +22,7 @@ export function createBackup(state: FinanceState): FinanceBackup {
       accounts: state.accounts,
       categories: state.categories,
       goals: state.goals,
+      goalContributions: state.goalContributions ?? [],
       transactions: state.transactions,
       currency: state.currency,
     },
@@ -39,19 +41,25 @@ export function parseBackup(value: string): FinanceBackup['data'] {
     throw new Error('El archivo no es un backup válido de $harky.')
   }
   if (!['DOP', 'USD', 'EUR'].includes(data.currency)) throw new Error('El backup contiene una moneda no compatible.')
+  data.goalContributions ??= []
+  if (!Array.isArray(data.goalContributions)) throw new Error('El backup contiene aportes a metas inválidos.')
   assertUniqueIds(data.accounts, 'cuentas')
   assertUniqueIds(data.categories, 'categorías')
   assertUniqueIds(data.goals, 'metas')
   assertUniqueIds(data.transactions, 'transacciones')
+  assertUniqueIds(data.goalContributions, 'aportes a metas')
   if (!data.accounts.every(account => isText(account.id) && isText(account.name) && isText(account.short)
     && ['debit', 'savings', 'credit', 'cash'].includes(account.type) && isText(account.color)
     && isFiniteNumber(account.balance) && (account.last4 === null || typeof account.last4 === 'string')
-    && (account.limit === undefined || isNonNegativeNumber(account.limit)))) {
+    && (account.limit === undefined || isNonNegativeNumber(account.limit))
+    && (account.overdraftPolicy === undefined || ['block', 'warn', 'allow'].includes(account.overdraftPolicy)))) {
     throw new Error('El backup contiene cuentas inválidas.')
   }
   if (!data.categories.every(category => isText(category.id) && isText(category.name)
     && ['expense', 'income'].includes(category.type) && isText(category.color)
-    && isNonNegativeNumber(category.budget) && isText(category.icon))) {
+    && isNonNegativeNumber(category.budget) && isText(category.icon)
+    && (category.weeklyBudget === undefined || isNonNegativeNumber(category.weeklyBudget))
+    && (category.annualBudget === undefined || isNonNegativeNumber(category.annualBudget)))) {
     throw new Error('El backup contiene categorías inválidas.')
   }
   if (!data.goals.every(goal => isText(goal.id) && isText(goal.name) && isText(goal.color) && isText(goal.icon)
@@ -63,6 +71,13 @@ export function parseBackup(value: string): FinanceBackup['data'] {
   const categoryIds = new Set(data.categories.map(category => category.id))
   if (!data.transactions.every(tx => isValidTransaction(tx, accountIds, categoryIds))) {
     throw new Error('El backup contiene transacciones inválidas o referencias inexistentes.')
+  }
+  const goalIds = new Set(data.goals.map(goal => goal.id))
+  if (!data.goalContributions.every(contribution => isText(contribution.id)
+    && goalIds.has(contribution.goalId) && accountIds.has(contribution.fromAccountId)
+    && isFiniteNumber(contribution.amount) && contribution.amount > 0 && isDate(contribution.date)
+    && (contribution.note === undefined || typeof contribution.note === 'string'))) {
+    throw new Error('El backup contiene aportes a metas inválidos o referencias inexistentes.')
   }
   return data
 }
@@ -77,7 +92,9 @@ function assertUniqueIds(items: { id: string }[], label: string): void {
 function isValidTransaction(tx: Transaction, accounts: Set<string>, categories: Set<string>): boolean {
   if (!isText(tx.id) || !['income', 'expense', 'transfer'].includes(tx.type)
     || !isFiniteNumber(tx.amount) || tx.amount <= 0 || !isDate(tx.date) || !isText(tx.note)
-    || (tx.tags !== undefined && (!Array.isArray(tx.tags) || !tx.tags.every(isText)))) return false
+    || (tx.tags !== undefined && (!Array.isArray(tx.tags) || !tx.tags.every(isText)))
+    || (tx.recurring !== undefined && tx.recurring !== null && !['weekly', 'monthly'].includes(tx.recurring))
+    || ![tx.recurringStart, tx.recurringEnd, tx.recurringNext].every(value => value === undefined || isDate(value))) return false
   if (tx.type === 'transfer') {
     return isText(tx.fromAccount) && isText(tx.toAccount) && tx.fromAccount !== tx.toAccount
       && accounts.has(tx.fromAccount) && accounts.has(tx.toAccount)

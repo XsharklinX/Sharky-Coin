@@ -10,6 +10,7 @@ interface SettingsState {
   showSidebarLabels: boolean
   authEnabled:       boolean   // false = sin login obligatorio
   overdraftPolicy:   OverdraftPolicy
+  budgetAlertThresholds: number[]
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -18,6 +19,7 @@ interface SettingsState {
   setShowSidebarLabels: (v: boolean)    => void
   setAuthEnabled:       (v: boolean)    => void
   setOverdraftPolicy:   (v: OverdraftPolicy) => void
+  setBudgetAlertThresholds: (v: number[]) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -30,6 +32,7 @@ export const useSettings = create<SettingsState>()(
       showSidebarLabels: true,
       authEnabled:       false,   // por defecto sin login
       overdraftPolicy:   'warn',
+      budgetAlertThresholds: [50, 80, 100],
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -38,6 +41,7 @@ export const useSettings = create<SettingsState>()(
       setShowSidebarLabels: (showSidebarLabels) => set({ showSidebarLabels }),
       setAuthEnabled:       (authEnabled)       => set({ authEnabled }),
       setOverdraftPolicy:   (overdraftPolicy)   => set({ overdraftPolicy }),
+      setBudgetAlertThresholds: (budgetAlertThresholds) => set({ budgetAlertThresholds }),
     }),
     {
       name:    'sharky-settings-v2',

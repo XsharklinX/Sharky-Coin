@@ -5,6 +5,7 @@ import { toast } from '@/components/ui/Toast'
 import { fmtCompact, getAccount, getCategory, totals, txForMonth } from '@/data/helpers'
 import { BANKS, learnCategoryRule, parseBankCsv, type BankId, type ImportedRow } from '@/data/bankCsv'
 import { createBackup, parseBackup } from '@/data/backup'
+import { recordAuditEvent } from '@/data/audit'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
@@ -15,6 +16,12 @@ import { BusyButton, Empty, MiniStat, TxRow } from './shared'
 type ListItem =
   | { kind: 'header'; date: string; count: number }
   | { kind: 'row';    tx: Transaction }
+interface SavedFilter { name: string; query: string; type: string; cat: string; tagFilter: string | null }
+const SAVED_FILTERS_KEY = 'sharky-saved-filters-v1'
+const readSavedFilters = (): SavedFilter[] => {
+  try { return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) ?? '[]') as SavedFilter[] }
+  catch { return [] }
+}
 
 // ── Componente principal ─────────────────────────────────
 export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
@@ -30,6 +37,8 @@ export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [busyExport, setBusyExport] = useState<'excel' | 'pdf' | null>(null)
+  const [savedFilters, setSavedFilters] = useState(readSavedFilters)
+  const [activeSavedFilter, setActiveSavedFilter] = useState('')
 
   // ── Selección múltiple ───────────────────────────────────
   const [selected,     setSelected]     = useState<Set<string>>(new Set())
@@ -50,6 +59,24 @@ export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
   }), [monthTx, type, cat, tagFilter, query, categories])
 
   const t = totals(filtered)
+  const saveCurrentFilter = () => {
+    const name = window.prompt('Nombre para este filtro:')
+    if (!name?.trim()) return
+    const next = [...savedFilters.filter(filter => filter.name !== name.trim()), { name: name.trim(), query, type, cat, tagFilter }]
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(next)); setSavedFilters(next)
+    toast('Filtro guardado', { icon: 'check', type: 'ok' })
+  }
+  const applySavedFilter = (name: string) => {
+    const filter = savedFilters.find(item => item.name === name)
+    if (!filter) return
+    setQuery(filter.query); setType(filter.type); setCat(filter.cat); setTagFilter(filter.tagFilter)
+  }
+  const deleteSavedFilter = () => {
+    if (!activeSavedFilter) return
+    const next = savedFilters.filter(filter => filter.name !== activeSavedFilter)
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(next)); setSavedFilters(next); setActiveSavedFilter('')
+    toast('Filtro eliminado', { icon: 'trash' })
+  }
 
   // Tags disponibles en el mes
   const availableTags = useMemo(() => {
@@ -140,11 +167,12 @@ export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(createBackup(useFinance.getState()), null, 2)], { type: 'application/json' }))
     Object.assign(document.createElement('a'), { href: url, download: `sharky-backup-${new Date().toISOString().slice(0, 10)}.json` }).click()
     URL.revokeObjectURL(url)
+    recordAuditEvent('backup', 'Backup JSON exportado')
   }
 
   const importBackup = async (file?: File) => {
     if (!file || !window.confirm('Este backup reemplazará todos los datos. ¿Deseas continuar?')) return
-    try { restoreBackup(parseBackup(await file.text())); toast('Backup restaurado', { icon: 'download', type: 'ok' }) }
+    try { restoreBackup(parseBackup(await file.text())); recordAuditEvent('backup', 'Backup JSON restaurado'); toast('Backup restaurado', { icon: 'download', type: 'ok' }) }
     catch (e) { toast(e instanceof Error ? e.message : 'No se pudo restaurar el backup.', { icon: 'alert' }) }
     finally { if (backupRef.current) backupRef.current.value = '' }
   }
@@ -166,6 +194,13 @@ export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
     <div className="view">
       {/* ── Toolbar ── */}
       <div className="toolbar">
+        <select aria-label="Filtros guardados" className="select" value={activeSavedFilter}
+          onChange={event => { setActiveSavedFilter(event.target.value); applySavedFilter(event.target.value) }}>
+          <option value="">Filtros guardados...</option>
+          {savedFilters.map(filter => <option key={filter.name} value={filter.name}>{filter.name}</option>)}
+        </select>
+        <button className="btn-ghost" onClick={saveCurrentFilter}><Icon name="plus" size={14} />Guardar filtro</button>
+        {activeSavedFilter && <button className="btn-ghost" onClick={deleteSavedFilter}><Icon name="trash" size={14} />Eliminar filtro</button>}
         <div className="search">
           <Icon name="search" size={16} />
           <input aria-label="Buscar movimiento" value={query}
@@ -311,6 +346,7 @@ export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
             try {
               importTxs(importable.map(r => ({ type: r.type, amount: r.amount, date: r.date, note: r.note, categoryId: r.categoryId, accountId })))
               rows.filter(r => r.categoryId).forEach(r => learnCategoryRule(r.note, r.categoryId!))
+              recordAuditEvent('import', 'Importación CSV confirmada', `${importable.length} movimientos`)
               toast(`${importable.length} movimientos importados`, { icon: 'download', type: 'ok' })
               setImportOpen(false)
             } catch (error) {

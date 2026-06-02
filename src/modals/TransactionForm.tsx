@@ -3,7 +3,8 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import type { Transaction, TxType } from '@/types'
+import { advanceRecurrenceDate } from '@/hooks/useRecurring'
+import type { RecurrenceFrequency, Transaction, TxType } from '@/types'
 
 export function TransactionForm({ value, mkey, onClose, onDelete }: {
   value:     Transaction | 'new'
@@ -22,6 +23,9 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   const [accountId,  setAccountId]  = useState(accounts[0]?.id ?? '')
   const [categoryId, setCategoryId] = useState('')
   const [recurring,  setRecurring]  = useState(false)
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly')
+  const [recurringStart, setRecurringStart] = useState(`${mkey}-01`)
+  const [recurringEnd, setRecurringEnd] = useState('')
   const [tags,       setTags]       = useState<string[]>([])
   const [tagInput,   setTagInput]   = useState('')
   const [noteSugg,   setNoteSugg]   = useState<string[]>([])
@@ -33,7 +37,10 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       setAmount(String(value.amount)); setNote(value.note); setDate(value.date)
       setAccountId(value.accountId ?? accounts[0]?.id ?? '')
       setCategoryId(value.categoryId ?? '')
-      setRecurring(value.recurring === 'monthly')
+      setRecurring(!!value.recurring)
+      setRecurrenceFrequency(value.recurring ?? 'monthly')
+      setRecurringStart(value.recurringStart ?? value.date)
+      setRecurringEnd(value.recurringEnd ?? '')
       setTags(value.tags ?? [])
     }
   }, [accounts, editing, value])
@@ -74,13 +81,22 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       return toast('Completa monto, descripción, cuenta y categoría.', { icon: 'edit' })
     const fields = {
       type, amount: amt, note: note.trim(), date, accountId, categoryId,
-      recurring: recurring ? 'monthly' as const : null,
+      ...(recurring ? {
+        recurring: recurrenceFrequency,
+        recurringStart,
+        recurringEnd: recurringEnd || undefined,
+        recurringNext: editing && value.recurringNext
+          ? value.recurringNext
+          : advanceRecurrenceDate(recurringStart || date, recurrenceFrequency),
+      } : {
+        recurring: null, recurringStart: undefined, recurringEnd: undefined, recurringNext: undefined,
+      }),
       tags: tags.length ? tags : undefined,
     }
     const account = accounts.find(a => a.id === accountId)
     const previousAmount = editing && value.type === 'expense' && value.accountId === accountId ? value.amount : 0
     const available = (account?.balance ?? 0) + previousAmount
-    if (type === 'expense' && account?.type !== 'credit' && available < amt && overdraftPolicy === 'warn') {
+    if (type === 'expense' && account?.type !== 'credit' && available < amt && (account?.overdraftPolicy ?? overdraftPolicy) === 'warn') {
       toast(`Aviso: el gasto dejará ${account?.name ?? 'la cuenta'} con saldo negativo.`, { icon: 'alert' })
     }
     try {
@@ -204,9 +220,31 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
         {/* ── Recurrente ── */}
         <label className="recurring-toggle">
           <input type="checkbox" checked={recurring} onChange={e => setRecurring(e.target.checked)} />
-          <span><Icon name="repeat" size={14} />Repetir mensualmente</span>
+          <span><Icon name="repeat" size={14} />Programar recurrencia</span>
           {recurring && <span className="recurring-badge">Recurrente</span>}
         </label>
+        {recurring && (
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="tx-frequency">Frecuencia</label>
+              <select id="tx-frequency" className="select" value={recurrenceFrequency}
+                onChange={e => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="tx-recurring-start">Desde</label>
+              <input id="tx-recurring-start" className="select" type="date" value={recurringStart}
+                onChange={e => setRecurringStart(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="tx-recurring-end">Hasta <em>opcional</em></label>
+              <input id="tx-recurring-end" className="select" type="date" value={recurringEnd}
+                min={recurringStart} onChange={e => setRecurringEnd(e.target.value)} />
+            </div>
+          </div>
+        )}
 
         <footer className="modal-actions">
           {editing && (

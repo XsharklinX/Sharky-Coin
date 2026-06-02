@@ -5,7 +5,7 @@ import type { FinanceState } from '@/store/finance'
 describe('backup JSON', () => {
   it('serializa y restaura los datos financieros', () => {
     const state = { accounts: [], categories: [], goals: [], transactions: [], currency: 'DOP' } as unknown as FinanceState
-    expect(parseBackup(JSON.stringify(createBackup(state)))).toEqual({ accounts: [], categories: [], goals: [], transactions: [], currency: 'DOP' })
+    expect(parseBackup(JSON.stringify(createBackup(state)))).toEqual({ accounts: [], categories: [], goals: [], goalContributions: [], transactions: [], currency: 'DOP' })
   })
 
   it('rechaza archivos ajenos a $harky', () => {

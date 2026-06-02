@@ -25,6 +25,9 @@ if ($projectRoot.Contains('$')) {
 Push-Location $projectRoot
 try {
   npm run tauri:build -- --bundles nsis
+  if ($LASTEXITCODE -ne 0) {
+    throw "Tauri build falló con código de salida $LASTEXITCODE."
+  }
 } finally {
   Pop-Location
   $env:CARGO_TARGET_DIR = $previousCargoTargetDir

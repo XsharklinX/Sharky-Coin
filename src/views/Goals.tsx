@@ -40,7 +40,7 @@ function estimateCompletion(goal: Goal, transactions: import('@/types').Transact
 }
 
 export function Goals(_: ViewProps) {
-  const { goals, accounts, currency, transactions, addGoal, deleteGoal, contribute } = useFinance()
+  const { goals, accounts, currency, transactions, goalContributions, addGoal, deleteGoal, contribute } = useFinance()
   const [createOpen, setCreateOpen] = useState(false)
   const [name,       setName]       = useState('')
   const [target,     setTarget]     = useState('')
@@ -49,6 +49,7 @@ export function Goals(_: ViewProps) {
   const [selected,  setSelected]  = useState<Goal | null>(null)
   const [amount,    setAmount]    = useState('')
   const [accountId, setAccountId] = useState('')
+  const [contributionNote, setContributionNote] = useState('')
 
   const available = accounts.filter(a => a.type !== 'credit')
   const totalSaved  = goals.reduce((s, g) => s + g.saved,  0)
@@ -66,6 +67,7 @@ export function Goals(_: ViewProps) {
   const openContrib = (g: Goal) => {
     setSelected(g)
     setAmount('')
+    setContributionNote('')
     setAccountId(available[0]?.id ?? '')
   }
 
@@ -73,7 +75,7 @@ export function Goals(_: ViewProps) {
     try {
       const v = Number(amount)
       if (!selected || !accountId || v <= 0) return
-      contribute(selected.id, v, accountId)
+      contribute(selected.id, v, accountId, contributionNote)
       toast(`Aportaste ${fmtCompact(v, currency)} a "${selected.name}"`, { icon: 'target', type: 'ok' })
       setSelected(null)
     } catch (e) {
@@ -93,6 +95,22 @@ export function Goals(_: ViewProps) {
           <Icon name="plus" size={16} stroke={2.5} />Nueva meta
         </button>
       </div>
+
+      {goalContributions.length > 0 && (
+        <Card title="Historial de aportes" sub="Movimientos registrados hacia tus metas">
+          <div className="recovery-list">
+            {goalContributions.slice(0, 12).map(contribution => (
+              <div className="recovery-item" key={contribution.id}>
+                <div>
+                  <b>{goals.find(goal => goal.id === contribution.goalId)?.name ?? 'Meta eliminada'}</b>
+                  <span>{contribution.date} · {accounts.find(account => account.id === contribution.fromAccountId)?.name ?? 'Cuenta eliminada'}{contribution.note ? ` · ${contribution.note}` : ''}</span>
+                </div>
+                <strong style={{ color: 'var(--income)' }}>{fmtCompact(contribution.amount, currency)}</strong>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid-3" style={{ marginBottom: 16 }}>
         <MiniStat label="Ahorrado total" amount={totalSaved}  color="var(--income)" />
@@ -263,6 +281,11 @@ export function Goals(_: ViewProps) {
                   <option key={a.id} value={a.id}>{a.name} · {fmtCompact(a.balance, currency)}</option>
                 ))}
               </select>
+            </div>
+            <div className="field">
+              <label htmlFor="contrib-note">Nota <em>opcional</em></label>
+              <input id="contrib-note" className="select" value={contributionNote}
+                onChange={event => setContributionNote(event.target.value)} placeholder="Ej. Ahorro quincenal" />
             </div>
             <footer className="modal-actions">
               <button className="btn-ghost" onClick={() => setSelected(null)}>Cancelar</button>

@@ -15,6 +15,7 @@ type CatIcon = typeof CAT_ICONS[number]
 export function Budgets({ txns, mkey }: ViewProps) {
   const { categories, currency, updateCategory, deleteCategory } = useFinance()
   const [addOpen, setAddOpen] = useState(false)
+  const [period, setPeriod] = useState<'weekly' | 'monthly' | 'annual'>('monthly')
 
   const isCurrent   = mkey === currentMonthKey()
   const [yy, mm]    = mkey.split('-').map(Number)
@@ -22,22 +23,37 @@ export function Budgets({ txns, mkey }: ViewProps) {
   const dayNow      = isCurrent ? new Date().getDate() : daysInMonth
   const timePct     = (dayNow / daysInMonth) * 100
 
+  const budgetFor = (category: typeof categories[number]) => period === 'weekly'
+    ? category.weeklyBudget ?? Math.round(category.budget / 4.33)
+    : period === 'annual' ? category.annualBudget ?? category.budget * 12 : category.budget
+  const periodTx = period === 'annual'
+    ? txns.filter(tx => tx.date.startsWith(mkey.slice(0, 4)))
+    : period === 'weekly'
+      ? txForMonth(txns, mkey).filter(tx => {
+          const anchor = isCurrent ? new Date() : new Date(yy, mm - 1, 1)
+          const start = new Date(anchor); start.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7))
+          const end = new Date(start); end.setDate(start.getDate() + 7)
+          const date = new Date(`${tx.date}T00:00:00`)
+          return date >= start && date < end
+        })
+    : txForMonth(txns, mkey)
+
   // Calcular gasto por categoría
   const spent: Record<string, number> = {}
-  txForMonth(txns, mkey).forEach(tx => {
+  periodTx.forEach(tx => {
     if (tx.type === 'expense' && tx.categoryId)
       spent[tx.categoryId] = (spent[tx.categoryId] ?? 0) + tx.amount
   })
 
   const cats        = categories.filter(c => c.type === 'expense')
-  const totalBudget = cats.reduce((s, c) => s + c.budget, 0)
+  const totalBudget = cats.reduce((s, c) => s + budgetFor(c), 0)
   const totalUsed   = cats.reduce((s, c) => s + (spent[c.id] ?? 0), 0)
   const totalLeft   = totalBudget - totalUsed
   const totalPct    = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : 0
 
   // Proyección al fin de mes
   const projected   = dayNow > 0 ? (totalUsed / dayNow) * daysInMonth : totalUsed
-  const overBudget  = cats.filter(c => (spent[c.id] ?? 0) > c.budget).length
+  const overBudget  = cats.filter(c => (spent[c.id] ?? 0) > budgetFor(c)).length
 
   // Ritmo de gasto: rojo si %gasto > %tiempo + 10, verde si < -10
   const pace = totalPct - timePct
@@ -46,11 +62,15 @@ export function Budgets({ txns, mkey }: ViewProps) {
 
   return (
     <div className="view">
+      <div className="seg" style={{ marginBottom: 12 }}>
+        {([['weekly', 'Semanal'], ['monthly', 'Mensual'], ['annual', 'Anual']] as const).map(([value, label]) =>
+          <button key={value} className={period === value ? 'on' : ''} onClick={() => setPeriod(value)}>{label}</button>)}
+      </div>
       {/* Nota de reinicio mensual */}
       <div className="reset-note">
         <Icon name="calendar" size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
         <span>
-          Los presupuestos se reinician cada mes. Estás viendo{' '}
+          Estás revisando el presupuesto {period === 'weekly' ? 'semanal' : period === 'annual' ? 'anual' : 'mensual'} de{' '}
           <b style={{ color: 'var(--text)' }}>{monthLabel(mkey)}</b>
           {isCurrent ? ` · día ${dayNow} de ${daysInMonth}` : ''}.
         </span>
@@ -96,7 +116,7 @@ export function Budgets({ txns, mkey }: ViewProps) {
         <Card title="Resumen" sub="Estado del mes">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <SummaryRow label="Categorías en presupuesto"
-              value={`${cats.filter(c => (spent[c.id] ?? 0) <= c.budget).length} / ${cats.length}`} />
+              value={`${cats.filter(c => (spent[c.id] ?? 0) <= budgetFor(c)).length} / ${cats.length}`} />
             <SummaryRow label="Categorías excedidas"
               value={String(overBudget)} danger={overBudget > 0} />
             <SummaryRow label="% del mes transcurrido"
@@ -125,17 +145,18 @@ export function Budgets({ txns, mkey }: ViewProps) {
         <div className="budget-list">
           <div className="budget-list-head">
             <span>Categoría</span>
-            <span>Límite mensual</span>
+            <span>Límite {period === 'weekly' ? 'semanal' : period === 'annual' ? 'anual' : 'mensual'}</span>
             <span>Disponible</span>
             <span />
           </div>
           {cats.map(c => {
             const amount = spent[c.id] ?? 0
-            const rem    = c.budget - amount
-            const cpct   = c.budget > 0 ? (amount / c.budget) * 100 : 0
-            const over   = amount > c.budget && c.budget > 0
+            const categoryBudget = budgetFor(c)
+            const rem    = categoryBudget - amount
+            const cpct   = categoryBudget > 0 ? (amount / categoryBudget) * 100 : 0
+            const over   = amount > categoryBudget && categoryBudget > 0
             // Ritmo por categoría
-            const catPace = c.budget > 0 ? cpct - timePct : null
+            const catPace = categoryBudget > 0 ? cpct - timePct : null
 
             return (
               <div className="budget-row" key={c.id}>
@@ -146,7 +167,7 @@ export function Budgets({ txns, mkey }: ViewProps) {
                       <span>{c.name}</span>
                       <span style={{ color: over ? 'var(--expense)' : 'var(--text-dim)' }}>
                         <b>{fmtCompact(amount, currency)}</b>
-                        {' / '}{fmtCompact(c.budget, currency)}
+                        {' / '}{fmtCompact(categoryBudget, currency)}
                         {catPace !== null && (
                           <i style={{ color: catPace > 12 ? 'var(--expense)' : catPace < -12 ? 'var(--income)' : 'var(--text-dim)' }}>
                             {catPace > 12 ? '⚡' : catPace < -12 ? '✓' : '·'}
@@ -154,7 +175,7 @@ export function Budgets({ txns, mkey }: ViewProps) {
                         )}
                       </span>
                     </div>
-                    <Progress value={amount} max={c.budget} height={7} color={c.color} />
+                    <Progress value={amount} max={categoryBudget} height={7} color={c.color} />
                   </div>
                 </div>
 
@@ -163,9 +184,12 @@ export function Budgets({ txns, mkey }: ViewProps) {
                   <span>RD$</span>
                   <input
                     type="number"
-                    value={c.budget}
+                    value={categoryBudget}
                     aria-label={`Presupuesto ${c.name}`}
-                    onChange={e => updateCategory(c.id, { budget: Number(e.target.value) || 0 })}
+                    onChange={e => updateCategory(c.id, period === 'weekly'
+                      ? { weeklyBudget: Number(e.target.value) || 0 }
+                      : period === 'annual' ? { annualBudget: Number(e.target.value) || 0 }
+                        : { budget: Number(e.target.value) || 0 })}
                   />
                 </label>
 
@@ -219,9 +243,12 @@ function AddCategoryModal({ onClose }: { onClose: () => void }) {
   const [icon,   setIcon]   = useState<CatIcon>(CAT_ICONS[0])
 
   const submit = () => {
-    if (!name.trim()) return
-    addCategory({ name: name.trim(), type: 'expense', budget: Number(budget) || 0, color, icon })
-    toast(`Categoría "${name.trim()}" creada`, { icon: 'bag', type: 'ok' })
+    const cleanName = name.trim()
+    if (cleanName.length < 2 || !/[a-zA-Záéíóúüñ]/.test(cleanName)) {
+      return toast('Escribe un nombre válido para la categoría.', { icon: 'alert' })
+    }
+    addCategory({ name: cleanName, type: 'expense', budget: Number(budget) || 0, color, icon })
+    toast(`Categoría "${cleanName}" creada`, { icon: 'bag', type: 'ok' })
     onClose()
   }
 
@@ -256,7 +283,8 @@ function AddCategoryModal({ onClose }: { onClose: () => void }) {
           <label>Color</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {CAT_COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)} style={{
+              <button key={c} type="button" aria-label={`Usar color ${c}`}
+                aria-pressed={color === c} onClick={() => setColor(c)} style={{
                 width: 28, height: 28, borderRadius: 8, background: c, cursor: 'pointer',
                 border: color === c ? '2.5px solid var(--text)' : '2.5px solid transparent',
               }} />
@@ -268,7 +296,8 @@ function AddCategoryModal({ onClose }: { onClose: () => void }) {
           <label>Ícono</label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {CAT_ICONS.map(ic => (
-              <button key={ic} className="icon-btn"
+              <button key={ic} type="button" className="icon-btn"
+                aria-label={`Usar ícono ${ic}`} aria-pressed={icon === ic}
                 style={{ width: 34, height: 34,
                   color:        icon === ic ? 'var(--accent)' : 'var(--text-dim)',
                   borderColor:  icon === ic ? 'var(--accent)' : 'var(--border)',
