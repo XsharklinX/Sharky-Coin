@@ -19,6 +19,8 @@ const VIEWS: { id: ViewId; label: string; icon: IconName }[] = [
   { id: 'stats',        label: 'Estadísticas',    icon: 'chart'  },
   { id: 'budgets',      label: 'Presupuestos',    icon: 'target' },
   { id: 'goals',        label: 'Metas',           icon: 'trend'  },
+  { id: 'calendar',     label: 'Calendario',      icon: 'calendar' },
+  { id: 'annual',       label: 'Reporte anual',   icon: 'shark' },
 ]
 
 interface Props {

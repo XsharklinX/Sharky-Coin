@@ -15,6 +15,23 @@ fn read_backup(path: String) -> Result<String, String> {
 }
 
 const SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas.supabase";
+const DESKTOP_PWA_CACHE_RESET_SCRIPT: &str = r#"
+(async () => {
+  const resetKey = "sharky-desktop-pwa-reset-v1";
+  if (sessionStorage.getItem(resetKey)) return;
+
+  sessionStorage.setItem(resetKey, "1");
+  const registrations = await navigator.serviceWorker?.getRegistrations?.() ?? [];
+  const cacheNames = await globalThis.caches?.keys?.() ?? [];
+
+  await Promise.all(registrations.map((registration) => registration.unregister()));
+  await Promise.all(cacheNames.map((cacheName) => globalThis.caches.delete(cacheName)));
+
+  if (registrations.length || cacheNames.length) {
+    globalThis.location.reload();
+  }
+})().catch(console.error);
+"#;
 
 /// Guarda sesiones Supabase en el almacén de credenciales del sistema operativo.
 /// El frontend solo recibe el valor mientras el SDK necesita refrescar la sesión.
@@ -55,6 +72,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .setup(|app| {
+            #[cfg(any(target_os = "linux", windows))]
+            app.deep_link().register_all()?;
+            Ok(())
+        })
+        .on_page_load(|webview, _| {
+            let _ = webview.eval(DESKTOP_PWA_CACHE_RESET_SCRIPT);
+        })
         .invoke_handler(tauri::generate_handler![
             write_backup,
             read_backup,
@@ -92,3 +118,4 @@ mod tests {
         );
     }
 }
+use tauri_plugin_deep_link::DeepLinkExt;

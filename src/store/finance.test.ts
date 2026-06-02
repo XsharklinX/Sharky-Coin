@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyImportedBalances, assertAvailableBalance, canDeleteAccount, canDeleteCategory } from './finance'
+import { applyImportedBalances, assertAvailableBalance, canDeleteAccount, canDeleteCategory, sanitizeFinanceData } from './finance'
 import type { Account, Transaction } from '@/types'
 
 const accounts: Account[] = [
@@ -56,5 +56,26 @@ describe('importTxs', () => {
     ]
     expect(() => applyImportedBalances(accounts, rows, 'block')).toThrow('Saldo insuficiente')
     expect(accounts.find(account => account.id === 'cash')?.balance).toBe(500)
+  })
+})
+
+describe('sanitizeFinanceData', () => {
+  it('descarta categorías corruptas y movimientos que dependen de ellas', () => {
+    const data = sanitizeFinanceData({
+      accounts: [{ id: 'cash', name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: 500, last4: null }],
+      categories: [
+        { id: 'food', name: 'Comida', type: 'expense', color: '#fff', budget: 100, icon: 'food' },
+        { id: 'broken', name: '1', type: 'expense', color: '#fff', budget: 0, icon: 'food' },
+      ],
+      goals: [],
+      goalContributions: [],
+      transactions: [
+        { id: 'valid', type: 'expense', amount: 25, accountId: 'cash', categoryId: 'food', date: '2026-05-31', note: 'Compra' },
+        { id: 'broken', type: 'expense', amount: 10, accountId: 'cash', categoryId: 'broken', date: '2026-05-31', note: 'Dato dañado' },
+      ],
+      currency: 'DOP',
+    })
+    expect(data.categories.map(category => category.id)).toEqual(['food'])
+    expect(data.transactions.map(transaction => transaction.id)).toEqual(['valid'])
   })
 })

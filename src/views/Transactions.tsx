@@ -24,7 +24,7 @@ const readSavedFilters = (): SavedFilter[] => {
 }
 
 // ── Componente principal ─────────────────────────────────
-export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
+export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
   const { categories, accounts, currency, importTxs, deleteTx, updateTx, restoreBackup } = useFinance()
   const ownerName   = useAuth(s => s.user?.name ?? 'Usuario')
   const backupRef   = useRef<HTMLInputElement>(null)
@@ -235,9 +235,6 @@ export function Transactions({ txns, mkey, onAdd, onEditTx }: ViewProps) {
           <input ref={backupRef} className="sr-only" type="file" accept=".json"
             aria-label="Restaurar backup" onChange={e => importBackup(e.target.files?.[0])} />
         </div>
-        <button className="btn-primary" onClick={onAdd}>
-          <Icon name="plus" size={15} />Agregar
-        </button>
       </div>
 
       {/* ── Filtro por tags ── */}

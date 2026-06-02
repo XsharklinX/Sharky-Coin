@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { recordAuditEvent } from '@/data/audit'
+import { getAuthRedirectUrl } from '@/lib/authRedirect'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { isTauri } from '@/hooks/useTauri'
 
 const LOCAL_USER_KEY = 'sharky-user-v1'
 const LOCAL_SESSION_KEY = 'sharky-session-v1'
@@ -38,6 +40,7 @@ interface AuthState {
 
 const encoder = new TextEncoder()
 let authListenerAttached = false
+let desktopDeepLinkConsumed = false
 
 function bytesToBase64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -90,6 +93,19 @@ function requireSupabase() {
   return supabase
 }
 
+async function consumeDesktopAuthDeepLink(): Promise<void> {
+  if (!supabase || !isTauri() || desktopDeepLinkConsumed) return
+  desktopDeepLinkConsumed = true
+  const { getCurrent } = await import('@tauri-apps/plugin-deep-link')
+  const urls = await getCurrent()
+  const callback = urls?.find(url => url.startsWith('sharky://auth/callback'))
+  if (!callback) return
+  const code = new URL(callback).searchParams.get('code')
+  if (!code) return
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  if (error) throw new Error(error.message)
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
   user: readLocalSession(),
   initialized: false,
@@ -116,6 +132,12 @@ export const useAuth = create<AuthState>((set, get) => ({
       })
     }
 
+    try {
+      await consumeDesktopAuthDeepLink()
+    } catch (error) {
+      console.error('No se pudo completar el enlace de autenticaciÃ³n.', error)
+    }
+
     const { data, error } = await supabase.auth.getSession()
     if (error) console.error('No se pudo restaurar la sesión cloud.', error)
     const cloudUser = data.session?.user ? mapCloudUser(data.session.user) : null
@@ -128,7 +150,10 @@ export const useAuth = create<AuthState>((set, get) => ({
     const { data, error } = await client.auth.signUp({
       email: normalizedEmail,
       password,
-      options: { data: { display_name: name.trim() } },
+      options: {
+        data: { display_name: name.trim() },
+        emailRedirectTo: getAuthRedirectUrl(),
+      },
     })
     if (error) throw new Error(error.message)
     recordAuditEvent('account', 'Cuenta cloud creada', normalizedEmail)
@@ -150,7 +175,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const client = requireSupabase()
     const normalizedEmail = email.trim().toLowerCase()
     const { error } = await client.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: getAuthRedirectUrl(),
     })
     if (error) throw new Error(error.message)
     recordAuditEvent('account', 'Recuperación de contraseña solicitada', normalizedEmail)

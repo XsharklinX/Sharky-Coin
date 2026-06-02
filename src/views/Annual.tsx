@@ -20,9 +20,9 @@ export function Annual({ txns, mkey }: ViewProps) {
   const savingsRate = summary.income ? summary.net / summary.income * 100 : 0
 
   return <div className="view">
-    <div className="view-actions"><BusyButton className="btn-primary" busy={exporting} busyLabel="Generando imagen…" onClick={async () => { if (!capture.current) return; setExporting(true); try { await exportElementPng(capture.current, `sharky-resumen-anual-${year}`); toast('Resumen anual exportado', { icon: 'download', type: 'ok' }) } catch { toast('No se pudo exportar el resumen anual.', { icon: 'alert' }) } finally { setExporting(false) } }}><Icon name="download" size={15} /> Exportar imagen</BusyButton></div>
+    <div className="view-actions"><BusyButton className="btn-primary" busy={exporting} busyLabel="Generando imagen…" onClick={async () => { if (!capture.current) return; setExporting(true); try { await exportElementPng(capture.current, `sharky-reporte-anual-${year}`); toast('Reporte anual exportado', { icon: 'download', type: 'ok' }) } catch { toast('No se pudo exportar el reporte anual.', { icon: 'alert' }) } finally { setExporting(false) } }}><Icon name="download" size={15} /> Exportar imagen</BusyButton></div>
     <div className="wrapped" ref={capture}>
-      <header className="wrapped-hero"><span>Reporte financiero anual</span><h2>Resumen de {year}</h2><p>Balance, comportamiento de gasto y evolución de tus finanzas durante el año.</p></header>
+      <header className="wrapped-hero"><span>Reporte financiero anual</span><h2>Balance anual {year}</h2><p>Balance, comportamiento de gasto y evolución de tus finanzas durante el año.</p></header>
       <div className="wrapped-grid">
         <article><small>Ingresos del año</small><strong>{fmtCompact(summary.income, currency)}</strong></article>
         <article><small>Gastos del año</small><strong>{fmtCompact(summary.expense, currency)}</strong></article>

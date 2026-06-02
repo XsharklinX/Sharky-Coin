@@ -10,7 +10,8 @@ async function openDemo(page: Page) {
 
 test('recorre las ocho vistas sin caer en el error boundary', async ({ page }) => {
   await openDemo(page)
-  for (const view of ['Transacciones', 'Cuentas', 'Estadísticas', 'Presupuestos', 'Metas', 'Calendario', 'Resumen anual', 'Inicio']) {
+  await expect(page.getByText('Agregar', { exact: true })).toHaveCount(1)
+  for (const view of ['Transacciones', 'Cuentas', 'Estadísticas', 'Presupuestos', 'Metas', 'Calendario', 'Reporte anual', 'Inicio']) {
     await page.getByRole('button', { name: new RegExp(view) }).first().click()
     await expect(page.getByRole('heading', { name: view })).toBeVisible()
   }
@@ -39,9 +40,17 @@ test('recorre las ocho vistas sin caer en el error boundary', async ({ page }) =
 test('aplica los cuatro temas desde el selector principal', async ({ page }) => {
   await openDemo(page)
   const theme = page.getByLabel('Tema visual')
-  for (const value of ['midnight', 'slate', 'carbon', 'light']) {
+  const backgrounds = {
+    midnight: 'rgb(7, 17, 31)',
+    slate: 'rgb(17, 24, 39)',
+    carbon: 'rgb(17, 18, 20)',
+    light: 'rgb(244, 247, 251)',
+  }
+  for (const value of ['midnight', 'slate', 'carbon', 'light'] as const) {
     await theme.selectOption(value)
     await expect(page.locator('.app')).toHaveAttribute('data-theme', value)
+    expect(await page.locator('.main').evaluate(element => getComputedStyle(element).backgroundColor)).toBe(backgrounds[value])
+    expect(await page.locator('.app').evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThanOrEqual(1200)
   }
 })
 

@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "@tanstack/react-virtual": "^3.13.26",
     "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "exceljs": "^4.4.0",
     "html2canvas": "^1.4.1",

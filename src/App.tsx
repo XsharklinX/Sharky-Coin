@@ -31,7 +31,7 @@ const NAV: { id: ViewId; label: string; icon: Parameters<typeof Icon>[0]['name']
   { id: 'budgets',      label: 'Presupuestos',    icon: 'target' },
   { id: 'goals',        label: 'Metas',           icon: 'trend'  },
   { id: 'calendar',     label: 'Calendario',      icon: 'calendar' },
-  { id: 'annual',       label: 'Resumen anual',   icon: 'shark'  },
+  { id: 'annual',       label: 'Reporte anual',   icon: 'shark'  },
 ]
 
 const NAV_GROUPS = [

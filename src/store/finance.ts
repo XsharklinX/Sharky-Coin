@@ -4,6 +4,41 @@ import { makeDemo, makeEmpty, newId } from '@/data/seed'
 import { useSettings } from '@/store/settings'
 import type { Account, Category, Transaction, Goal, GoalContribution, CurrencyCode, OverdraftPolicy } from '@/types'
 
+type FinanceData = Pick<FinanceState, 'accounts' | 'transactions' | 'categories' | 'goals' | 'goalContributions' | 'currency'>
+const ICONS = new Set(['home', 'cart', 'food', 'car', 'bolt', 'play', 'heart', 'bag', 'book', 'wallet', 'laptop', 'trend'])
+const text = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0
+const amount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
+const date = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+
+export function sanitizeFinanceData(value: unknown): FinanceData {
+  const data = (value && typeof value === 'object' ? value : {}) as Partial<FinanceData>
+  const accounts = (Array.isArray(data.accounts) ? data.accounts : []).filter(account =>
+    text(account.id) && text(account.name) && text(account.short) && text(account.color)
+    && ['debit', 'savings', 'credit', 'cash'].includes(account.type) && amount(account.balance))
+  const accountIds = new Set(accounts.map(account => account.id))
+  const categories = (Array.isArray(data.categories) ? data.categories : []).filter(category =>
+    text(category.id) && text(category.name) && /\p{L}/u.test(category.name) && text(category.color)
+    && ['expense', 'income'].includes(category.type) && amount(category.budget))
+    .map(category => ({ ...category, icon: ICONS.has(category.icon) ? category.icon : 'wallet' as const }))
+  const categoryIds = new Set(categories.map(category => category.id))
+  const goals = (Array.isArray(data.goals) ? data.goals : []).filter(goal =>
+    text(goal.id) && text(goal.name) && text(goal.color) && amount(goal.target) && goal.target > 0 && amount(goal.saved))
+  const goalIds = new Set(goals.map(goal => goal.id))
+  const transactions = (Array.isArray(data.transactions) ? data.transactions : []).filter(tx => {
+    if (!text(tx.id) || !['income', 'expense', 'transfer'].includes(tx.type) || !amount(tx.amount) || tx.amount <= 0 || !date(tx.date) || !text(tx.note)) return false
+    if (tx.type === 'transfer') return !!tx.fromAccount && !!tx.toAccount && accountIds.has(tx.fromAccount) && accountIds.has(tx.toAccount) && tx.fromAccount !== tx.toAccount
+    return !!tx.accountId && !!tx.categoryId && accountIds.has(tx.accountId) && categoryIds.has(tx.categoryId)
+  })
+  const goalContributions = (Array.isArray(data.goalContributions) ? data.goalContributions : []).filter(contribution =>
+    text(contribution.id) && text(contribution.goalId) && text(contribution.fromAccountId)
+    && goalIds.has(contribution.goalId) && accountIds.has(contribution.fromAccountId)
+    && amount(contribution.amount) && contribution.amount > 0 && date(contribution.date))
+  return {
+    accounts, categories, goals, transactions, goalContributions,
+    currency: ['DOP', 'USD', 'EUR'].includes(data.currency ?? '') ? data.currency! : 'DOP',
+  }
+}
+
 // ── Helpers de balance (inmutables) ──────────────────────
 function applyBalance(accounts: Account[], tx: Transaction, sign: 1 | -1): Account[] {
   if (tx.type === 'transfer') {
@@ -207,13 +242,15 @@ export const useFinance = create<FinanceState>()(
       }),
 
       // ── Categorías ─────────────────────────────────────
-      addCategory: (c) => set(s => ({
-        categories: [...s.categories, { id: 'cat_' + Date.now().toString(36), ...c }],
-      })),
+      addCategory: (c) => set(s => {
+        if (!text(c.name) || !/\p{L}/u.test(c.name)) throw new Error('Escribe un nombre válido para la categoría.')
+        return { categories: [...s.categories, { id: 'cat_' + Date.now().toString(36), ...c, name: c.name.trim() }] }
+      }),
 
-      updateCategory: (id, fields) => set(s => ({
-        categories: s.categories.map(c => c.id === id ? { ...c, ...fields } : c),
-      })),
+      updateCategory: (id, fields) => set(s => {
+        if (fields.name !== undefined && (!text(fields.name) || !/\p{L}/u.test(fields.name))) throw new Error('Escribe un nombre válido para la categoría.')
+        return { categories: s.categories.map(c => c.id === id ? { ...c, ...fields, ...(fields.name ? { name: fields.name.trim() } : {}) } : c) }
+      }),
 
       deleteCategory: (id) => set(s => {
         if (!canDeleteCategory(id, s.transactions)) throw new Error('No puedes eliminar una categoría con movimientos registrados.')
@@ -226,11 +263,12 @@ export const useFinance = create<FinanceState>()(
       // ── Datos demo / vacío ─────────────────────────────
       startDemo:  () => set({ ...makeDemo(), goalContributions: [], currency: 'DOP' }),
       startEmpty: () => set({ ...makeEmpty(), goalContributions: [], currency: 'DOP' }),
-      restoreBackup: (data) => set({ ...data, goalContributions: data.goalContributions ?? [] }),
+      restoreBackup: (data) => set(sanitizeFinanceData(data)),
     }),
     {
       name:    'sharky-finance-v2',
       storage: createJSONStorage(() => localStorage),
+      merge: (persisted, current) => ({ ...current, ...sanitizeFinanceData(persisted) }),
     },
   ),
 )

@@ -1,5 +1,5 @@
 ﻿* { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  html, body, #root { margin: 0; min-height: 100%; width: 100%; }
   body {
     background: var(--bg);
     color: var(--text);
@@ -30,6 +30,8 @@
     --gap:      16px;
     --radius:   16px;
     min-height: 100vh;
+    min-width: 100vw;
+    width: 100%;
     display: grid;
     grid-template-columns: auto 1fr;
   }
@@ -106,7 +108,7 @@
   }
 
   /* ───────────── MAIN ───────────── */
-  .main { min-width: 0; display: flex; flex-direction: column; height: 100vh; background-image: var(--bg-glow); }
+  .main { min-width: 0; width: 100%; display: flex; flex-direction: column; height: 100vh; background-image: var(--bg-glow); }
   .topbar {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
     padding: 24px 30px 18px; flex: 0 0 auto;
@@ -898,7 +900,7 @@
     --track-strong: rgba(23,32,51,.14);
     --accent: #3b82f6;
   }
-  body { background: var(--bg); color: var(--text); }
+  body { background: #07111f; color: var(--text); }
   .app {
     background: var(--bg);
     color: var(--text);

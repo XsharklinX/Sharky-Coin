@@ -57,7 +57,7 @@ versiones y conflictos de forma explicita.
 - Al iniciar Tauri se eliminan tokens Supabase heredados en `localStorage`.
 - Enlaces de confirmacion y reset: PKCE.
 - Callback web: `/auth/callback`.
-- Callback desktop futuro: `sharky://auth/callback`.
+- Callback desktop: `sharky://auth/callback`, registrado por Tauri en Windows.
 
 No se guardaran contrasenas, hashes propios ni claves administrativas en el
 frontend. La clave `service_role` nunca debe incluirse en Vite ni Tauri.
