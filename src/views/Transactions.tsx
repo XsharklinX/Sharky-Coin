@@ -3,7 +3,17 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmtCompact, getAccount, getCategory, totals, txForMonth } from '@/data/helpers'
-import { BANKS, learnCategoryRule, parseBankCsv, type BankId, type ImportedRow } from '@/data/bankCsv'
+import {
+  BANKS,
+  analyzeBankCsv,
+  learnCategoryRule,
+  parseBankCsv,
+  type BankId,
+  type CsvAnalysis,
+  type CsvColumnKey,
+  type CsvColumnMap,
+  type ImportedRow,
+} from '@/data/bankCsv'
 import { createBackup, parseBackup } from '@/data/backup'
 import { recordAuditEvent } from '@/data/audit'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
@@ -339,7 +349,7 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
       {importOpen && (
         <CsvImportModal onClose={() => setImportOpen(false)}
           onConfirm={(rows, accountId) => {
-            const importable = rows.filter(r => !r.duplicate)
+            const importable = rows.filter(r => !r.duplicate && !r.skipped)
             try {
               importTxs(importable.map(r => ({ type: r.type, amount: r.amount, date: r.date, note: r.note, categoryId: r.categoryId, accountId })))
               rows.filter(r => r.categoryId).forEach(r => learnCategoryRule(r.note, r.categoryId!))
@@ -405,16 +415,56 @@ function CsvImportModal({ onClose, onConfirm }: {
   const [rows,      setRows]      = useState<ImportedRow[]>([])
   const [error,     setError]     = useState('')
   const [reading,   setReading]   = useState(false)
+  const [csvText,   setCsvText]   = useState('')
+  const [mapping,   setMapping]   = useState<CsvColumnMap>({})
+  const [analysis,  setAnalysis]  = useState<CsvAnalysis | null>(null)
+
+  const parsePreview = (text: string, selectedBank = bank, selectedMapping = mapping) => {
+    const nextAnalysis = analyzeBankCsv(text, selectedBank, selectedMapping)
+    setAnalysis(nextAnalysis)
+    setMapping(nextAnalysis.columns)
+    setRows(parseBankCsv(text, transactions, categories, selectedBank, nextAnalysis.columns))
+    setError('')
+  }
 
   const readFile = async (file?: File) => {
     if (!file) return
     setReading(true)
-    try { setRows(parseBankCsv(await file.text(), transactions, categories, bank)); setError('') }
+    try {
+      const text = await file.text()
+      setCsvText(text)
+      parsePreview(text)
+    }
     catch (e) { setRows([]); setError(e instanceof Error ? e.message : 'No pudimos leer el archivo.') }
     finally { setReading(false) }
   }
 
-  const importable = rows.filter(r => !r.duplicate)
+  const changeBank = (value: BankId) => {
+    setBank(value)
+    if (!csvText) return
+    try { parsePreview(csvText, value, {}) }
+    catch (e) { setRows([]); setError(e instanceof Error ? e.message : 'No pudimos leer el archivo.') }
+  }
+
+  const changeMapping = (key: CsvColumnKey, value: string) => {
+    const next = { ...mapping, [key]: value || undefined }
+    setMapping(next)
+    if (!csvText) return
+    try { parsePreview(csvText, bank, next) }
+    catch (e) {
+      setRows([])
+      setAnalysis(analyzeBankCsv(csvText, bank, next))
+      setError(e instanceof Error ? e.message : 'No pudimos leer el archivo.')
+    }
+  }
+
+  const patchRow = (index: number, patch: Partial<ImportedRow>) => {
+    setRows(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row))
+  }
+
+  const importable = rows.filter(r => !r.duplicate && !r.skipped)
+  const duplicateCount = rows.filter(r => r.duplicate).length
+  const skippedCount = rows.filter(r => r.skipped).length
 
   return (
     <div className="modal-overlay" role="presentation" onMouseDown={onClose}>
@@ -432,7 +482,7 @@ function CsvImportModal({ onClose, onConfirm }: {
         <div className="field-row">
           <div className="field">
             <label htmlFor="csv-bank">Formato</label>
-            <select id="csv-bank" className="select" value={bank} onChange={e => setBank(e.target.value as BankId)}>
+            <select id="csv-bank" className="select" value={bank} onChange={e => changeBank(e.target.value as BankId)}>
               <option value="auto">Detectar automáticamente</option>
               {Object.entries(BANKS).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}
             </select>
@@ -450,22 +500,57 @@ function CsvImportModal({ onClose, onConfirm }: {
             onChange={e => readFile(e.target.files?.[0])} />
         </div>
         {reading && <div className="inline-loading" role="status"><span className="spinner" /> Leyendo y detectando columnas…</div>}
+        {analysis && (
+          <div className="csv-detect-panel">
+            <div>
+              <b>{analysis.profile?.label ?? 'Formato detectado'}</b>
+              <span>{analysis.profile?.version ?? 'auto'} · {analysis.rowCount} filas · {analysis.confidence}% confianza</span>
+            </div>
+            {analysis.profile?.notes && <p>{analysis.profile.notes}</p>}
+            <div className="csv-map-grid">
+              {(['date', 'note', 'amount', 'debit', 'credit'] as CsvColumnKey[]).map(key => (
+                <label key={key}>
+                  {key === 'date' ? 'Fecha' : key === 'note' ? 'Descripcion' : key === 'amount' ? 'Monto firmado' : key === 'debit' ? 'Debito' : 'Credito'}
+                  <select className="select" value={mapping[key] ?? ''} onChange={event => changeMapping(key, event.target.value)}>
+                    <option value="">Sin mapear</option>
+                    {analysis.headers.map(header => <option key={`${key}-${header}`} value={header}>{header}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         {error && <p className="auth-error" role="alert">{error}</p>}
         {rows.length > 0 && (
           <>
             <div className="csv-summary">
+              <span>Conciliacion: {duplicateCount} duplicados, {skippedCount} omitidos manualmente · </span>
               <b>{importable.length}</b> listos · <b>{rows.length - importable.length}</b> duplicados omitidos
             </div>
             <div className="csv-preview">
               <table>
+                <thead className="csv-modern-head"><tr><th>Importar</th><th>Fecha</th><th>Descripcion</th><th>Categoria</th><th>Monto</th><th>Estado</th></tr></thead>
                 <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Monto</th><th>Estado</th></tr></thead>
                 <tbody>
-                  {rows.slice(0, 12).map((r, i) => (
+                  {rows.slice(0, 25).map((r, i) => (
                     <tr key={`${r.date}-${i}`}>
+                      <td>
+                        <input type="checkbox" checked={!r.skipped && !r.duplicate} disabled={r.duplicate}
+                          onChange={event => patchRow(i, { skipped: !event.target.checked })} />
+                      </td>
                       <td>{r.date}</td><td>{r.note}</td>
+                      <td>
+                        <select className="select compact-select" value={r.categoryId ?? ''}
+                          onChange={event => patchRow(i, { categoryId: event.target.value || undefined })}>
+                          <option value="">Sin categoria</option>
+                          {categories.filter(category => category.type === r.type).map(category => (
+                            <option key={category.id} value={category.id}>{category.name}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td>{categories.find(c => c.id === r.categoryId)?.name ?? '—'}</td>
                       <td className={r.type}>{r.type === 'expense' ? '−' : '+'}{fmtCompact(r.amount, currency)}</td>
-                      <td>{r.duplicate ? 'Duplicado' : 'Nuevo'}</td>
+                      <td>{r.duplicate ? 'Duplicado' : r.skipped ? 'Omitido' : 'Nuevo'}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -131,14 +131,21 @@ Estado: completada el 2026-06-02 como `v0.5.0`.
 
 Objetivo: convertir datos en decisiones practicas.
 
+Estado: completada como parte de `v0.7.0`.
+
+### Cerrado en esta iteracion
+
+- Deteccion de suscripciones y gastos recurrentes sugeridos por comercio, categoria y cuenta.
+- Proyeccion de flujo de caja a 30, 60 y 90 dias.
+- Deteccion de gastos atipicos frente al patron historico.
+- Tendencias por comercio, categoria y etiqueta.
+- Objetivo mensual de ahorro recomendado segun ingresos y gastos recientes.
+- Resumen mensual con acciones concretas en el Dashboard.
+
 ### Agregar
 
-- Deteccion de suscripciones y gastos recurrentes sugeridos.
-- Proyeccion de flujo de caja a 30, 60 y 90 dias.
-- Deteccion de gastos atipicos.
-- Tendencias por comercio, categoria y etiqueta.
-- Objetivos de ahorro recomendados segun ingresos y gastos.
-- Resumen mensual con acciones concretas.
+- Panel de detalle para aceptar una suscripcion detectada como recurrencia editable.
+- Ajuste de sensibilidad para gastos atipicos.
 
 ### Mejorar
 
@@ -150,13 +157,21 @@ Objetivo: convertir datos en decisiones practicas.
 
 Objetivo: reducir captura manual sin depender inicialmente de APIs bancarias.
 
-### Agregar
+Estado: primer corte completado como `v0.7.0`.
+
+### Cerrado en esta iteracion
 
 - Perfiles CSV versionados para Popular, BHD, Banreservas y Scotiabank.
-- Asistente para mapear columnas desconocidas.
+- Deteccion de columnas con porcentaje de confianza y perfil detectado.
+- Mapeo manual de columnas cuando el formato del banco no coincide.
+- Bandeja de importacion con omision manual de filas antes de afectar saldos.
+- Recategorizacion por movimiento durante la vista previa.
+- Conciliacion por fecha, monto absoluto y descripcion normalizada.
+- Soporte para montos negativos entre parentesis en columnas firmadas.
+
+### Agregar
+
 - Plantillas para estados de tarjeta de credito.
-- Conciliacion por fecha, monto, moneda y descripcion normalizada.
-- Bandeja de movimientos pendientes antes de afectar saldos.
 
 ### Investigar
 

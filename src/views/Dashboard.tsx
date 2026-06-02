@@ -5,6 +5,7 @@ import {
   byCategory, currentMonthKey, fmtCompact,
   monthKeys, monthlySeries, totals, txForMonth,
 } from '@/data/helpers'
+import { generateFinancialIntelligence } from '@/data/financeIntelligence'
 import { useFinance } from '@/store/finance'
 import type { CategoryTotal, Totals, ViewProps } from '@/types'
 import { Card, CatBadge, Empty, Legend, StatTile, TxRow } from './shared'
@@ -27,6 +28,18 @@ const ROADMAP = [
     name: 'Sincronización',
     status: 'Completado',
     features: ['Backend seguro', 'Sesiones multidispositivo', 'Backups automáticos', 'Recuperación de cuenta'],
+  },
+  {
+    version: 'v0.6',
+    name: 'Inteligencia financiera',
+    status: 'Completado',
+    features: ['Flujo 30/60/90', 'Suscripciones', 'Gastos atipicos', 'Acciones mensuales'],
+  },
+  {
+    version: 'v0.7',
+    name: 'Integraciones bancarias',
+    status: 'Completado',
+    features: ['Perfiles CSV RD', 'Mapeo manual', 'Bandeja previa', 'Conciliacion'],
   },
   {
     version: 'v1.0',
@@ -104,6 +117,12 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
   const budgetCats = categories.filter(c => c.type === 'expense')
   const totalBudget = budgetCats.reduce((s, c) => s + c.budget, 0)
   const chart      = expenses.map(x => ({ label: x.category.name, value: x.amount, color: x.category.color }))
+  const intelligence = useMemo(() => generateFinancialIntelligence({
+    txns,
+    categories,
+    mkey,
+    currentBalance: accounts.reduce((sum, account) => sum + account.balance, 0),
+  }), [txns, categories, mkey, accounts])
 
   // últimos 6 meses para las barras
   const year = Number(mkey.slice(0, 4))
@@ -211,6 +230,60 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
 
       {/* ── Insight contextual ── */}
       {insight && <div className="insight-bar">{insight}</div>}
+
+      <Card title="Inteligencia financiera" sub="Proyecciones, patrones y acciones sugeridas" style={{ marginTop: 16 }}>
+        <div className="intelligence-grid">
+          <section>
+            <h4>Flujo proyectado</h4>
+            {intelligence.projections.map(item => (
+              <div className="intel-row" key={item.horizonDays}>
+                <span>{item.horizonDays} dias</span>
+                <b className={item.projectedNet >= 0 ? 'income' : 'expense'}>{fmtCompact(item.projectedNet, currency)}</b>
+                <em>{fmtCompact(item.projectedBalance, currency)} balance</em>
+              </div>
+            ))}
+          </section>
+          <section>
+            <h4>Suscripciones</h4>
+            {intelligence.subscriptions.length
+              ? intelligence.subscriptions.slice(0, 3).map(item => (
+                <div className="intel-row" key={`${item.merchant}-${item.lastDate}`}>
+                  <span>{item.merchant}</span>
+                  <b>{fmtCompact(item.amount, currency)}</b>
+                  <em>{item.confidence}% confianza</em>
+                </div>
+              ))
+              : <p>No detectamos suscripciones nuevas.</p>}
+          </section>
+          <section>
+            <h4>Atipicos</h4>
+            {intelligence.anomalies.length
+              ? intelligence.anomalies.slice(0, 3).map(item => (
+                <button className="intel-row action" key={item.tx.id} onClick={() => onEditTx(item.tx)}>
+                  <span>{item.tx.note}</span>
+                  <b className="expense">{fmtCompact(item.tx.amount, currency)}</b>
+                  <em>{item.multiplier.toFixed(1)}x habitual</em>
+                </button>
+              ))
+              : <p>Sin gastos fuera de patron este mes.</p>}
+          </section>
+          <section>
+            <h4>Acciones del mes</h4>
+            <ul className="intel-actions">
+              {intelligence.monthlyActions.map(action => <li key={action}>{action}</li>)}
+            </ul>
+          </section>
+        </div>
+        {intelligence.trends.length > 0 && (
+          <div className="trend-strip">
+            {intelligence.trends.slice(0, 5).map(item => (
+              <span key={`${item.kind}-${item.label}`}>
+                {item.label} <b>{fmtCompact(item.amount, currency)}</b>
+              </span>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* ── Dona + Presupuesto ── */}
       <div className="grid-2-1 dashboard-section">
