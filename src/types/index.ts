@@ -1,0 +1,121 @@
+// ── Enums / literals ──────────────────────────────────────
+export type AccountType  = 'debit' | 'savings' | 'credit' | 'cash'
+export type TxType       = 'income' | 'expense' | 'transfer'
+export type CurrencyCode = 'DOP' | 'USD' | 'EUR'
+export type ThemeName    = 'midnight' | 'slate' | 'carbon' | 'light'
+export type DensityName  = 'compact' | 'regular' | 'comfy'
+export type OverdraftPolicy = 'block' | 'warn' | 'allow'
+export type IconName =
+  // categorías
+  | 'home' | 'cart' | 'food' | 'car' | 'bolt' | 'play' | 'heart'
+  | 'bag'  | 'book' | 'wallet' | 'laptop' | 'trend'
+  // nav
+  | 'grid' | 'list' | 'cards' | 'chart' | 'target'
+  // acciones comunes
+  | 'plus' | 'arrowUp' | 'arrowDn' | 'shark' | 'search'
+  | 'bell' | 'close' | 'calendar' | 'dots'
+  | 'edit' | 'trash' | 'download' | 'print'
+  // extras
+  | 'settings' | 'logout' | 'repeat' | 'tag' | 'camera'
+  | 'check' | 'alert' | 'refresh' | 'dollar' | 'piggy'
+  | 'sliders' | 'upload' | 'fileJson' | 'eye' | 'eyeOff' | 'info'
+
+// ── Entidades financieras ─────────────────────────────────
+export interface Account {
+  id:      string
+  name:    string
+  short:   string
+  type:    AccountType
+  color:   string
+  balance: number
+  last4:   string | null
+  limit?:  number
+}
+
+export interface Category {
+  id:     string
+  name:   string
+  type:   'expense' | 'income'
+  color:  string
+  budget: number
+  icon:   IconName
+}
+
+export interface Transaction {
+  id:           string
+  type:         TxType
+  amount:       number
+  date:         string              // YYYY-MM-DD
+  note:         string
+  categoryId?:  string              // income / expense
+  accountId?:   string              // income / expense
+  fromAccount?: string              // transfer
+  toAccount?:   string              // transfer
+  recurring?:   'monthly' | null    // auto-genera copia al inicio de cada mes
+  tags?:        string[]            // ej. ['trabajo', 'viaje']
+}
+
+export interface Goal {
+  id:        string
+  name:      string
+  target:    number
+  saved:     number
+  color:     string
+  icon:      IconName
+  deadline?: string          // YYYY-MM-DD
+}
+
+export interface Currency {
+  code:     CurrencyCode
+  symbol:   string
+  rate:     number           // relative to DOP
+  decimals: number
+}
+
+// ── Helpers ───────────────────────────────────────────────
+export interface Totals {
+  income:  number
+  expense: number
+  net:     number
+}
+
+export interface CategoryTotal {
+  category: Category
+  amount:   number
+}
+
+export interface MonthSeries {
+  key:     string
+  label:   string
+  income:  number
+  expense: number
+  net:     number
+}
+
+export interface WeekBucket {
+  label: string
+  value: number
+}
+
+export interface FmtOptions {
+  decimals?: number
+}
+
+// ── Props compartidas de vistas ───────────────────────────
+export type ViewId =
+  | 'dashboard'
+  | 'transactions'
+  | 'accounts'
+  | 'stats'
+  | 'budgets'
+  | 'goals'
+  | 'annual'
+
+export interface ViewProps {
+  txns:        Transaction[]
+  mkey:        string
+  onAdd:       () => void
+  goto:        (view: ViewId) => void
+  onEditTx:    (tx: Transaction) => void
+  onDeleteTx?: (id: string) => void   // undo-aware delete desde App
+}

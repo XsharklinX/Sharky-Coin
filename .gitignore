@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+
+# Rust / Tauri build output
+src-tauri/target/
+src-tauri/gen/
+
+# Packaged Windows artifacts
+release/
+
+# Test artifacts
+test-results/
+playwright-report/
+coverage/
+
+# Local tooling and caches
+.lazyweb/
+.codex-vite*.log
+*.log
+node_modules/.tmp/
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
