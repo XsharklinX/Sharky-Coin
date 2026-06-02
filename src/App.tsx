@@ -253,9 +253,6 @@ export default function App() {
               </button>
             </div>
 
-            <button className="btn-primary" onClick={() => setTxForm('new')} title="Nueva transacción (N)">
-              <Icon name="plus" size={16} stroke={2.4} />Agregar
-            </button>
           </div>
         </header>
 

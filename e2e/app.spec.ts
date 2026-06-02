@@ -53,6 +53,7 @@ test('muestra estados vacíos profesionales y confirma acciones destructivas', a
   await expect(page.getByRole('heading', { name: 'No encontramos movimientos' })).toBeVisible()
 
   await page.getByRole('button', { name: /Metas/ }).first().click()
+  await page.getByRole('button', { name: 'Nueva meta' }).click()
   await page.getByLabel('Nombre de la meta').fill('Reserva')
   await page.getByLabel('Monto objetivo').fill('10000')
   await page.getByRole('button', { name: 'Crear meta' }).click()

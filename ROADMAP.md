@@ -64,6 +64,13 @@ Estado: completada el 2026-06-01 como `v0.3.0`.
 
 Objetivo: convertir el registro manual en una herramienta diaria solida.
 
+Estado: en desarrollo desde el 2026-06-01 como `v0.4.0`.
+
+### Cerrado en esta iteracion
+
+- Accion global de agregar movimiento simplificada: se elimina el duplicado de la cabecera.
+- Creacion de metas renovada con modal dedicado, fecha objetivo opcional y color identificativo.
+
 ### Agregar
 
 - Politica de sobregiro configurable por cuenta: bloquear, advertir o permitir.

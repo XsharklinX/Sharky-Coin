@@ -41,8 +41,11 @@ function estimateCompletion(goal: Goal, transactions: import('@/types').Transact
 
 export function Goals(_: ViewProps) {
   const { goals, accounts, currency, transactions, addGoal, deleteGoal, contribute } = useFinance()
-  const [name,      setName]      = useState('')
-  const [target,    setTarget]    = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [name,       setName]       = useState('')
+  const [target,     setTarget]     = useState('')
+  const [deadline,   setDeadline]   = useState('')
+  const [color,      setColor]      = useState('#38bdf8')
   const [selected,  setSelected]  = useState<Goal | null>(null)
   const [amount,    setAmount]    = useState('')
   const [accountId, setAccountId] = useState('')
@@ -55,9 +58,9 @@ export function Goals(_: ViewProps) {
     const v = Number(target)
     if (!name.trim() || v <= 0)
       return toast('Ingresa nombre y monto objetivo.', { icon: 'target' })
-    addGoal({ name: name.trim(), target: v, saved: 0, color: '#38bdf8', icon: 'target' })
+    addGoal({ name: name.trim(), target: v, saved: 0, color, icon: 'target', deadline: deadline || undefined })
     toast('Meta creada', { icon: 'target', type: 'ok' })
-    setName(''); setTarget('')
+    setName(''); setTarget(''); setDeadline(''); setColor('#38bdf8'); setCreateOpen(false)
   }
 
   const openContrib = (g: Goal) => {
@@ -80,6 +83,17 @@ export function Goals(_: ViewProps) {
 
   return (
     <div className="view">
+      <div className="goals-intro">
+        <div>
+          <span className="section-eyebrow">Plan de ahorro</span>
+          <h2>Convierte tus planes en objetivos medibles</h2>
+          <p>Define una meta, registra aportes y sigue tu avance desde un solo lugar.</p>
+        </div>
+        <button className="btn-primary lg" onClick={() => setCreateOpen(true)}>
+          <Icon name="plus" size={16} stroke={2.5} />Nueva meta
+        </button>
+      </div>
+
       <div className="grid-3" style={{ marginBottom: 16 }}>
         <MiniStat label="Ahorrado total" amount={totalSaved}  color="var(--income)" />
         <MiniStat label="Meta total"     amount={totalTarget} />
@@ -87,18 +101,6 @@ export function Goals(_: ViewProps) {
           value={totalTarget ? `${Math.round(totalSaved / totalTarget * 100)}%` : '—'}
           color="var(--accent)" />
       </div>
-
-      <Card title="Nueva meta" sub="Define un objetivo de ahorro">
-        <div className="inline-form">
-          <input className="select" value={name}   onChange={e => setName(e.target.value)}
-            placeholder="Ej. Fondo de emergencia" aria-label="Nombre de la meta" />
-          <input className="select" type="number" value={target} onChange={e => setTarget(e.target.value)}
-            placeholder="Monto objetivo (RD$)" aria-label="Monto objetivo" />
-          <button className="btn-primary" onClick={create}>
-            <Icon name="plus" size={15} />Crear meta
-          </button>
-        </div>
-      </Card>
 
       <div className="grid-acc dashboard-section">
         {goals.map(goal => {
@@ -166,10 +168,75 @@ export function Goals(_: ViewProps) {
         {goals.length === 0 && (
           <Card>
             <Empty icon="target" title="No tienes metas todavía"
-              text="Crea un objetivo para empezar a ahorrar con propósito." />
+              text="Crea un objetivo para empezar a ahorrar con propósito."
+              action={<button className="btn-primary" onClick={() => setCreateOpen(true)}>Crear mi primera meta</button>} />
           </Card>
         )}
       </div>
+
+      {createOpen && (
+        <div className="modal-overlay" role="presentation" onMouseDown={() => setCreateOpen(false)}>
+          <section className="modal goal-create-modal" role="dialog" aria-modal="true"
+            aria-labelledby="goal-create-title" onMouseDown={e => e.stopPropagation()}>
+            <header className="modal-head">
+              <div className="modal-title-wrap">
+                <span className="modal-title-icon"><Icon name="target" size={19} /></span>
+                <div>
+                  <span className="section-eyebrow">Nuevo objetivo</span>
+                  <h2 id="goal-create-title">Crear una meta de ahorro</h2>
+                </div>
+              </div>
+              <button className="icon-btn" aria-label="Cerrar" onClick={() => setCreateOpen(false)}>
+                <Icon name="close" size={16} />
+              </button>
+            </header>
+
+            <p className="modal-lead">Ponle un nombre a tu próximo logro y define cuánto quieres ahorrar.</p>
+
+            <div className="field">
+              <label htmlFor="goal-name">Nombre de la meta</label>
+              <input id="goal-name" autoFocus className="select" value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Ej. Fondo de emergencia" />
+            </div>
+
+            <div className="field">
+              <label htmlFor="goal-target">Monto objetivo</label>
+              <div className="amount-field">
+                <span>RD$</span>
+                <input id="goal-target" type="number" inputMode="decimal" value={target}
+                  placeholder="0.00" onChange={e => setTarget(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && create()} />
+              </div>
+            </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="goal-deadline">Fecha objetivo <em>opcional</em></label>
+                <input id="goal-deadline" className="select" type="date" value={deadline}
+                  onChange={e => setDeadline(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Color de identificación</label>
+                <div className="goal-color-list" aria-label="Color de la meta">
+                  {['#38bdf8', '#22c55e', '#a78bfa', '#f59e0b', '#f43f5e'].map(option => (
+                    <button key={option} type="button" className={color === option ? 'selected' : ''}
+                      style={{ background: option }} aria-label={`Usar color ${option}`}
+                      aria-pressed={color === option} onClick={() => setColor(option)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <footer className="modal-actions">
+              <button className="btn-ghost" onClick={() => setCreateOpen(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={create}>
+                <Icon name="plus" size={15} />Crear meta
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {/* modal contribución */}
       {selected && (

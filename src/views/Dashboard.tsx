@@ -13,13 +13,13 @@ const ROADMAP = [
   {
     version: 'v0.3',
     name: 'Release estable local',
-    status: 'Ahora',
+    status: 'Completado',
     features: ['Integridad de datos', 'Backups validados', 'Pruebas E2E', 'Instalador y portable'],
   },
   {
     version: 'v0.4',
     name: 'Control inteligente',
-    status: 'Siguiente',
+    status: 'Ahora',
     features: ['Sobregiro por cuenta', 'Gastos recurrentes editables', 'Alertas configurables', 'Reglas CSV avanzadas'],
   },
   {

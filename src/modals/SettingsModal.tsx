@@ -285,7 +285,7 @@ export function SettingsModal({ onClose }: Props) {
                   <div style={{ fontSize: 20, fontWeight: 800 }}>
                     <span style={{ color: 'var(--accent)' }}>$</span>harky
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v0.3 — Finanzas personales</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v0.4 — Finanzas personales</div>
                 </div>
               </div>
 
@@ -299,9 +299,9 @@ export function SettingsModal({ onClose }: Props) {
 
               <SettingGroup label="Próximamente">
                 <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7 }}>
-                  v0.4: Temas consistentes y diseño renovado<br />
-                  v0.5: Sobregiro, recurrencias y alertas configurables<br />
-                  v0.6: Backend seguro y sincronización multidispositivo<br />
+                  v0.4: Control financiero y metas renovadas<br />
+                  v0.5: Seguridad y sincronización multidispositivo<br />
+                  v0.6: Inteligencia financiera y proyecciones<br />
                   v1.0: App instalable, accesibilidad AA y pruebas E2E
                 </div>
               </SettingGroup>
