@@ -1,224 +1,145 @@
-# $harky - Roadmap de producto
+# $harky - Roadmap de v1.x
 
-Fecha de revision: 2026-06-01
+Fecha de revision: 2026-06-02
+Version actual: 1.0.1
 
-## Estado actual
+## Diagnostico actual
 
-$harky ya cubre el flujo principal de finanzas personales:
+$harky ya tiene una base funcional fuerte: React + TypeScript, Tauri, autenticacion local/cloud, sincronizacion Supabase, importacion CSV bancaria, exportaciones profesionales, presupuestos, metas, cuentas, transacciones, graficas, pruebas unitarias, E2E y empaquetado Windows con instalador `.exe` y portable.
 
-- Dashboard mensual con patrimonio, ingresos, gastos, ahorro y alertas.
-- CRUD de movimientos, cuentas, categorias, presupuestos y metas.
-- Importacion CSV para bancos dominicanos con reglas aprendidas.
-- Exportacion JSON, PDF, Excel y graficas PNG.
-- Estadisticas anuales, comparativa interanual y resumen financiero anual.
-- Temas visuales, PWA y escritorio Tauri.
-- Instalador NSIS `.exe` y ejecutable portable para Windows.
-- Error boundaries globales y por vista.
+El riesgo principal ya no es "faltan pantallas". El riesgo esta en calidad de release, consistencia visual, recuperacion ante fallos, migraciones de datos y confianza de distribucion.
 
-La siguiente etapa no debe priorizar volumen de features. Primero hay que cerrar riesgos de integridad, seguridad y calidad de release.
+## Problemas actuales
 
-## Prioridades inmediatas
+| Prioridad | Area | Problema | Impacto |
+| --- | --- | --- | --- |
+| P0 | Release | Falta firma de codigo Windows | SmartScreen puede marcar el `.exe` como poco confiable aunque el build sea correcto. |
+| P0 | Datos | No hay pruebas de migracion entre versiones antiguas y v1.0 | Un usuario con datos viejos puede encontrar estados inconsistentes tras actualizar. |
+| P0 | Cloud | Falta validacion manual completa del flujo cloud dentro del `.exe` final | El navegador web puede pasar, pero Tauri tiene diferencias en deep links, storage seguro y permisos. |
+| P0 | Recuperacion | Restaurar backups cloud/local necesita pruebas E2E completas | Es una funcion critica; debe cubrir corrupcion, frase incorrecta y restore exitoso. |
+| P1 | UX | Los modales principales aun no comparten un sistema unico de layout y estados | La app funciona, pero algunos flujos se sienten menos consistentes que el resto. |
+| P1 | UI | Falta una auditoria visual completa por tema: claro, oscuro, pizarra y sistema | Ya hay cobertura E2E, pero no comparacion visual automatica. |
+| P1 | Accesibilidad | Falta checklist AA completo con teclado, foco visible y lector de pantalla | Puede bloquear usuarios y reduce calidad percibida. |
+| P1 | Sync | Conflictos cloud visibles, pero falta una pantalla dedicada para resolverlos con contexto | El sistema evita sobrescrituras silenciosas, pero la resolucion aun puede mejorar. |
+| P1 | CSV | Faltan plantillas para estados de tarjeta de credito | La importacion cubre bancos principales, pero no todos los formatos reales. |
+| P2 | Producto | Inteligencia financiera no permite ajustar sensibilidad | Usuarios distintos pueden necesitar alertas mas o menos agresivas. |
+| P2 | Reportes | Falta identidad visual completa en reportes exportados | PDF/Excel funcionan, pero pueden verse mas de marca y menos genericos. |
+| P2 | Distribucion | Falta auto-update firmado | El usuario debe instalar manualmente nuevas versiones. |
+| P2 | Observabilidad | No hay telemetria opcional de errores | Los fallos reales en equipos de usuarios pueden pasar desapercibidos. |
 
-| Prioridad | Estado | Tipo | Trabajo | Resultado |
-| --- | --- | --- | --- | --- |
-| P0 | Cerrado | Arreglar | Sustituir `xlsx` | Exportación migrada a `exceljs`; `npm audit` queda en cero vulnerabilidades. |
-| P0 | Cerrado | Arreglar | Proteger eliminación de categorías | El store bloquea categorías usadas y la UI muestra el motivo. |
-| P0 | Cerrado | Arreglar | Usar fecha real del sistema | Mes activo y datos demo parten de `new Date()`. |
-| P0 | Cerrado | Arreglar | Normalizar encoding UTF-8 | Textos heredados y selector CSS del checkbox recurrente corregidos. |
-| P1 | Cerrado | Seguridad | Activar CSP en Tauri | CSP explícita para scripts, estilos, fuentes, imágenes, IPC y workers. |
-| P1 | Cerrado | Calidad | Agregar pruebas E2E | Playwright recorre las siete vistas, estadísticas, presupuestos y cuatro temas. |
-| P1 | Cerrado | Producto | Definir política de sobregiro | Configuración global: bloquear, advertir o permitir. Granularidad por cuenta queda en v0.4. |
+## Roadmap recomendado
 
-## v0.3 - Release estable local
+## v1.0.1 - Hotfix de release
 
-Objetivo: publicar una version local confiable antes de agregar sincronizacion.
+Objetivo: dejar el instalador y portable listos para uso real sin sorpresas.
 
-Estado: completada el 2026-06-01 como `v0.3.0`.
-
-### Cerrado en esta iteración
-
-- Exportación Excel migrada de `xlsx` a `exceljs`.
-- `TODAY` fijo sustituido por `new Date()` con mes actual inyectable en helpers.
-- Eliminación de categorías usadas bloqueada con feedback visible.
-- Backups validados por esquema, tipos, IDs únicos y referencias existentes.
-- Textos con mojibake y selector `input[type="checkbox"]` corregidos.
-- CSP explícita aplicada al contenedor Tauri.
-- Smoke E2E agregado para navegación, estadísticas, presupuestos y temas.
-
-### Mejoras cerradas
-
-- Confirmaciones consistentes para cuentas, categorías, metas, restauración y borrado masivo.
-- Estados vacíos profesionales reutilizables en vistas críticas.
-- Feedback de carga al importar CSV, gestionar backups y exportar Excel, PDF o PNG.
-- Diagnóstico visible con reintento aislado cuando una vista falla.
-- Importación CSV atómica: un error no deja movimientos aplicados parcialmente.
-
-### Criterios de salida
-
-- `npm audit` sin vulnerabilidades altas o criticas.
-- `npm run lint`, `npm test`, `npm run build` y `npm run package:windows` pasan.
-- Navegacion E2E por las 7 vistas en los 4 temas.
-- Restaurar un backup corrupto nunca modifica el store.
-
-## v0.4 - Control financiero completo
-
-Objetivo: convertir el registro manual en una herramienta diaria solida.
-
-Estado: completada el 2026-06-02 como `v0.4.0`.
+Estado: completada como `v1.0.1`.
 
 ### Cerrado en esta iteracion
 
-- Accion global de agregar movimiento simplificada: se elimina el duplicado de la cabecera.
-- Creacion de metas renovada con modal dedicado, fecha objetivo opcional y color identificativo.
-- Politica de sobregiro configurable por cuenta con fallback al ajuste global.
-- Recurrencias semanales o mensuales con inicio, fin opcional y proxima ejecucion editable.
-- Vista de calendario financiero para revisar proximos movimientos esperados.
-- Reglas de categorizacion bancaria administrables desde Configuracion.
-- Historial de aportes a metas con fecha, cuenta origen y nota opcional.
-- Filtros de transacciones guardables, reutilizables y eliminables.
-- Presupuestos semanales, mensuales y anuales editables.
-- Alertas de presupuesto configurables al 50%, 80% y 100%.
-- Transferencias filtrables y edicion masiva para recategorizar, exportar o eliminar movimientos.
+- Version de app, Tauri y Cargo actualizada a `1.0.1`.
+- Metadata de Windows normalizada en ASCII para evitar caracteres rotos en instalador, terminal y manifiestos.
+- Script de paquete Windows normalizado y con hashes SHA-256 de instalador y portable.
+- Pruebas de migracion agregadas para backups v1 antiguos sin aportes a metas.
+- Pruebas de restauracion agregadas para aportes a metas con referencias invalidas.
+- Pruebas de sanitizacion agregadas para datos legacy persistidos con categorias, cuentas, aportes y movimientos inconsistentes.
 
-### Criterios de salida
+### P0
 
-- Las recurrencias no generan duplicados.
-- Cada aporte a una meta aparece en su historial y afecta la cuenta origen.
-- Las reglas CSV pueden revisarse, editarse y eliminarse desde la UI.
+- Pendiente externo: firmar el instalador `.exe` y portable con certificado de codigo.
+- Pendiente manual: ejecutar smoke test en Windows limpio: instalar, abrir, crear usuario local, crear cuenta, crear movimiento, cerrar y reabrir.
+- Pendiente manual: validar flujo cloud dentro del `.exe`: registro, confirmacion por correo, login, logout, recuperacion de sesion y deep link `sharky://auth/callback`.
+- Pendiente manual: probar backup local y cloud con cuenta real de Supabase.
+- Pendiente tecnico siguiente: ampliar snapshots de migracion con fixtures reales de v0.3, v0.5 y v0.7.
 
-## v0.5 - Seguridad y sincronizacion
+### Criterio de salida
 
-Objetivo: permitir uso real en mas de un dispositivo sin depender de `localStorage`.
+- `npm run lint`, `npm run test -- --run`, `npm run build`, `npm run test:e2e` y `npm run package:windows` pasan.
+- El `.exe` abre con cambios actuales, no una version cacheada.
+- No hay textos corruptos en app, metadata o instalador.
 
-Estado: completada el 2026-06-02 como `v0.5.0`.
+## v1.1 - UX profesional y accesibilidad
 
-### Cerrado en esta iteracion
+Objetivo: subir la calidad percibida sin meter deuda nueva.
 
-- Ledger de categorias de presupuesto consolidado en un solo sistema responsive.
-- Filas convertidas en tarjetas compactas cuando el ancho disponible no permite la tabla completa.
-- Prueba E2E responsive para evitar regresiones de desborde, iconos y edicion de limites.
-- Snapshots automaticos locales con retencion de cinco versiones y restauracion desde Configuracion.
-- Punto de recuperacion manual y auditoria local de cuenta, backups, restauraciones e importaciones CSV.
-- Infraestructura cloud elegida: Supabase Cloud `us-east-1`, Postgres con RLS y Auth por correo con PKCE.
-- ADR tecnico agregado en `docs/ADR-001-supabase-auth-sync.md`.
-- Proyecto Supabase aprovisionado con esquema relacional, indices, triggers de revision y RLS por usuario.
-- Registro e inicio de sesion cloud integrados con confirmacion de correo, recuperacion de contraseña y cierre remoto.
-- Modo local offline conservado como alternativa explicita para quien no quiera crear una cuenta cloud.
-- Sincronizacion cloud manual bidireccional con baseline local, tombstones y conflictos visibles sin sobrescritura silenciosa.
-- Cache local aislado por cuenta cloud para evitar mezclar datos al cambiar de usuario en un mismo equipo.
-- Cola local de cambios con sincronizacion automatica agrupada y reintento al recuperar conexion.
-- Base de datos cloud cifrada en reposo por Supabase.
-- Backups cloud cifrados en cliente con frase secreta independiente, bucket privado, restauracion por version y retencion de diez copias.
-- Exportacion JSON portable conservada como mecanismo independiente de recuperacion manual.
-- Sesion Supabase de Tauri movida fuera de `localStorage` al Administrador de credenciales de Windows mediante comandos Rust.
-- Limpieza automatica de tokens Supabase heredados en `localStorage` al iniciar la app de escritorio.
-- Sincronizacion ampliada para politicas de sobregiro, presupuestos semanales y anuales, agenda recurrente e historial de aportes.
+### P1
 
-### Agregar
+- Crear un sistema unico para modales: cabecera, descripcion, footer, botones, validacion, loading y error.
+- Revisar todos los formularios: transacciones, cuentas, metas, categorias, backups y configuracion.
+- Auditoria visual de los cuatro temas con capturas comparativas.
+- Accesibilidad AA: navegacion por teclado, foco visible, labels, roles ARIA y contraste.
+- Mejorar la pantalla de conflictos cloud con comparacion lado a lado.
 
+### Criterio de salida
 
-### Mejorar
+- Todos los modales usan el mismo patron.
+- Navegacion completa sin mouse en flujos criticos.
+- Sin overflow horizontal en 1280 px, 1024 px y 768 px.
 
-- Validar manualmente el flujo cloud completo en el `.exe` firmado antes del release publico.
+## v1.2 - Integraciones bancarias reales
 
-### Criterios de salida
+Objetivo: reducir trabajo manual para usuarios dominicanos.
 
-- Dos dispositivos pueden editar sin perder movimientos.
-- La cuenta puede recuperarse sin acceso al equipo anterior.
-- El modo local sigue funcionando sin internet.
+### P1
 
-## v0.6 - Inteligencia financiera
+- Agregar plantillas CSV para tarjetas de credito.
+- Separar perfiles por banco, producto y moneda.
+- Mejorar aprendizaje de reglas: categoria por comercio, cuenta y monto aproximado.
+- Conciliacion avanzada con tolerancia de fecha y equivalencias de descripcion.
+- Importacion OFX/QFX como alternativa estandar.
 
-Objetivo: convertir datos en decisiones practicas.
+### Criterio de salida
 
-Estado: completada como parte de `v0.7.0`.
+- Un usuario puede importar estados comunes sin editar columnas manualmente.
+- Los duplicados se detectan de forma explicable antes de confirmar.
 
-### Cerrado en esta iteracion
+## v1.3 - Reportes y decision financiera
 
-- Deteccion de suscripciones y gastos recurrentes sugeridos por comercio, categoria y cuenta.
-- Proyeccion de flujo de caja a 30, 60 y 90 dias.
-- Deteccion de gastos atipicos frente al patron historico.
-- Tendencias por comercio, categoria y etiqueta.
-- Objetivo mensual de ahorro recomendado segun ingresos y gastos recientes.
-- Resumen mensual con acciones concretas en el Dashboard.
+Objetivo: que la app explique el dinero, no solo lo registre.
 
-### Agregar
+### P2
 
-- Panel de detalle para aceptar una suscripcion detectada como recurrencia editable.
 - Ajuste de sensibilidad para gastos atipicos.
+- Panel para convertir suscripciones detectadas en recurrencias.
+- Reportes PDF con logo, identidad visual, resumen ejecutivo y detalle mensual.
+- Excel con hojas por mes, categoria, cuenta y resumen anual.
+- Comparativas utiles: este mes vs mes anterior, este ano vs ano anterior.
 
-### Mejorar
+### Criterio de salida
 
-- Resumen anual compartible con comparaciones útiles.
-- Tooltips enriquecidos en graficas.
-- Exportacion de reportes con identidad visual completa.
+- Los reportes se pueden enviar a otra persona sin parecer un export tecnico.
+- Las recomendaciones tienen accion directa dentro de la app.
 
-## v0.7 - Integraciones bancarias dominicanas
+## v1.4 - Distribucion y operacion
 
-Objetivo: reducir captura manual sin depender inicialmente de APIs bancarias.
+Objetivo: mantener la app en produccion sin friccion.
 
-Estado: primer corte completado como `v0.7.0`.
+### P2
 
-### Cerrado en esta iteracion
+- Auto-update firmado en Tauri.
+- Canal beta y canal estable.
+- Changelog visible dentro de la app.
+- Telemetria opcional y desactivable para errores tecnicos.
+- Proceso de release documentado: build, test, firma, hash, publicacion.
 
-- Perfiles CSV versionados para Popular, BHD, Banreservas y Scotiabank.
-- Deteccion de columnas con porcentaje de confianza y perfil detectado.
-- Mapeo manual de columnas cuando el formato del banco no coincide.
-- Bandeja de importacion con omision manual de filas antes de afectar saldos.
-- Recategorizacion por movimiento durante la vista previa.
-- Conciliacion por fecha, monto absoluto y descripcion normalizada.
-- Soporte para montos negativos entre parentesis en columnas firmadas.
+### Criterio de salida
 
-### Agregar
+- Publicar una nueva version no requiere reinstalacion manual.
+- Los fallos reales se pueden diagnosticar sin leer reportes vagos del usuario.
 
-- Plantillas para estados de tarjeta de credito.
+## Deuda tecnica que no debe crecer
 
-### Investigar
+- Mantener los componentes en `src/views/` como TypeScript real, sin volver a JSX heredado.
+- No reintroducir estado global mutable en `window`.
+- No depender de Babel runtime.
+- No agregar nuevas pantallas sin E2E minimo.
+- No agregar nuevos exporters sin pruebas de formato.
+- No mezclar datos cloud entre usuarios ni volver a guardar tokens en `localStorage` dentro de Tauri.
 
-- Disponibilidad legal y tecnica de conexiones Open Banking o agregadores.
-- Manejo seguro de credenciales y consentimiento.
+## Orden de ejecucion
 
-## v1.0 - Lanzamiento publico
-
-Objetivo: distribuir una aplicacion estable y presentable.
-
-### Producto
-
-- Onboarding breve con demo opcional.
-- Ayuda contextual y tour inicial.
-- Accesibilidad AA: teclado, foco, contraste y lector de pantalla.
-- Responsive final para desktop, tablet y movil.
-
-### Distribucion
-
-- Instalador Windows NSIS `.exe`.
-- Ejecutable portable `.exe`.
-- Firma de codigo para reducir advertencias de Windows SmartScreen.
-- Actualizaciones automaticas firmadas en Tauri.
-- Canal estable y canal beta.
-
-### Calidad
-
-- Suite E2E para flujos criticos.
-- Pruebas de migracion de datos entre versiones.
-- Telemetria opcional, anonimizada y desactivable.
-- Checklist de release y changelog.
-
-## Backlog posterior a v1.0
-
-- Versiones macOS y Linux.
-- App movil con Capacitor o cliente dedicado.
-- Cuentas compartidas para hogares.
-- Multi-moneda con tasas actualizables.
-- Importacion OFX/QFX.
-- Etiquetas inteligentes y busqueda avanzada.
-- Widgets de escritorio.
-- Presupuestos por sobres.
-
-## Orden recomendado
-
-1. Cerrar todos los P0 de integridad y seguridad.
-2. Agregar pruebas E2E antes de seguir ampliando UI.
-3. Completar recurrencias, sobregiro y metas con historial.
-4. Diseñar backend y sincronizacion con modo local compatible.
-5. Preparar firma, updater y proceso formal de release.
+1. Cerrar v1.0.1 con firma, migraciones y smoke del `.exe`.
+2. Hacer v1.1 antes de agregar nuevas features grandes.
+3. Avanzar importacion bancaria real en v1.2.
+4. Pulir reportes e inteligencia financiera en v1.3.
+5. Automatizar actualizaciones y operacion en v1.4.

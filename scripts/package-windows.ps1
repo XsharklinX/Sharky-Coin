@@ -26,7 +26,7 @@ Push-Location $projectRoot
 try {
   npm run tauri:build -- --bundles nsis
   if ($LASTEXITCODE -ne 0) {
-    throw "Tauri build falló con código de salida $LASTEXITCODE."
+    throw "Tauri build fallo con codigo de salida $LASTEXITCODE."
   }
 } finally {
   Pop-Location
@@ -45,13 +45,26 @@ $installer = Get-ChildItem -LiteralPath $bundleDir -Filter '*.exe' |
   Select-Object -First 1
 
 if (-not $installer) {
-  throw 'No se encontró el instalador NSIS generado por Tauri.'
+  throw 'No se encontro el instalador NSIS generado por Tauri.'
 }
 
 $installerTarget = Join-Path $releaseDir '$harky-setup.exe'
 Copy-Item -LiteralPath $installer.FullName -Destination $installerTarget -Force
 
+$artifacts = @($installerTarget, $portableTarget) | ForEach-Object {
+  $item = Get-Item -LiteralPath $_
+  $hash = Get-FileHash -LiteralPath $_ -Algorithm SHA256
+  [PSCustomObject]@{
+    Name = $item.Name
+    Path = $item.FullName
+    SizeBytes = $item.Length
+    SHA256 = $hash.Hash
+  }
+}
+
 Write-Host ''
 Write-Host 'Paquetes Windows listos:'
-Write-Host "  Instalador: $installerTarget"
-Write-Host "  Portable:   $portableTarget"
+$artifacts | ForEach-Object {
+  Write-Host "  $($_.Name): $($_.Path)"
+  Write-Host "    SHA256: $($_.SHA256)"
+}

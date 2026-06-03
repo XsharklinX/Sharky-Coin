@@ -196,10 +196,10 @@ export function generateFinancialIntelligence(params: {
     anomalies.length ? `Audita ${anomalies[0].tx.note}: esta por encima de su promedio habitual.` : '',
     avgNet < 0 ? 'Reduce gastos variables: el promedio reciente esta cerrando en negativo.' : '',
     recommendedMonthlySavings > 0 ? `Programa un ahorro mensual sugerido de ${Math.round(recommendedMonthlySavings)} DOP.` : '',
-    projections[0]?.projectedBalance < 0 ? 'Tu proyeccion a 30 dias queda negativa; evita nuevos gastos no esenciales.' : '',
+    projections[0]?.projectedBalance < 0 ? 'Tu proyección a 30 días queda negativa; evita nuevos gastos no esenciales.' : '',
   ].filter(Boolean)
 
-  if (!actions.length) actions.push('Mantén el ritmo actual y revisa categorias top una vez por semana.')
+  if (!actions.length) actions.push('Mantén el ritmo actual y revisa categorías top una vez por semana.')
 
   return { subscriptions, projections, anomalies, trends, recommendedMonthlySavings, monthlyActions: actions.slice(0, 4) }
 }

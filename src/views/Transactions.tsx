@@ -510,7 +510,7 @@ function CsvImportModal({ onClose, onConfirm }: {
             <div className="csv-map-grid">
               {(['date', 'note', 'amount', 'debit', 'credit'] as CsvColumnKey[]).map(key => (
                 <label key={key}>
-                  {key === 'date' ? 'Fecha' : key === 'note' ? 'Descripcion' : key === 'amount' ? 'Monto firmado' : key === 'debit' ? 'Debito' : 'Credito'}
+                  {key === 'date' ? 'Fecha' : key === 'note' ? 'Descripción' : key === 'amount' ? 'Monto firmado' : key === 'debit' ? 'Débito' : 'Crédito'}
                   <select className="select" value={mapping[key] ?? ''} onChange={event => changeMapping(key, event.target.value)}>
                     <option value="">Sin mapear</option>
                     {analysis.headers.map(header => <option key={`${key}-${header}`} value={header}>{header}</option>)}
@@ -524,12 +524,12 @@ function CsvImportModal({ onClose, onConfirm }: {
         {rows.length > 0 && (
           <>
             <div className="csv-summary">
-              <span>Conciliacion: {duplicateCount} duplicados, {skippedCount} omitidos manualmente · </span>
+              <span>Conciliación: {duplicateCount} duplicados, {skippedCount} omitidos manualmente · </span>
               <b>{importable.length}</b> listos · <b>{rows.length - importable.length}</b> duplicados omitidos
             </div>
             <div className="csv-preview">
               <table>
-                <thead className="csv-modern-head"><tr><th>Importar</th><th>Fecha</th><th>Descripcion</th><th>Categoria</th><th>Monto</th><th>Estado</th></tr></thead>
+                <thead className="csv-modern-head"><tr><th>Importar</th><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Monto</th><th>Estado</th></tr></thead>
                 <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Monto</th><th>Estado</th></tr></thead>
                 <tbody>
                   {rows.slice(0, 25).map((r, i) => (
@@ -542,7 +542,7 @@ function CsvImportModal({ onClose, onConfirm }: {
                       <td>
                         <select className="select compact-select" value={r.categoryId ?? ''}
                           onChange={event => patchRow(i, { categoryId: event.target.value || undefined })}>
-                          <option value="">Sin categoria</option>
+                          <option value="">Sin categoría</option>
                           {categories.filter(category => category.type === r.type).map(category => (
                             <option key={category.id} value={category.id}>{category.name}</option>
                           ))}

@@ -135,7 +135,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       await consumeDesktopAuthDeepLink()
     } catch (error) {
-      console.error('No se pudo completar el enlace de autenticaciÃ³n.', error)
+      console.error('No se pudo completar el enlace de autenticación.', error)
     }
 
     const { data, error } = await supabase.auth.getSession()
