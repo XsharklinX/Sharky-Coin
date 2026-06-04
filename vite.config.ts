@@ -4,6 +4,22 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  build: {
+    // ExcelJS is intentionally isolated behind a user-triggered dynamic import.
+    // Keep the warning focused on chunks that can affect first load.
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/exceljs')) return 'vendor-excel'
+          if (id.includes('node_modules/jspdf')) return 'vendor-pdf'
+          if (id.includes('node_modules/html2canvas')) return 'vendor-capture'
+          if (id.includes('node_modules/recharts')) return 'vendor-charts'
+          if (id.includes('node_modules/lucide-react')) return 'vendor-icons'
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -45,7 +61,7 @@ export default defineConfig({
         // cachear todos los assets estáticos
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // no cachear los chunks de exportación grandes (se cargan on-demand)
-        globIgnores: ['**/jspdf*', '**/html2canvas*', '**/imageExport*'],
+        globIgnores: ['**/vendor-pdf*', '**/vendor-capture*', '**/vendor-excel*', '**/vendor-charts*', '**/imageExport*'],
         runtimeCaching: [
           {
             // fonts de Google

@@ -6,7 +6,10 @@ import {
   monthKeys, monthlySeries, totals, txForMonth,
 } from '@/data/helpers'
 import { generateFinancialIntelligence } from '@/data/financeIntelligence'
+import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { toast } from '@/components/ui/Toast'
 import type { CategoryTotal, Totals, ViewProps } from '@/types'
 import { Card, CatBadge, Empty, Legend, StatTile, TxRow } from './shared'
 
@@ -44,8 +47,32 @@ const ROADMAP = [
   {
     version: 'v1.0',
     name: 'Lanzamiento',
-    status: 'Actual',
+    status: 'Completado',
     features: ['App instalable', 'Onboarding pulido', 'Pruebas E2E', 'Accesibilidad base'],
+  },
+  {
+    version: 'v1.1',
+    name: 'UX profesional',
+    status: 'Completado',
+    features: ['ModalShell', 'Foco y Esc', 'Settings renovado', 'Base accesible'],
+  },
+  {
+    version: 'v1.2',
+    name: 'CSV bancario',
+    status: 'Completado',
+    features: ['Tarjetas RD', 'Conciliacion flexible', 'Perfiles por banco', 'Preview mejorado'],
+  },
+  {
+    version: 'v1.3',
+    name: 'Decision financiera',
+    status: 'Completado',
+    features: ['Sensibilidad de atipicos', 'Recurrencias sugeridas', 'Resumen ejecutivo', 'Exports con marca'],
+  },
+  {
+    version: 'v1.4',
+    name: 'Distribucion y operacion',
+    status: 'Actual',
+    features: ['Chunks bajo demanda', 'Changelog interno', 'Canal estable/beta', 'Diagnosticos locales'],
   },
 ]
 
@@ -97,7 +124,8 @@ function computeInsight(params: {
 }
 
 export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
-  const { accounts, categories, currency } = useFinance()
+  const { accounts, categories, currency, addTx } = useFinance()
+  const anomalySensitivity = useSettings(state => state.anomalySensitivity)
   const monthTx = txForMonth(txns, mkey)
   const t = totals(monthTx)
   const keys = monthKeys(txns)
@@ -116,7 +144,29 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
     categories,
     mkey,
     currentBalance: accounts.reduce((sum, account) => sum + account.balance, 0),
-  }), [txns, categories, mkey, accounts])
+    anomalySensitivity,
+  }), [txns, categories, mkey, accounts, anomalySensitivity])
+
+  const scheduleSubscription = (item: typeof intelligence.subscriptions[number]) => {
+    const accountId = item.accountId ?? accounts[0]?.id
+    const categoryId = item.categoryId ?? categories.find(category => category.type === 'expense')?.id
+    if (!accountId || !categoryId) {
+      toast('Necesitas una cuenta y una categoria de gasto para programar esta recurrencia.', { icon: 'alert' })
+      return
+    }
+    addTx({
+      type: 'expense',
+      amount: Math.round(item.amount),
+      date: item.lastDate || `${mkey}-01`,
+      note: item.merchant,
+      accountId,
+      categoryId,
+      recurring: 'monthly',
+      recurringStart: item.lastDate || `${mkey}-01`,
+      recurringNext: advanceRecurrenceDate(item.lastDate || `${mkey}-01`, 'monthly'),
+    })
+    toast('Suscripcion convertida en recurrencia mensual', { icon: 'repeat', type: 'ok' })
+  }
 
   const monthly = monthlySeries(txns, year).slice(Math.max(0, curMonthNum - 6), curMonthNum)
 
@@ -214,11 +264,11 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
             <h4>Suscripciones</h4>
             {intelligence.subscriptions.length
               ? intelligence.subscriptions.slice(0, 3).map(item => (
-                <div className="intel-row" key={`${item.merchant}-${item.lastDate}`}>
+                <button className="intel-row action" key={`${item.merchant}-${item.lastDate}`} onClick={() => scheduleSubscription(item)}>
                   <span>{item.merchant}</span>
                   <b>{fmtCompact(item.amount, currency)}</b>
-                  <em>{item.confidence}% confianza</em>
-                </div>
+                  <em>{item.confidence}% confianza · programar</em>
+                </button>
               ))
               : <p>No detectamos suscripciones nuevas.</p>}
           </section>
@@ -333,7 +383,7 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
         </div>
         <div className="roadmap-foot">
           <Icon name="check" size={15} />
-          v1.0 estabiliza distribución Windows, pruebas críticas, seguridad básica y experiencia general.
+          v1.4 prepara la app para releases mas livianos, diagnosticables y mantenibles.
         </div>
       </Card>
     </div>

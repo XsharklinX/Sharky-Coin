@@ -22,7 +22,7 @@ const txns: Transaction[] = [
 
 describe('finance intelligence', () => {
   it('detecta suscripciones por comercio y recurrencia mensual', () => {
-    expect(detectSubscriptions(txns, '2026-05')[0]).toMatchObject({ merchant: 'netflix mensual', months: 4 })
+    expect(detectSubscriptions(txns, '2026-05')[0]).toMatchObject({ merchant: 'netflix mensual', months: 4, accountId: 'cash' })
   })
 
   it('proyecta flujo de caja a 30, 60 y 90 dias', () => {
@@ -33,6 +33,12 @@ describe('finance intelligence', () => {
 
   it('detecta gastos atipicos frente al patron historico', () => {
     expect(detectSpendingAnomalies(txns, '2026-05')[0].tx.id).toBe('food-4')
+  })
+
+  it('permite ajustar la sensibilidad de gastos atipicos', () => {
+    const moderate = txns.map(tx => tx.id === 'food-4' ? { ...tx, amount: 1900 } : tx)
+    expect(detectSpendingAnomalies(moderate, '2026-05', 'strict')).toHaveLength(1)
+    expect(detectSpendingAnomalies(moderate, '2026-05', 'relaxed')).toHaveLength(0)
   })
 
   it('genera acciones mensuales concretas', () => {

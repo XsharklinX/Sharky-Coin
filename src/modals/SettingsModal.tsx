@@ -11,6 +11,8 @@ import { listAuditEvents, recordAuditEvent } from '@/data/audit'
 import { createRecoverySnapshot, listRecoverySnapshots, readRecoverySnapshot } from '@/data/recovery'
 import { useCloudSync } from '@/data/cloudSync'
 import { useCloudBackup } from '@/data/cloudBackup'
+import { APP_VERSION, RELEASE_NOTES } from '@/data/release'
+import { clearErrorReports, listErrorReports } from '@/data/telemetry'
 import { usesNativeCredentialStorage } from '@/lib/secureAuthStorage'
 import { deleteCategoryRule, listCategoryRules, saveCategoryRule } from '@/data/bankCsv'
 import { saveBackup, openBackup, isTauri } from '@/hooks/useTauri'
@@ -42,6 +44,7 @@ export function SettingsModal({ onClose }: Props) {
   const [snapshots, setSnapshots] = useState(listRecoverySnapshots)
   const [auditEvents, setAuditEvents] = useState(listAuditEvents)
   const [categoryRules, setCategoryRules] = useState(listCategoryRules)
+  const [errorReports, setErrorReports] = useState(listErrorReports)
   const [rulePattern, setRulePattern] = useState('')
   const [ruleCategoryId, setRuleCategoryId] = useState('')
 
@@ -270,6 +273,16 @@ export function SettingsModal({ onClose }: Props) {
                   ))}
                 </div>
                 <p className="setting-hint">Elige cuándo recibir avisos antes de exceder el límite mensual.</p>
+              </SettingGroup>
+
+              <SettingGroup label="Sensibilidad de inteligencia financiera">
+                <select className="select" value={s.anomalySensitivity}
+                  onChange={event => s.setAnomalySensitivity(event.target.value as typeof s.anomalySensitivity)}>
+                  <option value="strict">Alta: detectar variaciones pequenas</option>
+                  <option value="balanced">Balanceada: recomendada</option>
+                  <option value="relaxed">Baja: solo gastos muy fuera de patron</option>
+                </select>
+                <p className="setting-hint">Controla que tan agresiva es la deteccion de gastos atipicos en el Dashboard.</p>
               </SettingGroup>
 
               <SettingGroup label="Reglas de categorización bancaria">
@@ -515,9 +528,59 @@ export function SettingsModal({ onClose }: Props) {
                   <div style={{ fontSize: 20, fontWeight: 800 }}>
                     <span style={{ color: 'var(--accent)' }}>$</span>harky
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v1.1.0 - Finanzas personales</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v{APP_VERSION} - Finanzas personales</div>
                 </div>
               </div>
+
+              <SettingGroup label="Distribucion">
+                <select className="select" value={s.releaseChannel}
+                  onChange={event => s.setReleaseChannel(event.target.value as typeof s.releaseChannel)}>
+                  <option value="stable">Canal estable</option>
+                  <option value="beta">Canal beta</option>
+                </select>
+                <p className="setting-hint">
+                  El canal queda guardado para el auto-update firmado. Hasta tener servidor y certificado, solo documenta la preferencia.
+                </p>
+              </SettingGroup>
+
+              <SettingRow label="Telemetria local de errores"
+                sub="Guarda diagnosticos tecnicos en este equipo. No se envian datos automaticamente.">
+                <Toggle value={s.errorTelemetryEnabled} onChange={s.setErrorTelemetryEnabled} />
+              </SettingRow>
+
+              <SettingGroup label="Diagnosticos recientes">
+                {errorReports.length > 0 ? (
+                  <>
+                    <div className="audit-list">
+                      {errorReports.slice(0, 5).map(report => (
+                        <div className="audit-item" key={report.id}>
+                          <i />
+                          <div>
+                            <b>{report.diagnostic}</b>
+                            <span>{formatLocalDate(report.createdAt)} - {report.scope} - {report.message}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button className="btn-ghost" onClick={() => { clearErrorReports(); setErrorReports([]) }}>
+                      <Icon name="trash" size={15} />Limpiar diagnosticos
+                    </button>
+                  </>
+                ) : <p className="setting-hint">No hay errores capturados en este dispositivo.</p>}
+              </SettingGroup>
+
+              <SettingGroup label="Changelog">
+                <div className="recovery-list">
+                  {RELEASE_NOTES.map(release => (
+                    <div className="recovery-item" key={release.version}>
+                      <div>
+                        <b>v{release.version} - {release.title}</b>
+                        <span>{release.date} - {release.items.join(' - ')}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SettingGroup>
 
               <SettingGroup label="Stack">
                 <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7 }}>
@@ -533,7 +596,8 @@ export function SettingsModal({ onClose }: Props) {
                   v1.0.1: Hotfix de release y migraciones<br />
                   v1.1: UX profesional y accesibilidad<br />
                   v1.2: Integraciones bancarias dominicanas<br />
-                  v1.3: Reportes e inteligencia financiera
+                  v1.3: Reportes e inteligencia financiera<br />
+                  v1.4: Distribucion y operacion
                 </div>
               </SettingGroup>
             </>

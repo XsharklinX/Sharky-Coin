@@ -1,6 +1,15 @@
 import type { Category, Transaction } from '@/types'
 
-export type BankId = 'auto' | 'popular' | 'bhd' | 'banreservas' | 'scotiabank'
+export type BankId =
+  | 'auto'
+  | 'popular'
+  | 'popularCard'
+  | 'bhd'
+  | 'bhdCard'
+  | 'banreservas'
+  | 'banreservasCard'
+  | 'scotiabank'
+  | 'scotiabankCard'
 
 export interface Columns {
   date: string
@@ -42,11 +51,11 @@ export interface ImportedRow {
 }
 
 const HEADER_HINTS: Record<CsvColumnKey, string[]> = {
-  date: ['fecha', 'date', 'fecha transaccion', 'fecha de transaccion', 'fecha efectiva', 'fecha movimiento'],
-  note: ['descripcion', 'description', 'concepto', 'detalle', 'referencia', 'comercio', 'transaccion', 'narrativa'],
-  amount: ['monto', 'amount', 'importe', 'valor', 'monto rd$', 'monto dop'],
-  debit: ['debito', 'debitos', 'cargo', 'retiro', 'consumo', 'pago realizado'],
-  credit: ['credito', 'creditos', 'abono', 'deposito', 'pago recibido'],
+  date: ['fecha', 'date', 'fecha transaccion', 'fecha de transaccion', 'fecha efectiva', 'fecha movimiento', 'fecha consumo', 'fecha posteo', 'fecha corte'],
+  note: ['descripcion', 'description', 'concepto', 'detalle', 'referencia', 'comercio', 'establecimiento', 'transaccion', 'narrativa'],
+  amount: ['monto', 'amount', 'importe', 'valor', 'monto rd$', 'monto dop', 'monto consumido', 'monto facturado', 'total'],
+  debit: ['debito', 'debitos', 'cargo', 'cargos', 'retiro', 'consumo', 'consumos', 'pago realizado', 'compras'],
+  credit: ['credito', 'creditos', 'abono', 'abonos', 'deposito', 'pago recibido', 'pago', 'pagos'],
 }
 
 export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
@@ -58,6 +67,20 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
     notes: 'Cuentas y tarjetas con columnas de debito/credito o monto firmado.',
     hints: { note: ['descripcion', 'concepto', 'referencia'], debit: ['debito', 'cargo', 'consumo'], credit: ['credito', 'abono'] },
   },
+  popularCard: {
+    id: 'popularCard',
+    label: 'Banco Popular - Tarjeta',
+    version: 'popular-tarjeta-v1',
+    kind: 'credit-card',
+    notes: 'Estado de tarjeta Popular con consumo, comercio, cargos y pagos.',
+    hints: {
+      date: ['fecha consumo', 'fecha transaccion', 'fecha'],
+      note: ['comercio', 'descripcion', 'referencia'],
+      amount: ['monto consumido', 'monto', 'importe'],
+      debit: ['consumo', 'cargo', 'compras'],
+      credit: ['pago', 'abono'],
+    },
+  },
   bhd: {
     id: 'bhd',
     label: 'BHD',
@@ -65,6 +88,20 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
     kind: 'mixed',
     notes: 'Estados con columna monto o cargos/abonos separados.',
     hints: { note: ['descripcion', 'detalle', 'comercio'], amount: ['monto', 'valor'], debit: ['debito', 'retiro'], credit: ['credito', 'deposito'] },
+  },
+  bhdCard: {
+    id: 'bhdCard',
+    label: 'BHD - Tarjeta',
+    version: 'bhd-tarjeta-v1',
+    kind: 'credit-card',
+    notes: 'Estado de tarjeta BHD con establecimiento, consumos y pagos.',
+    hints: {
+      date: ['fecha posteo', 'fecha consumo', 'fecha'],
+      note: ['establecimiento', 'descripcion', 'detalle'],
+      debit: ['consumos', 'cargo', 'debito'],
+      credit: ['pagos', 'credito', 'abono'],
+      amount: ['monto', 'importe'],
+    },
   },
   banreservas: {
     id: 'banreservas',
@@ -74,6 +111,19 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
     notes: 'Movimientos de cuenta con retiro/deposito y fecha de transaccion.',
     hints: { note: ['concepto', 'descripcion', 'narrativa'], debit: ['retiro', 'debito'], credit: ['deposito', 'credito'] },
   },
+  banreservasCard: {
+    id: 'banreservasCard',
+    label: 'Banreservas - Tarjeta',
+    version: 'banreservas-tarjeta-v1',
+    kind: 'credit-card',
+    notes: 'Estado de tarjeta Banreservas con consumos, pagos y referencia de comercio.',
+    hints: {
+      date: ['fecha consumo', 'fecha movimiento', 'fecha'],
+      note: ['descripcion', 'comercio', 'referencia'],
+      debit: ['consumo', 'cargo', 'debito'],
+      credit: ['pago', 'credito', 'abono'],
+    },
+  },
   scotiabank: {
     id: 'scotiabank',
     label: 'Scotiabank',
@@ -81,6 +131,20 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
     kind: 'mixed',
     notes: 'Formato Scotiabank con importe firmado o cargos/abonos separados.',
     hints: { note: ['detalle', 'descripcion', 'referencia'], amount: ['importe', 'monto'] },
+  },
+  scotiabankCard: {
+    id: 'scotiabankCard',
+    label: 'Scotiabank - Tarjeta',
+    version: 'scotiabank-tarjeta-v1',
+    kind: 'credit-card',
+    notes: 'Estado de tarjeta Scotiabank con importe firmado o cargos y abonos separados.',
+    hints: {
+      date: ['fecha posteo', 'fecha transaccion', 'fecha'],
+      note: ['detalle', 'comercio', 'descripcion'],
+      amount: ['importe', 'monto'],
+      debit: ['cargo', 'consumo'],
+      credit: ['abono', 'pago'],
+    },
   },
 }
 
@@ -95,6 +159,12 @@ const CATEGORY_RULES: Array<[RegExp, string]> = [
 const LEARNED_RULES_KEY = 'sharky-bank-rules-v1'
 
 const clean = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+const normalizeNote = (value: string) => clean(value)
+  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/\b(?:pos|visa|mastercard|tc|auth|aut|ref)\b/g, '')
+  .replace(/\b\d{3,}\b/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
 
 function learnedRules(): Record<string, string> {
   try { return JSON.parse(localStorage.getItem(LEARNED_RULES_KEY) ?? '{}') as Record<string, string> }
@@ -162,7 +232,23 @@ const normalizeDate = (value: string) => {
 }
 
 export const transactionFingerprint = (tx: Pick<Transaction, 'date' | 'amount' | 'note'>) =>
-  `${tx.date}|${Math.abs(tx.amount).toFixed(2)}|${clean(tx.note)}`
+  `${tx.date}|${Math.abs(tx.amount).toFixed(2)}|${normalizeNote(tx.note)}`
+
+function dateDistanceDays(a: string, b: string): number {
+  const first = Date.parse(`${a}T00:00:00`)
+  const second = Date.parse(`${b}T00:00:00`)
+  if (!Number.isFinite(first) || !Number.isFinite(second)) return Number.POSITIVE_INFINITY
+  return Math.abs(first - second) / 86_400_000
+}
+
+function isDuplicateImportedRow(existing: Transaction[], row: Pick<Transaction, 'date' | 'amount' | 'note'>): boolean {
+  const amount = Math.abs(row.amount).toFixed(2)
+  const note = normalizeNote(row.note)
+  return existing.some(tx =>
+    Math.abs(tx.amount).toFixed(2) === amount
+    && normalizeNote(tx.note) === note
+    && dateDistanceDays(tx.date, row.date) <= 2)
+}
 
 function parseCsv(csv: string) {
   const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean)
@@ -173,10 +259,17 @@ function parseCsv(csv: string) {
 }
 
 function scoreProfile(headers: string[], profile: BankProfile) {
-  return (Object.keys(HEADER_HINTS) as CsvColumnKey[]).reduce((score, key) => {
-    const names = [...(profile.hints[key] ?? []), ...HEADER_HINTS[key]]
-    return score + (findHeader(headers, names) ? 1 : 0)
+  const normalizedHeaders = headers.map(clean)
+  const baseScore = (Object.keys(HEADER_HINTS) as CsvColumnKey[]).reduce((score, key) => {
+    const profileMatch = findHeader(headers, profile.hints[key] ?? [])
+    const genericMatch = findHeader(headers, HEADER_HINTS[key])
+    return score + (profileMatch ? 3 : genericMatch ? 1 : 0)
   }, 0)
+  const cardScore = profile.kind === 'credit-card' && normalizedHeaders.some(header =>
+    /consumo|posteo|establecimiento|comercio|tarjeta|pago/.test(header))
+    ? 2
+    : 0
+  return baseScore + cardScore
 }
 
 function resolveProfile(headers: string[], bank: BankId): BankProfile | undefined {
@@ -222,19 +315,21 @@ export function parseBankCsv(
   overrides: CsvColumnMap = {},
 ): ImportedRow[] {
   const { lines, delimiter, headers } = parseCsv(csv)
-  const columns = analyzeBankCsv(csv, bank, overrides).columns
+  const analysis = analyzeBankCsv(csv, bank, overrides)
+  const columns = analysis.columns
   if (!columns.date || !columns.note || (!columns.amount && !columns.debit && !columns.credit)) {
     throw new Error('No pudimos detectar las columnas de fecha, monto y descripcion.')
   }
 
-  const known = new Set(existing.map(transactionFingerprint))
   return lines.slice(1).map(line => {
     const values = splitCsvLine(line, delimiter)
     const read = (header?: string) => header ? values[headers.indexOf(header)] ?? '' : ''
     const debit = Math.abs(parseNumber(read(columns.debit)))
     const credit = Math.abs(parseNumber(read(columns.credit)))
     const raw = parseNumber(read(columns.amount))
-    const signed = columns.amount ? raw : credit - debit
+    const signed = columns.amount
+      ? analysis.profile?.kind === 'credit-card' && raw > 0 ? -raw : raw
+      : credit - debit
     const note = read(columns.note).trim() || 'Movimiento importado'
     const date = normalizeDate(read(columns.date))
     const type = signed >= 0 ? 'income' as const : 'expense' as const
@@ -243,6 +338,6 @@ export function parseBankCsv(
     const categoryId = categories.some(category => category.id === rule && category.type === type)
       ? rule
       : categories.find(category => category.type === type)?.id
-    return { date, note, type, amount, categoryId, duplicate: known.has(transactionFingerprint({ date, amount, note })) }
+    return { date, note, type, amount, categoryId, duplicate: isDuplicateImportedRow(existing, { date, amount, note }) }
   }).filter(row => row.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(row.date))
 }

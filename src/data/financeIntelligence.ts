@@ -5,6 +5,7 @@ export interface SubscriptionInsight {
   merchant: string
   amount: number
   categoryId?: string
+  accountId?: string
   months: number
   confidence: number
   lastDate: string
@@ -37,6 +38,14 @@ export interface FinancialIntelligence {
   trends: TrendInsight[]
   recommendedMonthlySavings: number
   monthlyActions: string[]
+}
+
+export type AnomalySensitivity = 'strict' | 'balanced' | 'relaxed'
+
+const ANOMALY_SETTINGS: Record<AnomalySensitivity, { multiplier: number; deviations: number; minAmount: number }> = {
+  strict: { multiplier: 1.45, deviations: 1.5, minAmount: 300 },
+  balanced: { multiplier: 1.75, deviations: 2, minAmount: 500 },
+  relaxed: { multiplier: 2.25, deviations: 2.7, minAmount: 800 },
 }
 
 function normalizeMerchant(note: string): string {
@@ -88,11 +97,12 @@ export function detectSubscriptions(txns: Transaction[], mkey: string): Subscrip
     const recurringFlag = rows.some(tx => tx.recurring)
     if (distinctMonths.size < 3 && !recurringFlag) return []
     if (variance > 0.18 && !recurringFlag) return []
-    const [merchant, categoryId] = key.split('|')
+    const [merchant, categoryId, accountId] = key.split('|')
     return [{
       merchant,
       amount: avg,
       categoryId: categoryId || undefined,
+      accountId: accountId || undefined,
       months: distinctMonths.size,
       confidence: Math.min(98, Math.round((distinctMonths.size / 6) * 70 + (recurringFlag ? 25 : 0) + (1 - variance) * 20)),
       lastDate: rows.map(tx => tx.date).sort()[rows.length - 1] ?? '',
@@ -113,7 +123,8 @@ export function projectCashflow(txns: Transaction[], mkey: string, currentBalanc
   })
 }
 
-export function detectSpendingAnomalies(txns: Transaction[], mkey: string): SpendingAnomaly[] {
+export function detectSpendingAnomalies(txns: Transaction[], mkey: string, sensitivity: AnomalySensitivity = 'balanced'): SpendingAnomaly[] {
+  const setting = ANOMALY_SETTINGS[sensitivity]
   const historyMonths = lastMonthsFrom(mkey, 6)
   const monthTx = txForMonth(txns, mkey).filter(tx => tx.type === 'expense')
   const history = txns.filter(tx => tx.type === 'expense' && historyMonths.includes(monthKey(tx.date)) && monthKey(tx.date) !== mkey)
@@ -123,8 +134,8 @@ export function detectSpendingAnomalies(txns: Transaction[], mkey: string): Spen
     if (peerGroup.length < 3) return []
     const baseline = average(peerGroup.map(item => item.amount))
     const deviation = standardDeviation(peerGroup.map(item => item.amount))
-    const threshold = Math.max(baseline * 1.75, baseline + deviation * 2)
-    if (tx.amount < threshold || tx.amount < 500) return []
+    const threshold = Math.max(baseline * setting.multiplier, baseline + deviation * setting.deviations)
+    if (tx.amount < threshold || tx.amount < setting.minAmount) return []
     return [{ tx, baseline, multiplier: baseline ? tx.amount / baseline : 0, reason: `${normalizeMerchant(tx.note)} supera su patron habitual` }]
   }).sort((a, b) => b.multiplier - a.multiplier).slice(0, 5)
 }
@@ -178,8 +189,9 @@ export function generateFinancialIntelligence(params: {
   categories: Category[]
   mkey: string
   currentBalance: number
+  anomalySensitivity?: AnomalySensitivity
 }): FinancialIntelligence {
-  const { txns, categories, mkey, currentBalance } = params
+  const { txns, categories, mkey, currentBalance, anomalySensitivity = 'balanced' } = params
   const months = monthlySeries(txns, Number(mkey.slice(0, 4))).filter(month => month.key <= mkey)
   const activeMonths = months.filter(month => month.income > 0 || month.expense > 0).slice(-3)
   const avgIncome = average(activeMonths.map(month => month.income))
@@ -187,7 +199,7 @@ export function generateFinancialIntelligence(params: {
   const avgNet = avgIncome - avgExpense
   const subscriptions = detectSubscriptions(txns, mkey)
   const projections = projectCashflow(txns, mkey, currentBalance)
-  const anomalies = detectSpendingAnomalies(txns, mkey)
+  const anomalies = detectSpendingAnomalies(txns, mkey, anomalySensitivity)
   const trends = computeTrends(txns, categories, mkey)
   const recommendedMonthlySavings = Math.max(0, Math.round(Math.min(avgNet * 0.5, avgIncome * 0.2)))
 

@@ -11,6 +11,9 @@ interface SettingsState {
   authEnabled:       boolean   // false = sin login obligatorio
   overdraftPolicy:   OverdraftPolicy
   budgetAlertThresholds: number[]
+  anomalySensitivity: 'strict' | 'balanced' | 'relaxed'
+  releaseChannel: 'stable' | 'beta'
+  errorTelemetryEnabled: boolean
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -20,6 +23,9 @@ interface SettingsState {
   setAuthEnabled:       (v: boolean)    => void
   setOverdraftPolicy:   (v: OverdraftPolicy) => void
   setBudgetAlertThresholds: (v: number[]) => void
+  setAnomalySensitivity: (v: SettingsState['anomalySensitivity']) => void
+  setReleaseChannel: (v: SettingsState['releaseChannel']) => void
+  setErrorTelemetryEnabled: (v: boolean) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -33,6 +39,9 @@ export const useSettings = create<SettingsState>()(
       authEnabled:       false,   // por defecto sin login
       overdraftPolicy:   'warn',
       budgetAlertThresholds: [50, 80, 100],
+      anomalySensitivity: 'balanced',
+      releaseChannel: 'stable',
+      errorTelemetryEnabled: false,
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -42,6 +51,9 @@ export const useSettings = create<SettingsState>()(
       setAuthEnabled:       (authEnabled)       => set({ authEnabled }),
       setOverdraftPolicy:   (overdraftPolicy)   => set({ overdraftPolicy }),
       setBudgetAlertThresholds: (budgetAlertThresholds) => set({ budgetAlertThresholds }),
+      setAnomalySensitivity: (anomalySensitivity) => set({ anomalySensitivity }),
+      setReleaseChannel: (releaseChannel) => set({ releaseChannel }),
+      setErrorTelemetryEnabled: (errorTelemetryEnabled) => set({ errorTelemetryEnabled }),
     }),
     {
       name:    'sharky-settings-v2',

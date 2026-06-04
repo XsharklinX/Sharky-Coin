@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Icon } from '@/components/ui/Icon'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { toast } from '@/components/ui/Toast'
 import { fmtCompact, getAccount, getCategory, totals, txForMonth } from '@/data/helpers'
 import {
@@ -16,7 +17,6 @@ import {
 } from '@/data/bankCsv'
 import { createBackup, parseBackup } from '@/data/backup'
 import { recordAuditEvent } from '@/data/audit'
-import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
 import type { Transaction, ViewProps } from '@/types'
@@ -166,7 +166,7 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
         (tx.tags ?? []).join(' '),
         tx.amount,
       ])
-    const csv = [['Fecha','Tipo','Categoría','Cuenta','Nota','Tags','Monto'], ...rows]
+    const csv = [['Fecha','Tipo','Categoria','Cuenta','Nota','Tags','Monto'], ...rows]
       .map(r => r.map(String).map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
     const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }))
     Object.assign(document.createElement('a'), { href: url, download: `sharky-${mkey}${onlySelected ? '-seleccion' : ''}.csv` }).click()
@@ -190,8 +190,9 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
   const runExport = async (kind: 'excel' | 'pdf') => {
     setBusyExport(kind)
     try {
-      if (kind === 'excel') await exportExcel(useFinance.getState())
-      else await exportMonthlyPdf(useFinance.getState(), mkey, ownerName)
+      const exporter = await import('@/data/professionalExport')
+      if (kind === 'excel') await exporter.exportExcel(useFinance.getState())
+      else await exporter.exportMonthlyPdf(useFinance.getState(), mkey, ownerName)
       toast(`${kind === 'excel' ? 'Excel' : 'PDF'} exportado`, { icon: 'download', type: 'ok' })
     } catch (error) {
       toast(error instanceof Error ? error.message : 'No se pudo exportar el archivo.', { icon: 'alert' })
@@ -221,7 +222,7 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
             <button key={v} className={type === v ? 'on' : ''} onClick={() => setType(v)}>{l}</button>
           ))}
         </div>
-        <select aria-label="Categoría" className="select" value={cat} onChange={e => setCat(e.target.value)}>
+        <select aria-label="Categoria" className="select" value={cat} onChange={e => setCat(e.target.value)}>
           <option value="all">Todas las categorías</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -467,18 +468,23 @@ function CsvImportModal({ onClose, onConfirm }: {
   const skippedCount = rows.filter(r => r.skipped).length
 
   return (
-    <div className="modal-overlay" role="presentation" onMouseDown={onClose}>
-      <section className="modal csv-modal" role="dialog" aria-modal="true"
-        aria-labelledby="csv-title" onMouseDown={e => e.stopPropagation()}>
-        <header className="modal-head">
-          <div>
-            <h2 id="csv-title">Importar CSV bancario</h2>
-            <p className="card-copy">Revisa los movimientos antes de agregarlos.</p>
-          </div>
-          <button className="icon-btn" aria-label="Cerrar" onClick={onClose}>
-            <Icon name="close" size={16} />
+    <ModalShell
+      title="Importar CSV bancario"
+      eyebrow="Bancos dominicanos"
+      description="Detecta cuentas y tarjetas, revisa duplicados y confirma solo lo que quieres agregar."
+      icon="upload"
+      className="csv-modal"
+      maxWidth={860}
+      onClose={onClose}
+      footer={(
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" disabled={reading || !importable.length || !accountId}
+            onClick={() => onConfirm(rows, accountId)}>
+            Importar {importable.length || ''}
           </button>
-        </header>
+        </>
+      )}>
         <div className="field-row">
           <div className="field">
             <label htmlFor="csv-bank">Formato</label>
@@ -499,18 +505,18 @@ function CsvImportModal({ onClose, onConfirm }: {
           <input id="csv-file" className="select" type="file" accept=".csv,text/csv"
             onChange={e => readFile(e.target.files?.[0])} />
         </div>
-        {reading && <div className="inline-loading" role="status"><span className="spinner" /> Leyendo y detectando columnas…</div>}
+        {reading && <div className="inline-loading" role="status"><span className="spinner" /> Leyendo y detectando columnas...</div>}
         {analysis && (
           <div className="csv-detect-panel">
             <div>
               <b>{analysis.profile?.label ?? 'Formato detectado'}</b>
-              <span>{analysis.profile?.version ?? 'auto'} · {analysis.rowCount} filas · {analysis.confidence}% confianza</span>
+              <span>{analysis.profile?.kind === 'credit-card' ? 'Tarjeta' : analysis.profile?.kind === 'account' ? 'Cuenta' : 'Mixto'} · {analysis.profile?.version ?? 'auto'} · {analysis.rowCount} filas · {analysis.confidence}% confianza</span>
             </div>
             {analysis.profile?.notes && <p>{analysis.profile.notes}</p>}
             <div className="csv-map-grid">
               {(['date', 'note', 'amount', 'debit', 'credit'] as CsvColumnKey[]).map(key => (
                 <label key={key}>
-                  {key === 'date' ? 'Fecha' : key === 'note' ? 'Descripción' : key === 'amount' ? 'Monto firmado' : key === 'debit' ? 'Débito' : 'Crédito'}
+                  {key === 'date' ? 'Fecha' : key === 'note' ? 'Descripcion' : key === 'amount' ? 'Monto firmado' : key === 'debit' ? 'Debito' : 'Credito'}
                   <select className="select" value={mapping[key] ?? ''} onChange={event => changeMapping(key, event.target.value)}>
                     <option value="">Sin mapear</option>
                     {analysis.headers.map(header => <option key={`${key}-${header}`} value={header}>{header}</option>)}
@@ -524,13 +530,12 @@ function CsvImportModal({ onClose, onConfirm }: {
         {rows.length > 0 && (
           <>
             <div className="csv-summary">
-              <span>Conciliación: {duplicateCount} duplicados, {skippedCount} omitidos manualmente · </span>
+              <span>Conciliacion: {duplicateCount} duplicados, {skippedCount} omitidos manualmente · </span>
               <b>{importable.length}</b> listos · <b>{rows.length - importable.length}</b> duplicados omitidos
             </div>
             <div className="csv-preview">
               <table>
-                <thead className="csv-modern-head"><tr><th>Importar</th><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Monto</th><th>Estado</th></tr></thead>
-                <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Monto</th><th>Estado</th></tr></thead>
+                <thead className="csv-modern-head"><tr><th>Importar</th><th>Fecha</th><th>Descripcion</th><th>Categoria</th><th>Monto</th><th>Estado</th></tr></thead>
                 <tbody>
                   {rows.slice(0, 25).map((r, i) => (
                     <tr key={`${r.date}-${i}`}>
@@ -542,14 +547,14 @@ function CsvImportModal({ onClose, onConfirm }: {
                       <td>
                         <select className="select compact-select" value={r.categoryId ?? ''}
                           onChange={event => patchRow(i, { categoryId: event.target.value || undefined })}>
-                          <option value="">Sin categoría</option>
+                          <option value="">Sin categoria</option>
                           {categories.filter(category => category.type === r.type).map(category => (
                             <option key={category.id} value={category.id}>{category.name}</option>
                           ))}
                         </select>
                       </td>
                       <td>{categories.find(c => c.id === r.categoryId)?.name ?? '—'}</td>
-                      <td className={r.type}>{r.type === 'expense' ? '−' : '+'}{fmtCompact(r.amount, currency)}</td>
+                      <td className={r.type}>{r.type === 'expense' ? '-' : '+'}{fmtCompact(r.amount, currency)}</td>
                       <td>{r.duplicate ? 'Duplicado' : r.skipped ? 'Omitido' : 'Nuevo'}</td>
                     </tr>
                   ))}
@@ -558,14 +563,6 @@ function CsvImportModal({ onClose, onConfirm }: {
             </div>
           </>
         )}
-        <footer className="modal-actions">
-          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" disabled={reading || !importable.length || !accountId}
-            onClick={() => onConfirm(rows, accountId)}>
-            Importar {importable.length || ''}
-          </button>
-        </footer>
-      </section>
-    </div>
+    </ModalShell>
   )
 }

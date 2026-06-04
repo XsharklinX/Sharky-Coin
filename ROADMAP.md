@@ -1,7 +1,7 @@
 # $harky - Roadmap de v1.x
 
 Fecha de revision: 2026-06-02
-Version actual: 1.1.0
+Version actual: 1.4.0
 
 ## Diagnostico actual
 
@@ -89,13 +89,23 @@ Estado: completada como `v1.1.0`.
 
 Objetivo: reducir trabajo manual para usuarios dominicanos.
 
+Estado: completada como `v1.2.0`.
+
+### Cerrado en esta iteracion
+
+- Perfiles CSV separados para tarjetas de Banco Popular, BHD, Banreservas y Scotiabank.
+- Deteccion automatica mejorada para encabezados de tarjeta: fecha de consumo/posteo, comercio, consumos, cargos, pagos y abonos.
+- Conciliacion mas tolerante para tarjetas: mismo monto y comercio con hasta dos dias de diferencia entre fecha de consumo y posteo.
+- Normalizacion de descripciones bancarias eliminando ruido comun de POS, VISA, Mastercard, autorizaciones y referencias.
+- Modal de importacion CSV migrado al sistema comun `ModalShell`.
+- Vista previa CSV muestra si el perfil detectado es Cuenta, Tarjeta o Mixto.
+
 ### P1
 
-- Agregar plantillas CSV para tarjetas de credito.
-- Separar perfiles por banco, producto y moneda.
-- Mejorar aprendizaje de reglas: categoria por comercio, cuenta y monto aproximado.
-- Conciliacion avanzada con tolerancia de fecha y equivalencias de descripcion.
-- Importacion OFX/QFX como alternativa estandar.
+- Pendiente siguiente: separar perfiles por moneda cuando tengamos estados reales RD$/US$ por banco.
+- Pendiente siguiente: mejorar aprendizaje de reglas por comercio, cuenta y monto aproximado.
+- Pendiente siguiente: importar OFX/QFX como alternativa estandar.
+- Pendiente siguiente: guardar ejemplos anonimizados de formatos reales para ampliar fixtures.
 
 ### Criterio de salida
 
@@ -106,13 +116,23 @@ Objetivo: reducir trabajo manual para usuarios dominicanos.
 
 Objetivo: que la app explique el dinero, no solo lo registre.
 
+Estado: completada como `v1.3.0`.
+
+### Cerrado en esta iteracion
+
+- Ajuste de sensibilidad para gastos atipicos: alta, balanceada y baja.
+- Motor de inteligencia conectado a la sensibilidad elegida por el usuario.
+- Suscripciones detectadas accionables: se pueden convertir en recurrencias mensuales desde el Dashboard.
+- Reportes Excel con hoja de resumen ejecutivo, resumen anual, categoria, cuenta y hojas mensuales.
+- PDF mensual con identidad visual, resumen ejecutivo, KPI y categoria principal.
+- Resumen ejecutivo reutilizable y cubierto por prueba unitaria.
+- Roadmap interno del Dashboard actualizado hasta `v1.3`.
+
 ### P2
 
-- Ajuste de sensibilidad para gastos atipicos.
-- Panel para convertir suscripciones detectadas en recurrencias.
-- Reportes PDF con logo, identidad visual, resumen ejecutivo y detalle mensual.
-- Excel con hojas por mes, categoria, cuenta y resumen anual.
-- Comparativas utiles: este mes vs mes anterior, este ano vs ano anterior.
+- Pendiente siguiente: panel dedicado para editar una suscripcion antes de convertirla en recurrencia.
+- Pendiente siguiente: comparativas visuales avanzadas este mes vs mes anterior y este ano vs ano anterior.
+- Pendiente siguiente: plantilla PDF con portada y notas por categoria.
 
 ### Criterio de salida
 
@@ -123,18 +143,32 @@ Objetivo: que la app explique el dinero, no solo lo registre.
 
 Objetivo: mantener la app en produccion sin friccion.
 
+Estado: completada como `v1.4.0` para la parte implementable dentro del repo.
+
+### Cerrado en esta iteracion
+
+- Carga inicial optimizada con vistas principales bajo demanda.
+- Exportadores PDF, Excel y captura PNG aislados en chunks on-demand.
+- Chunks pesados nombrados y separados en Vite: Excel, PDF, captura, graficas e iconos.
+- PWA precache reducido excluyendo exports y graficas pesadas.
+- Changelog visible dentro de Configuracion.
+- Canal estable/beta guardado como preferencia operativa.
+- Telemetria local opcional para errores tecnicos, desactivada por defecto.
+- Error boundaries guardan diagnosticos locales cuando el usuario lo permite.
+- Proceso de release documentado en `docs/RELEASE.md`.
+
 ### P2
 
-- Auto-update firmado en Tauri.
-- Canal beta y canal estable.
-- Changelog visible dentro de la app.
-- Telemetria opcional y desactivable para errores tecnicos.
-- Proceso de release documentado: build, test, firma, hash, publicacion.
+- Pendiente externo: certificado de firma de codigo Windows.
+- Pendiente externo: hosting de update metadata para canal estable y beta.
+- Pendiente siguiente: conectar Tauri updater cuando existan firma y endpoint.
+- Pendiente siguiente: enviar diagnosticos opcionales a un backend propio con consentimiento explicito.
 
 ### Criterio de salida
 
-- Publicar una nueva version no requiere reinstalacion manual.
-- Los fallos reales se pueden diagnosticar sin leer reportes vagos del usuario.
+- Build sin warning de chunks de primera carga.
+- El usuario puede ver cambios de version dentro de la app.
+- Los fallos reales tienen diagnostico local exportable sin tracking por defecto.
 
 ## Deuda tecnica que no debe crecer
 

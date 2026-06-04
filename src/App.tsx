@@ -11,7 +11,6 @@ import { Welcome } from '@/modals/Welcome'
 import { AuthGate } from '@/modals/AuthGate'
 import { TransactionForm } from '@/modals/TransactionForm'
 import { SettingsModal } from '@/modals/SettingsModal'
-import { Dashboard, Transactions, Accounts, Budgets, Goals, Calendar } from '@/views'
 import { useAuth } from '@/store/auth'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -20,8 +19,14 @@ import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
-const Stats  = lazy(() => import('@/views/Stats').then(m => ({ default: m.Stats })))
-const Annual = lazy(() => import('@/views/Annual').then(m => ({ default: m.Annual })))
+const Dashboard    = lazy(() => import('@/views/Dashboard').then(m => ({ default: m.Dashboard })))
+const Transactions = lazy(() => import('@/views/Transactions').then(m => ({ default: m.Transactions })))
+const Accounts     = lazy(() => import('@/views/Accounts').then(m => ({ default: m.Accounts })))
+const Stats        = lazy(() => import('@/views/Stats').then(m => ({ default: m.Stats })))
+const Budgets      = lazy(() => import('@/views/Budgets').then(m => ({ default: m.Budgets })))
+const Goals        = lazy(() => import('@/views/Goals').then(m => ({ default: m.Goals })))
+const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default: m.Calendar })))
+const Annual       = lazy(() => import('@/views/Annual').then(m => ({ default: m.Annual })))
 
 const NAV: { id: ViewId; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { id: 'dashboard',    label: 'Inicio',          icon: 'grid'   },
@@ -41,7 +46,7 @@ const NAV_GROUPS = [
 
 const VIEWS: Record<ViewId, React.ComponentType<ViewProps>> = {
   dashboard: Dashboard, transactions: Transactions, accounts: Accounts,
-  stats: Stats, budgets: Budgets, goals: Goals, calendar: Calendar, annual: Annual,
+  stats: Stats, budgets: Budgets, goals: Goals, calendar: CalendarView, annual: Annual,
 }
 
 // Atajos de teclado para navegar por vista (1-8)

@@ -3149,7 +3149,7 @@ dependencies = [
 
 [[package]]
 name = "sharky"
-version = "1.1.0"
+version = "1.4.0"
 dependencies = [
  "keyring",
  "serde",

@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Icon } from './Icon'
+import { APP_VERSION } from '@/data/release'
+import { captureErrorReport } from '@/data/telemetry'
 
 interface Props {
   children: ReactNode
@@ -18,7 +20,15 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    this.setState({ diagnostic: makeDiagnostic('APP') })
+    const diagnostic = makeDiagnostic('APP')
+    this.setState({ diagnostic })
+    captureErrorReport({
+      scope: 'app',
+      diagnostic,
+      error,
+      componentStack: info.componentStack ?? undefined,
+      appVersion: APP_VERSION,
+    })
     console.error('Unhandled application error', error, info)
   }
 
@@ -48,7 +58,15 @@ export class ViewErrorBoundary extends Component<Props & { resetKey: string }, S
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    this.setState({ diagnostic: makeDiagnostic('VIEW') })
+    const diagnostic = makeDiagnostic('VIEW')
+    this.setState({ diagnostic })
+    captureErrorReport({
+      scope: 'view',
+      diagnostic,
+      error,
+      componentStack: info.componentStack ?? undefined,
+      appVersion: APP_VERSION,
+    })
     console.error('Unhandled view error', error, info)
   }
 
