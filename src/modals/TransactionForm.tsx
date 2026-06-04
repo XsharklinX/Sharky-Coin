@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -119,16 +120,25 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   }
 
   return (
-    <div className="modal-overlay" role="presentation" onMouseDown={onClose}>
-      <section className="modal" role="dialog" aria-modal="true"
-        aria-labelledby="tx-title" onMouseDown={e => e.stopPropagation()}>
-        <header className="modal-head">
-          <h2 id="tx-title">{editing ? 'Editar movimiento' : 'Nuevo movimiento'}</h2>
-          <button className="icon-btn" aria-label="Cerrar" onClick={onClose}>
-            <Icon name="close" size={16} />
+    <ModalShell
+      title={editing ? 'Editar movimiento' : 'Nuevo movimiento'}
+      eyebrow={editing ? 'Movimiento existente' : 'Registro financiero'}
+      description="Registra ingresos o gastos con cuenta, categoria, fecha y etiquetas."
+      icon={type === 'income' ? 'arrowUp' : 'arrowDn'}
+      onClose={onClose}
+      footer={(
+        <>
+          {editing && (
+            <button className="btn-danger" onClick={remove}>
+              <Icon name="trash" size={15} />Eliminar
+            </button>
+          )}
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={submit}>
+            {editing ? 'Guardar' : 'Agregar'}
           </button>
-        </header>
-
+        </>
+      )}>
         <div className="seg seg-lg" style={{ marginTop: 16 }}>
           <button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Gasto</button>
           <button className={type === 'income'  ? 'on' : ''} onClick={() => setType('income')}>Ingreso</button>
@@ -246,18 +256,6 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
           </div>
         )}
 
-        <footer className="modal-actions">
-          {editing && (
-            <button className="btn-danger" onClick={remove}>
-              <Icon name="trash" size={15} />Eliminar
-            </button>
-          )}
-          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" onClick={submit}>
-            {editing ? 'Guardar' : 'Agregar'}
-          </button>
-        </footer>
-      </section>
-    </div>
+    </ModalShell>
   )
 }

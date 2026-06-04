@@ -1,7 +1,7 @@
 # $harky - Roadmap de v1.x
 
 Fecha de revision: 2026-06-02
-Version actual: 1.0.1
+Version actual: 1.1.0
 
 ## Diagnostico actual
 
@@ -62,13 +62,22 @@ Estado: completada como `v1.0.1`.
 
 Objetivo: subir la calidad percibida sin meter deuda nueva.
 
+Estado: completada como `v1.1.0`.
+
+### Cerrado en esta iteracion
+
+- Sistema comun `ModalShell` con cierre por `Esc`, restauracion de foco, titulo, descripcion e icono.
+- Modal de transacciones migrado al sistema comun sin cambiar reglas financieras.
+- Modal de configuracion migrado al sistema comun y actualizado a `v1.1.0`.
+- Estilos base de modal renovados con header, contenido, footer y foco consistentes.
+- Roadmap interno actualizado para reflejar el salto a `v1.1.0`.
+
 ### P1
 
-- Crear un sistema unico para modales: cabecera, descripcion, footer, botones, validacion, loading y error.
-- Revisar todos los formularios: transacciones, cuentas, metas, categorias, backups y configuracion.
-- Auditoria visual de los cuatro temas con capturas comparativas.
-- Accesibilidad AA: navegacion por teclado, foco visible, labels, roles ARIA y contraste.
-- Mejorar la pantalla de conflictos cloud con comparacion lado a lado.
+- Pendiente siguiente: migrar cuentas, metas, categorias CSV y confirmaciones destructivas al mismo `ModalShell`.
+- Pendiente siguiente: auditoria visual de los cuatro temas con capturas comparativas.
+- Pendiente siguiente: accesibilidad AA completa con navegacion por teclado, labels, roles ARIA y contraste.
+- Pendiente siguiente: mejorar la pantalla de conflictos cloud con comparacion lado a lado.
 
 ### Criterio de salida
 

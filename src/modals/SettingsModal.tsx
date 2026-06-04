@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { toast } from '@/components/ui/Toast'
 import { useSettings } from '@/store/settings'
@@ -157,17 +158,14 @@ export function SettingsModal({ onClose }: Props) {
   }
 
   return (
-    <div className="modal-overlay" role="presentation" onMouseDown={onClose}>
-      <div className="modal settings-modal" role="dialog" aria-modal="true"
-        aria-labelledby="settings-title" onMouseDown={e => e.stopPropagation()}>
-
-        <header className="modal-head">
-          <h2 id="settings-title">Configuración</h2>
-          <button className="icon-btn" aria-label="Cerrar" onClick={onClose}>
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-
+    <ModalShell
+      title="Configuración"
+      eyebrow="Preferencias"
+      description="Ajusta apariencia, datos, cuenta, sincronizacion y recuperacion desde un solo lugar."
+      icon="settings"
+      className="settings-modal"
+      maxWidth={560}
+      onClose={onClose}>
         {/* tabs */}
         <div className="settings-tabs">
           {([
@@ -517,7 +515,7 @@ export function SettingsModal({ onClose }: Props) {
                   <div style={{ fontSize: 20, fontWeight: 800 }}>
                     <span style={{ color: 'var(--accent)' }}>$</span>harky
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v0.5 — Finanzas personales</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>v1.1.0 - Finanzas personales</div>
                 </div>
               </div>
 
@@ -530,19 +528,18 @@ export function SettingsModal({ onClose }: Props) {
                 </div>
               </SettingGroup>
 
-              <SettingGroup label="Próximamente">
+              <SettingGroup label="Roadmap">
                 <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7 }}>
-                  v0.5: Estabilidad visual y base de sincronización<br />
-                  v0.6: Inteligencia financiera y proyecciones<br />
-                  v0.7: Integraciones bancarias dominicanas<br />
-                  v1.0: App instalable, accesibilidad AA y pruebas E2E
+                  v1.0.1: Hotfix de release y migraciones<br />
+                  v1.1: UX profesional y accesibilidad<br />
+                  v1.2: Integraciones bancarias dominicanas<br />
+                  v1.3: Reportes e inteligencia financiera
                 </div>
               </SettingGroup>
             </>
           )}
         </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }
 
