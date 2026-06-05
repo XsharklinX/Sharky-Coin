@@ -4,7 +4,7 @@ import type { FinanceState } from '@/store/finance'
 export interface RecoverySnapshot {
   id: string
   createdAt: string
-  reason: 'auto' | 'manual'
+  reason: 'auto' | 'manual' | 'pre-restore'
   backup: FinanceBackup
 }
 
@@ -47,6 +47,6 @@ function isRecoverySnapshot(value: unknown): value is RecoverySnapshot {
   const snapshot = value as Partial<RecoverySnapshot>
   return typeof snapshot.id === 'string'
     && typeof snapshot.createdAt === 'string'
-    && ['auto', 'manual'].includes(snapshot.reason ?? '')
+    && ['auto', 'manual', 'pre-restore'].includes(snapshot.reason ?? '')
     && !!snapshot.backup
 }

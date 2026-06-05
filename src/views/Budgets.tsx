@@ -1,21 +1,28 @@
-import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Donut, Progress } from '@/components/ui/charts'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { currentMonthKey, fmtCompact, monthLabel, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
-import type { ViewProps } from '@/types'
+import type { Category, ViewProps } from '@/types'
 import { Card, CatBadge, Empty, MiniStat } from './shared'
 
-// ── Constantes ────────────────────────────────────────────
+// Constantes
 const CAT_COLORS = ['#6366f1','#2dd4bf','#f59e0b','#38bdf8','#c084fc','#f472b6','#fb7185','#facc15','#22c55e']
 const CAT_ICONS = ['home','cart','food','car','bolt','play','heart','bag','book','trend','wallet','laptop'] as const
 type CatIcon = typeof CAT_ICONS[number]
 
-export function Budgets({ txns, mkey }: ViewProps) {
+export function Budgets({ txns, mkey, createRequest }: ViewProps) {
   const { categories, currency, updateCategory, deleteCategory } = useFinance()
+  const { confirm } = useDialogs()
   const [addOpen, setAddOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'annual'>('monthly')
+
+  useEffect(() => {
+    if (createRequest?.target === 'category') setAddOpen(true)
+  }, [createRequest])
 
   const isCurrent   = mkey === currentMonthKey()
   const [yy, mm]    = mkey.split('-').map(Number)
@@ -59,6 +66,23 @@ export function Budgets({ txns, mkey }: ViewProps) {
   const pace = totalPct - timePct
   const paceLabel = pace > 10 ? '⚡ Acelerado' : pace < -10 ? '✓ Saludable' : '↔ Al ritmo'
   const paceColor = pace > 10 ? 'var(--expense)' : pace < -10 ? 'var(--income)' : 'var(--text-dim)'
+
+  const removeCategory = async (category: typeof cats[number]) => {
+    const ok = await confirm({
+      title: 'Eliminar categoría',
+      description: `Eliminarás "${category.name}" de tus presupuestos. Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar categoría',
+      icon: 'trash',
+      tone: 'danger',
+    })
+    if (!ok) return
+    try {
+      deleteCategory(category.id)
+      toast(`Categoría "${category.name}" eliminada`, { icon: 'trash' })
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'No se pudo eliminar la categoría.', { icon: 'alert' })
+    }
+  }
 
   return (
     <div className="view">
@@ -203,19 +227,16 @@ export function Budgets({ txns, mkey }: ViewProps) {
                   </div>
                 </div>
 
-                <button className="icon-btn" style={{ width: 30, height: 30, flexShrink: 0 }}
-                  title={`Eliminar ${c.name}`}
-                  onClick={() => {
-                    if (!window.confirm(`¿Eliminar la categoría "${c.name}"? Esta acción no se puede deshacer.`)) return
-                    try {
-                      deleteCategory(c.id)
-                      toast(`Categoría "${c.name}" eliminada`, { icon: 'trash' })
-                    } catch (error) {
-                      toast(error instanceof Error ? error.message : 'No se pudo eliminar la categoría.', { icon: 'alert' })
-                    }
-                  }}>
-                  <Icon name="close" size={14} />
-                </button>
+                <div className="budget-actions">
+                  <button className="icon-btn" title={`Editar ${c.name}`} aria-label={`Editar ${c.name}`}
+                    onClick={() => setEditingCategory(c)}>
+                    <Icon name="edit" size={14} />
+                  </button>
+                  <button className="icon-btn danger" title={`Eliminar ${c.name}`} aria-label={`Eliminar ${c.name}`}
+                    onClick={() => void removeCategory(c)}>
+                    <Icon name="trash" size={14} />
+                  </button>
+                </div>
               </div>
             )
           })}
@@ -229,21 +250,32 @@ export function Budgets({ txns, mkey }: ViewProps) {
       </Card>
 
       {/* Modal agregar categoría */}
-      {addOpen && <AddCategoryModal onClose={() => setAddOpen(false)} />}
+      {addOpen && <CategoryModal onClose={() => setAddOpen(false)} />}
+      {editingCategory && <CategoryModal category={editingCategory} onClose={() => setEditingCategory(null)} />}
     </div>
   )
 }
 
-// ── Modal nueva categoría ─────────────────────────────────
-function AddCategoryModal({ onClose }: { onClose: () => void }) {
-  const { addCategory } = useFinance()
-  const [name,   setName]   = useState('')
-  const [budget, setBudget] = useState('')
-  const [color,  setColor]  = useState(CAT_COLORS[0])
-  const [icon,   setIcon]   = useState<CatIcon>(CAT_ICONS[0])
+// Modal crear/editar categoría
+function CategoryModal({ category, onClose }: { category?: Category; onClose: () => void }) {
+  const { addCategory, updateCategory } = useFinance()
+  const [name,   setName]   = useState(category?.name ?? '')
+  const [budget, setBudget] = useState(category ? String(category.budget) : '')
+  const [color,  setColor]  = useState(category?.color ?? CAT_COLORS[0])
+  const [icon,   setIcon]   = useState<CatIcon>((category?.icon as CatIcon | undefined) ?? CAT_ICONS[0])
+  const isEditing = Boolean(category)
 
   const submit = () => {
     const cleanName = name.trim()
+    if (category) {
+      if (cleanName.length < 2 || !/[a-zA-Z]/.test(cleanName)) {
+        return toast('Escribe un nombre válido para la categoría.', { icon: 'alert' })
+      }
+      updateCategory(category.id, { name: cleanName, budget: Number(budget) || 0, color, icon })
+      toast(`Categoría "${cleanName}" actualizada`, { icon: 'edit', type: 'ok' })
+      onClose()
+      return
+    }
     if (cleanName.length < 2 || !/[a-zA-Záéíóúüñ]/.test(cleanName)) {
       return toast('Escribe un nombre válido para la categoría.', { icon: 'alert' })
     }
@@ -257,7 +289,7 @@ function AddCategoryModal({ onClose }: { onClose: () => void }) {
       <section className="modal" style={{ maxWidth: 440 }} role="dialog" aria-modal="true"
         aria-labelledby="add-cat-title" onMouseDown={e => e.stopPropagation()}>
         <header className="modal-head">
-          <h2 id="add-cat-title">Nueva categoría de gasto</h2>
+          <h2 id="add-cat-title">{isEditing ? 'Editar categoría' : 'Nueva categoría de gasto'}</h2>
           <button className="icon-btn" aria-label="Cerrar" onClick={onClose}>
             <Icon name="close" size={16} />
           </button>
@@ -313,7 +345,8 @@ function AddCategoryModal({ onClose }: { onClose: () => void }) {
         <footer className="modal-actions">
           <button className="btn-ghost" onClick={onClose}>Cancelar</button>
           <button className="btn-primary" onClick={submit}>
-            <Icon name="plus" size={15} />Crear categoría
+            <Icon name={isEditing ? 'edit' : 'plus'} size={15} />
+            {isEditing ? 'Guardar cambios' : 'Crear categoría'}
           </button>
         </footer>
       </section>
@@ -321,7 +354,7 @@ function AddCategoryModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ── Helpers de UI ─────────────────────────────────────────
+// Helpers de UI
 function BudgetStat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

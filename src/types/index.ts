@@ -135,4 +135,8 @@ export interface ViewProps {
   goto:        (view: ViewId) => void
   onEditTx:    (tx: Transaction) => void
   onDeleteTx?: (id: string) => void   // undo-aware delete desde App
+  createRequest?: {
+    target: 'account' | 'category' | 'goal'
+    nonce: number
+  }
 }

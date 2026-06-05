@@ -40,6 +40,7 @@ interface AuthState {
 
 const encoder = new TextEncoder()
 let authListenerAttached = false
+let deepLinkListenerAttached = false
 let desktopDeepLinkConsumed = false
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -93,17 +94,39 @@ function requireSupabase() {
   return supabase
 }
 
-async function consumeDesktopAuthDeepLink(): Promise<void> {
+async function handleAuthCallbackUrls(urls: string[] | null | undefined): Promise<boolean> {
+  if (!supabase || !urls?.length) return false
+  const callback = urls.find(url => url.startsWith('sharky://auth/callback'))
+  if (!callback) return false
+  const code = new URL(callback).searchParams.get('code')
+  if (!code) return false
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  if (error) throw new Error(error.message)
+  return true
+}
+
+async function consumeInitialAuthDeepLink(): Promise<void> {
   if (!supabase || !isTauri() || desktopDeepLinkConsumed) return
   desktopDeepLinkConsumed = true
   const { getCurrent } = await import('@tauri-apps/plugin-deep-link')
-  const urls = await getCurrent()
-  const callback = urls?.find(url => url.startsWith('sharky://auth/callback'))
-  if (!callback) return
-  const code = new URL(callback).searchParams.get('code')
-  if (!code) return
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
-  if (error) throw new Error(error.message)
+  await handleAuthCallbackUrls(await getCurrent())
+}
+
+async function attachRuntimeDeepLinkListener(setUser: (user: AuthUser) => void): Promise<void> {
+  if (!supabase || !isTauri() || deepLinkListenerAttached) return
+  deepLinkListenerAttached = true
+  const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
+  await onOpenUrl(async urls => {
+    try {
+      const handled = await handleAuthCallbackUrls(urls)
+      if (!handled) return
+      const { data, error } = await supabase!.auth.getSession()
+      if (error) throw new Error(error.message)
+      if (data.session?.user) setUser(mapCloudUser(data.session.user))
+    } catch (error) {
+      console.error('No se pudo completar el enlace de autenticación.', error)
+    }
+  })
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
@@ -133,7 +156,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
 
     try {
-      await consumeDesktopAuthDeepLink()
+      await attachRuntimeDeepLinkListener(user => set({ user, initialized: true, recoveryMode: false }))
+      await consumeInitialAuthDeepLink()
     } catch (error) {
       console.error('No se pudo completar el enlace de autenticación.', error)
     }

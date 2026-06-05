@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { makeDemo, makeEmpty, newId } from '@/data/seed'
+import { createRecoverySnapshot } from '@/data/recovery'
 import { useSettings } from '@/store/settings'
 import type { Account, Category, Transaction, Goal, GoalContribution, CurrencyCode, OverdraftPolicy } from '@/types'
 
@@ -87,6 +88,14 @@ export function applyImportedBalances(accounts: Account[], txs: Transaction[], p
     assertManualExpenseBalance(next, tx, policy)
     return applyBalance(next, tx, 1)
   }, accounts)
+}
+
+export function restoreFinanceDataWithSnapshot(
+  current: FinanceState,
+  data: Pick<FinanceState, 'accounts' | 'transactions' | 'categories' | 'goals' | 'goalContributions' | 'currency'>,
+): FinanceData {
+  createRecoverySnapshot(current, 'pre-restore')
+  return sanitizeFinanceData(data)
 }
 
 // ── Tipos del store ───────────────────────────────────────
@@ -263,7 +272,7 @@ export const useFinance = create<FinanceState>()(
       // ── Datos demo / vacío ─────────────────────────────
       startDemo:  () => set({ ...makeDemo(), goalContributions: [], currency: 'DOP' }),
       startEmpty: () => set({ ...makeEmpty(), goalContributions: [], currency: 'DOP' }),
-      restoreBackup: (data) => set(sanitizeFinanceData(data)),
+      restoreBackup: (data) => set(s => restoreFinanceDataWithSnapshot(s, data)),
     }),
     {
       name:    'sharky-finance-v2',

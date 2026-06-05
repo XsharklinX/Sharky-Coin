@@ -5,12 +5,12 @@ async function openDemo(page: Page) {
   const demo = page.getByRole('button', { name: 'Explorar con datos de ejemplo' })
   await demo.waitFor({ state: 'visible', timeout: 120_000 })
   await demo.click()
-  await expect(page.getByRole('heading', { name: 'Inicio' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^(Inicio|Mis finanzas)$/ })).toBeVisible()
 }
 
 test('recorre las ocho vistas sin caer en el error boundary', async ({ page }) => {
   await openDemo(page)
-  await expect(page.getByText('Agregar', { exact: true })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Crear' })).toBeVisible()
   for (const view of ['Transacciones', 'Cuentas', 'Estadísticas', 'Presupuestos', 'Metas', 'Calendario', 'Reporte anual', 'Inicio']) {
     await page.getByRole('button', { name: new RegExp(view) }).first().click()
     await expect(page.getByRole('heading', { name: view })).toBeVisible()
@@ -102,7 +102,46 @@ test('muestra estados vacíos profesionales y confirma acciones destructivas', a
   await page.getByLabel('Nombre de la meta').fill('Reserva')
   await page.getByLabel('Monto objetivo').fill('10000')
   await page.getByRole('button', { name: 'Crear meta' }).click()
-  page.on('dialog', dialog => dialog.dismiss())
   await page.getByRole('button', { name: 'Eliminar Reserva' }).click()
+  await expect(page.getByRole('dialog', { name: 'Eliminar meta' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancelar' }).click()
   await expect(page.getByRole('heading', { name: 'Reserva' })).toBeVisible()
+})
+
+test('el menú global de creación abre cada flujo principal', async ({ page }) => {
+  await openDemo(page)
+
+  await page.getByRole('button', { name: 'Crear' }).click()
+  await page.getByRole('dialog', { name: 'Crear nuevo' }).getByRole('button', { name: /Movimiento/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Nuevo movimiento' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cerrar' }).click()
+
+  await page.getByRole('button', { name: 'Crear' }).click()
+  await page.getByRole('dialog', { name: 'Crear nuevo' }).getByRole('button', { name: /^Cuenta/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Nueva cuenta' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cerrar' }).click()
+
+  await page.getByRole('button', { name: 'Crear' }).click()
+  await page.getByRole('dialog', { name: 'Crear nuevo' }).getByRole('button', { name: /Categoría/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Nueva categoría de gasto' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cerrar' }).click()
+
+  await page.getByRole('button', { name: 'Crear' }).click()
+  await page.getByRole('dialog', { name: 'Crear nuevo' }).getByRole('button', { name: /^Meta/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Crear una meta de ahorro' })).toBeVisible()
+})
+
+test('mantiene navegación y creación usables en viewport de teléfono', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 840 })
+  await openDemo(page)
+
+  await expect(page.locator('.sidebar')).toBeHidden()
+  await expect(page.getByRole('navigation', { name: /Navegaci/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Analítica' }).click()
+  await expect(page.getByRole('heading', { name: 'Analítica' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Agregar' }).click()
+  await expect(page.getByRole('heading', { name: 'Agregar', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: /^Movimiento / }).click()
+  await expect(page.getByRole('dialog', { name: 'Nuevo movimiento' })).toBeVisible()
 })

@@ -71,8 +71,20 @@ const ROADMAP = [
   {
     version: 'v1.4',
     name: 'Distribucion y operacion',
-    status: 'Actual',
+    status: 'Completado',
     features: ['Chunks bajo demanda', 'Changelog interno', 'Canal estable/beta', 'Diagnosticos locales'],
+  },
+  {
+    version: 'v1.5',
+    name: 'Datos y recuperacion',
+    status: 'Completado',
+    features: ['Snapshot pre-restore', 'Estado de datos', 'Fixtures legacy', 'Backups validados'],
+  },
+  {
+    version: 'v1.6',
+    name: 'UX profesional completa',
+    status: 'Actual',
+    features: ['Dialogos propios', 'Filtros guardados', 'Restores seguros', 'Cero prompts nativos'],
   },
 ]
 
@@ -383,7 +395,7 @@ export function Dashboard({ txns, mkey, goto, onEditTx }: ViewProps) {
         </div>
         <div className="roadmap-foot">
           <Icon name="check" size={15} />
-          v1.4 prepara la app para releases mas livianos, diagnosticables y mantenibles.
+          v1.6 elimina los dialogos nativos y unifica confirmaciones, filtros y restores.
         </div>
       </Card>
     </div>

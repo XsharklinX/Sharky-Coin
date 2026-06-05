@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AreaLine, Progress } from '@/components/ui/charts'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { fmtCompact, monthKeys, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import type { Account, AccountType, OverdraftPolicy, ViewProps } from '@/types'
@@ -11,8 +12,9 @@ import { Empty, MiniStat } from './shared'
 const COLORS = ['#3b82f6', '#22c55e', '#a78bfa', '#f59e0b', '#f472b6', '#38bdf8']
 const EMPTY_ACCOUNT: Omit<Account, 'id'> = { name: '', short: '', type: 'debit', color: COLORS[0], balance: 0, last4: null }
 
-export function Accounts({ txns }: ViewProps) {
+export function Accounts({ txns, createRequest }: ViewProps) {
   const { accounts, currency, addAccount, updateAccount, deleteAccount } = useFinance()
+  const { confirm } = useDialogs()
   const [editing, setEditing] = useState<Account | 'new' | null>(null)
   const [transferring, setTransferring] = useState(false)
   const keys = monthKeys(txns)
@@ -20,9 +22,20 @@ export function Accounts({ txns }: ViewProps) {
   const assets = accounts.filter(account => account.balance >= 0).reduce((sum, account) => sum + account.balance, 0)
   const debt = accounts.filter(account => account.balance < 0).reduce((sum, account) => sum + account.balance, 0)
 
-  const remove = (id: string) => {
+  useEffect(() => {
+    if (createRequest?.target === 'account') setEditing('new')
+  }, [createRequest])
+
+  const remove = async (id: string) => {
     const account = accounts.find(item => item.id === id)
-    if (!window.confirm(`¿Eliminar la cuenta "${account?.name ?? 'seleccionada'}"? Esta acción no se puede deshacer.`)) return
+    const ok = await confirm({
+      title: 'Eliminar cuenta',
+      description: `Eliminaras la cuenta "${account?.name ?? 'seleccionada'}". Esta accion no se puede deshacer.`,
+      confirmLabel: 'Eliminar cuenta',
+      icon: 'trash',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       deleteAccount(id)
       toast('Cuenta eliminada', { icon: 'trash', type: 'ok' })
@@ -66,7 +79,7 @@ export function Accounts({ txns }: ViewProps) {
   </div>
 }
 
-function AccountForm({ account, onClose, onSave, onDelete }: { account?: Account; onClose: () => void; onSave: (fields: Omit<Account, 'id'>) => void; onDelete: (id: string) => void }) {
+function AccountForm({ account, onClose, onSave, onDelete }: { account?: Account; onClose: () => void; onSave: (fields: Omit<Account, 'id'>) => void; onDelete: (id: string) => void | Promise<void> }) {
   const [fields, setFields] = useState<Omit<Account, 'id'>>(account ?? EMPTY_ACCOUNT)
   const patch = <K extends keyof typeof fields>(key: K, value: typeof fields[K]) => setFields(current => ({ ...current, [key]: value }))
   const submit = () => {
@@ -81,7 +94,7 @@ function AccountForm({ account, onClose, onSave, onDelete }: { account?: Account
     {fields.type === 'credit' && <div className="field"><label htmlFor="account-limit">Límite de crédito</label><input id="account-limit" className="select" type="number" value={fields.limit ?? ''} onChange={event => patch('limit', Number(event.target.value) || undefined)} /></div>}
     {fields.type !== 'credit' && <div className="field"><label htmlFor="account-overdraft">Política de sobregiro</label><select id="account-overdraft" className="select" value={fields.overdraftPolicy ?? ''} onChange={event => patch('overdraftPolicy', (event.target.value || undefined) as OverdraftPolicy | undefined)}><option value="">Usar configuración global</option><option value="block">Bloquear gastos sin saldo</option><option value="warn">Permitir con advertencia</option><option value="allow">Permitir sin advertencia</option></select></div>}
     <div className="color-list" aria-label="Color de la cuenta">{COLORS.map(color => <button aria-label={`Usar color ${color}`} className={fields.color === color ? 'selected' : ''} key={color} onClick={() => patch('color', color)} style={{ background: color }} />)}</div>
-    <footer className="modal-actions">{account && <button className="btn-danger" onClick={() => onDelete(account.id)}><Icon name="trash" size={15} /> Eliminar</button>}<button className="btn-ghost" onClick={onClose}>Cancelar</button><button className="btn-primary" onClick={submit}>Guardar</button></footer>
+    <footer className="modal-actions">{account && <button className="btn-danger" onClick={() => void onDelete(account.id)}><Icon name="trash" size={15} /> Eliminar</button>}<button className="btn-ghost" onClick={onClose}>Cancelar</button><button className="btn-primary" onClick={submit}>Guardar</button></footer>
   </section></div>
 }
 

@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.4.0'
+export const APP_VERSION = '1.6.0'
 
 export interface ReleaseNote {
   version: string
@@ -8,6 +8,26 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: '1.6.0',
+    date: '2026-06-04',
+    title: 'UX profesional completa',
+    items: [
+      'Dialogos propios para confirmaciones destructivas.',
+      'Filtro guardado con modal de texto propio.',
+      'Cero dialogos nativos del navegador en flujos de usuario.',
+    ],
+  },
+  {
+    version: '1.5.0',
+    date: '2026-06-04',
+    title: 'Calidad de datos y recuperacion',
+    items: [
+      'Snapshot automatico antes de restaurar backups.',
+      'Estado de datos visible en Configuracion.',
+      'Pruebas de fixtures legacy, backups corruptos y restauracion segura.',
+    ],
+  },
   {
     version: '1.4.0',
     date: '2026-06-03',

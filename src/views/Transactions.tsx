@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Icon } from '@/components/ui/Icon'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { fmtCompact, getAccount, getCategory, totals, txForMonth } from '@/data/helpers'
 import {
   BANKS,
@@ -36,6 +37,7 @@ const readSavedFilters = (): SavedFilter[] => {
 // ── Componente principal ─────────────────────────────────
 export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
   const { categories, accounts, currency, importTxs, deleteTx, updateTx, restoreBackup } = useFinance()
+  const { confirm, prompt } = useDialogs()
   const ownerName   = useAuth(s => s.user?.name ?? 'Usuario')
   const backupRef   = useRef<HTMLInputElement>(null)
   const listRef     = useRef<HTMLDivElement>(null)
@@ -69,8 +71,15 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
   }), [monthTx, type, cat, tagFilter, query, categories])
 
   const t = totals(filtered)
-  const saveCurrentFilter = () => {
-    const name = window.prompt('Nombre para este filtro:')
+  const saveCurrentFilter = async () => {
+    const name = await prompt({
+      title: 'Guardar filtro',
+      description: 'Guarda la búsqueda y los filtros activos para reutilizarlos luego.',
+      label: 'Nombre del filtro',
+      placeholder: 'Ej. Gastos de tarjeta',
+      confirmLabel: 'Guardar filtro',
+      icon: 'tag',
+    })
     if (!name?.trim()) return
     const next = [...savedFilters.filter(filter => filter.name !== name.trim()), { name: name.trim(), query, type, cat, tagFilter }]
     localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(next)); setSavedFilters(next)
@@ -138,8 +147,15 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
   const selectAll  = () => setSelected(new Set(filtered.map(t => t.id)))
   const clearSel   = () => { setSelected(new Set()); setLastSelected(null) }
 
-  const bulkDelete = () => {
-    if (!window.confirm(`¿Eliminar ${selected.size} movimiento${selected.size > 1 ? 's' : ''}?`)) return
+  const bulkDelete = async () => {
+    const ok = await confirm({
+      title: 'Eliminar movimientos',
+      description: `Eliminaras ${selected.size} movimiento${selected.size > 1 ? 's' : ''} seleccionado${selected.size > 1 ? 's' : ''}. Esta accion no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      icon: 'trash',
+      tone: 'danger',
+    })
+    if (!ok) return
     selected.forEach(id => deleteTx(id))
     toast(`${selected.size} eliminados`, { icon: 'trash' })
     clearSel()
@@ -181,7 +197,18 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
   }
 
   const importBackup = async (file?: File) => {
-    if (!file || !window.confirm('Este backup reemplazará todos los datos. ¿Deseas continuar?')) return
+    if (!file) return
+    const ok = await confirm({
+      title: 'Restaurar backup',
+      description: 'Este backup reemplazara todos los datos actuales. Revisa que sea el archivo correcto antes de continuar.',
+      confirmLabel: 'Restaurar backup',
+      icon: 'upload',
+      tone: 'danger',
+    })
+    if (!ok) {
+      if (backupRef.current) backupRef.current.value = ''
+      return
+    }
     try { restoreBackup(parseBackup(await file.text())); recordAuditEvent('backup', 'Backup JSON restaurado'); toast('Backup restaurado', { icon: 'download', type: 'ok' }) }
     catch (e) { toast(e instanceof Error ? e.message : 'No se pudo restaurar el backup.', { icon: 'alert' }) }
     finally { if (backupRef.current) backupRef.current.value = '' }
@@ -210,7 +237,7 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
           <option value="">Filtros guardados...</option>
           {savedFilters.map(filter => <option key={filter.name} value={filter.name}>{filter.name}</option>)}
         </select>
-        <button className="btn-ghost" onClick={saveCurrentFilter}><Icon name="plus" size={14} />Guardar filtro</button>
+        <button className="btn-ghost" onClick={() => void saveCurrentFilter()}><Icon name="plus" size={14} />Guardar filtro</button>
         {activeSavedFilter && <button className="btn-ghost" onClick={deleteSavedFilter}><Icon name="trash" size={14} />Eliminar filtro</button>}
         <div className="search">
           <Icon name="search" size={16} />
@@ -244,7 +271,7 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
             <Icon name="upload" size={14} />Restaurar
           </button>
           <input ref={backupRef} className="sr-only" type="file" accept=".json"
-            aria-label="Restaurar backup" onChange={e => importBackup(e.target.files?.[0])} />
+            aria-label="Restaurar backup" onChange={e => void importBackup(e.target.files?.[0])} />
         </div>
       </div>
 
@@ -284,7 +311,7 @@ export function Transactions({ txns, mkey, onEditTx }: ViewProps) {
           <button className="btn-ghost" onClick={() => exportCSV(true)}>
             <Icon name="download" size={14} />Exportar selección
           </button>
-          <button className="btn-danger" onClick={bulkDelete}>
+          <button className="btn-danger" onClick={() => void bulkDelete()}>
             <Icon name="trash" size={14} />Eliminar
           </button>
           <button className="icon-btn" onClick={clearSel} title="Cancelar selección">

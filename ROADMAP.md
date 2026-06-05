@@ -1,7 +1,7 @@
 # $harky - Roadmap de v1.x
 
 Fecha de revision: 2026-06-02
-Version actual: 1.4.0
+Version actual: 1.6.0
 
 ## Diagnostico actual
 
@@ -17,7 +17,7 @@ El riesgo principal ya no es "faltan pantallas". El riesgo esta en calidad de re
 | P0 | Datos | No hay pruebas de migracion entre versiones antiguas y v1.0 | Un usuario con datos viejos puede encontrar estados inconsistentes tras actualizar. |
 | P0 | Cloud | Falta validacion manual completa del flujo cloud dentro del `.exe` final | El navegador web puede pasar, pero Tauri tiene diferencias en deep links, storage seguro y permisos. |
 | P0 | Recuperacion | Restaurar backups cloud/local necesita pruebas E2E completas | Es una funcion critica; debe cubrir corrupcion, frase incorrecta y restore exitoso. |
-| P1 | UX | Los modales principales aun no comparten un sistema unico de layout y estados | La app funciona, pero algunos flujos se sienten menos consistentes que el resto. |
+| P1 | UX | Falta completar microcopy y estados de error por vista | La app ya no usa dialogos nativos, pero algunos mensajes pueden ser mas explicativos. |
 | P1 | UI | Falta una auditoria visual completa por tema: claro, oscuro, pizarra y sistema | Ya hay cobertura E2E, pero no comparacion visual automatica. |
 | P1 | Accesibilidad | Falta checklist AA completo con teclado, foco visible y lector de pantalla | Puede bloquear usuarios y reduce calidad percibida. |
 | P1 | Sync | Conflictos cloud visibles, pero falta una pantalla dedicada para resolverlos con contexto | El sistema evita sobrescrituras silenciosas, pero la resolucion aun puede mejorar. |
@@ -170,6 +170,54 @@ Estado: completada como `v1.4.0` para la parte implementable dentro del repo.
 - El usuario puede ver cambios de version dentro de la app.
 - Los fallos reales tienen diagnostico local exportable sin tracking por defecto.
 
+## v1.5 - Calidad de datos y recuperacion
+
+Objetivo: que ningun usuario pierda datos ni quede bloqueado al actualizar o restaurar.
+
+Estado: completada como `v1.5.0`.
+
+### Cerrado en esta iteracion
+
+- Snapshot automatico antes de cualquier restauracion de backup local o cloud.
+- Estado de datos visible en Configuracion: cuentas, movimientos, categorias, metas, recovery, backup cloud y sync.
+- Razones de recovery diferenciadas, incluyendo puntos creados antes de restore.
+- Fixtures legacy anonimizados para versiones tempranas.
+- Pruebas de backups corruptos, referencias invalidas, fixtures legacy y restore seguro.
+- Changelog actualizado a `v1.5.0`.
+
+### Pendiente siguiente
+
+- E2E con dialogo de archivo nativo dentro del `.exe`.
+- Smoke manual cloud con cuenta real de Supabase.
+- Fixture reales adicionales de usuarios anonimizados.
+
+### Criterio de salida
+
+- Un restore crea snapshot previo antes de reemplazar datos.
+- Un backup corrupto no modifica datos actuales.
+- La app muestra al usuario el estado basico de seguridad de sus datos.
+
+## v1.6 - UX profesional completa
+
+Objetivo: eliminar dialogos nativos del navegador y unificar confirmaciones criticas.
+
+Estado: completada como `v1.6.0`.
+
+### Cerrado en esta iteracion
+
+- `window.confirm` eliminado de flujos de usuario.
+- `window.prompt` eliminado del guardado de filtros.
+- Sistema reutilizable de dialogos en `DialogProvider`.
+- Confirmaciones destructivas migradas en cuentas, presupuestos, metas, backups, recovery y transacciones en lote.
+- Prueba E2E actualizada para validar el modal propio de eliminacion de metas.
+- Changelog actualizado a `v1.6.0`.
+
+### Pendiente siguiente
+
+- Resolver conflictos cloud con comparacion lado a lado.
+- Auditoria visual automatizada por tema y viewport.
+- E2E completo de restore cloud/local con fixtures reales.
+
 ## Deuda tecnica que no debe crecer
 
 - Mantener los componentes en `src/views/` como TypeScript real, sin volver a JSX heredado.
@@ -186,3 +234,4 @@ Estado: completada como `v1.4.0` para la parte implementable dentro del repo.
 3. Avanzar importacion bancaria real en v1.2.
 4. Pulir reportes e inteligencia financiera en v1.3.
 5. Automatizar actualizaciones y operacion en v1.4.
+6. Reforzar datos, backups y recovery en v1.5.

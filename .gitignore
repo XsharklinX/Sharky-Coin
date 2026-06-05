@@ -6,7 +6,14 @@ dist/
 
 # Rust / Tauri build output
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/*
+!src-tauri/gen/android/
+!src-tauri/gen/android/**
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/**/build/
+src-tauri/gen/android/**/.cxx/
+src-tauri/gen/android/**/local.properties
+src-tauri/gen/android/**/tauri.properties
 
 # Packaged Windows artifacts
 release/

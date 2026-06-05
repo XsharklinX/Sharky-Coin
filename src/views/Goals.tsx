@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Progress } from '@/components/ui/charts'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import type { Goal, ViewProps } from '@/types'
@@ -39,14 +40,16 @@ function estimateCompletion(goal: Goal, transactions: import('@/types').Transact
   return targetDate.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' })
 }
 
-export function Goals(_: ViewProps) {
-  const { goals, accounts, currency, transactions, goalContributions, addGoal, deleteGoal, contribute } = useFinance()
+export function Goals({ createRequest }: ViewProps) {
+  const { goals, accounts, currency, transactions, goalContributions, addGoal, updateGoal, deleteGoal, contribute } = useFinance()
+  const { confirm } = useDialogs()
   const [createOpen, setCreateOpen] = useState(false)
   const [name,       setName]       = useState('')
   const [target,     setTarget]     = useState('')
   const [deadline,   setDeadline]   = useState('')
   const [color,      setColor]      = useState('#38bdf8')
   const [selected,  setSelected]  = useState<Goal | null>(null)
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [amount,    setAmount]    = useState('')
   const [accountId, setAccountId] = useState('')
   const [contributionNote, setContributionNote] = useState('')
@@ -54,6 +57,10 @@ export function Goals(_: ViewProps) {
   const available = accounts.filter(a => a.type !== 'credit')
   const totalSaved  = goals.reduce((s, g) => s + g.saved,  0)
   const totalTarget = goals.reduce((s, g) => s + g.target, 0)
+
+  useEffect(() => {
+    if (createRequest?.target === 'goal') setCreateOpen(true)
+  }, [createRequest])
 
   const create = () => {
     const v = Number(target)
@@ -81,6 +88,19 @@ export function Goals(_: ViewProps) {
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo registrar el aporte.', { icon: 'target' })
     }
+  }
+
+  const removeGoal = async (goal: Goal) => {
+    const ok = await confirm({
+      title: 'Eliminar meta',
+      description: `Eliminarás la meta "${goal.name}". Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar meta',
+      icon: 'trash',
+      tone: 'danger',
+    })
+    if (!ok) return
+    deleteGoal(goal.id)
+    toast('Meta eliminada', { icon: 'trash' })
   }
 
   return (
@@ -145,14 +165,16 @@ export function Goals(_: ViewProps) {
                           : 'Sin fecha límite'}
                   </small>
                 </div>
-                <button className="icon-btn" style={{ width: 30, height: 30 }}
-                  aria-label={`Eliminar ${goal.name}`}
-                  onClick={() => {
-                    if (!window.confirm(`¿Eliminar la meta "${goal.name}"? Esta acción no se puede deshacer.`)) return
-                    deleteGoal(goal.id); toast('Meta eliminada', { icon: 'trash' })
-                  }}>
-                  <Icon name="trash" size={15} />
-                </button>
+                <div className="goal-actions">
+                  <button className="icon-btn" aria-label={`Editar ${goal.name}`}
+                    onClick={() => setEditingGoal(goal)}>
+                    <Icon name="edit" size={15} />
+                  </button>
+                  <button className="icon-btn danger" aria-label={`Eliminar ${goal.name}`}
+                    onClick={() => void removeGoal(goal)}>
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
               </div>
 
               <div style={{ margin: '14px 0 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -257,6 +279,18 @@ export function Goals(_: ViewProps) {
       )}
 
       {/* modal contribución */}
+      {editingGoal && (
+        <EditGoalModal
+          goal={editingGoal}
+          onClose={() => setEditingGoal(null)}
+          onSave={(fields) => {
+            updateGoal(editingGoal.id, fields)
+            toast(`Meta "${fields.name ?? editingGoal.name}" actualizada`, { icon: 'edit', type: 'ok' })
+            setEditingGoal(null)
+          }}
+        />
+      )}
+
       {selected && (
         <div className="modal-overlay" role="presentation" onMouseDown={() => setSelected(null)}>
           <section className="modal" style={{ maxWidth: 400 }} role="dialog" aria-modal="true"
@@ -294,6 +328,97 @@ export function Goals(_: ViewProps) {
           </section>
         </div>
       )}
+    </div>
+  )
+}
+
+function EditGoalModal({
+  goal,
+  onClose,
+  onSave,
+}: {
+  goal: Goal
+  onClose: () => void
+  onSave: (fields: Partial<Goal>) => void
+}) {
+  const [name, setName] = useState(goal.name)
+  const [target, setTarget] = useState(String(goal.target))
+  const [deadline, setDeadline] = useState(goal.deadline ?? '')
+  const [color, setColor] = useState(goal.color)
+
+  const save = () => {
+    const cleanName = name.trim()
+    const targetValue = Number(target)
+    if (cleanName.length < 2 || targetValue <= 0) {
+      return toast('Ingresa un nombre y un objetivo valido.', { icon: 'target' })
+    }
+    onSave({
+      name: cleanName,
+      target: targetValue,
+      deadline: deadline || undefined,
+      color,
+    })
+  }
+
+  return (
+    <div className="modal-overlay" role="presentation" onMouseDown={onClose}>
+      <section className="modal goal-create-modal" role="dialog" aria-modal="true"
+        aria-labelledby="goal-edit-title" onMouseDown={event => event.stopPropagation()}>
+        <header className="modal-head">
+          <div className="modal-title-wrap">
+            <span className="modal-title-icon"><Icon name="edit" size={19} /></span>
+            <div>
+              <span className="section-eyebrow">Objetivo de ahorro</span>
+              <h2 id="goal-edit-title">Editar meta</h2>
+            </div>
+          </div>
+          <button className="icon-btn" aria-label="Cerrar" onClick={onClose}>
+            <Icon name="close" size={16} />
+          </button>
+        </header>
+
+        <div className="field">
+          <label htmlFor="goal-edit-name">Nombre de la meta</label>
+          <input id="goal-edit-name" autoFocus className="select" value={name}
+            onChange={event => setName(event.target.value)}
+            onKeyDown={event => event.key === 'Enter' && save()} />
+        </div>
+
+        <div className="field">
+          <label htmlFor="goal-edit-target">Monto objetivo</label>
+          <div className="amount-field">
+            <span>RD$</span>
+            <input id="goal-edit-target" type="number" inputMode="decimal" value={target}
+              onChange={event => setTarget(event.target.value)}
+              onKeyDown={event => event.key === 'Enter' && save()} />
+          </div>
+        </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="goal-edit-deadline">Fecha objetivo <em>opcional</em></label>
+            <input id="goal-edit-deadline" className="select" type="date" value={deadline}
+              onChange={event => setDeadline(event.target.value)} />
+          </div>
+          <div className="field">
+            <label>Color de identificacion</label>
+            <div className="goal-color-list" aria-label="Color de la meta">
+              {['#38bdf8', '#22c55e', '#a78bfa', '#f59e0b', '#f43f5e'].map(option => (
+                <button key={option} type="button" className={color === option ? 'selected' : ''}
+                  style={{ background: option }} aria-label={`Usar color ${option}`}
+                  aria-pressed={color === option} onClick={() => setColor(option)} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <footer className="modal-actions">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save}>
+            <Icon name="edit" size={15} />Guardar cambios
+          </button>
+        </footer>
+      </section>
     </div>
   )
 }

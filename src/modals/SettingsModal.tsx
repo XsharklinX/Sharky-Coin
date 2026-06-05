@@ -3,10 +3,12 @@ import { Icon } from '@/components/ui/Icon'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { useSettings } from '@/store/settings'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
 import { createBackup, parseBackup } from '@/data/backup'
+import { getDataHealthStatus } from '@/data/dataHealth'
 import { listAuditEvents, recordAuditEvent } from '@/data/audit'
 import { createRecoverySnapshot, listRecoverySnapshots, readRecoverySnapshot } from '@/data/recovery'
 import { useCloudSync } from '@/data/cloudSync'
@@ -35,6 +37,7 @@ export function SettingsModal({ onClose }: Props) {
   const s        = useSettings()
   const finance  = useFinance()
   const { user, logout } = useAuth()
+  const { confirm } = useDialogs()
   const cloudSync = useCloudSync()
   const cloudBackup = useCloudBackup()
   const [backupPassphrase, setBackupPassphrase] = useState('')
@@ -47,6 +50,7 @@ export function SettingsModal({ onClose }: Props) {
   const [errorReports, setErrorReports] = useState(listErrorReports)
   const [rulePattern, setRulePattern] = useState('')
   const [ruleCategoryId, setRuleCategoryId] = useState('')
+  const dataHealth = getDataHealthStatus(finance, user?.mode === 'cloud' ? user.id : undefined)
 
   const refreshRecovery = () => setSnapshots(listRecoverySnapshots())
   const refreshAudit = () => setAuditEvents(listAuditEvents())
@@ -92,16 +96,23 @@ export function SettingsModal({ onClose }: Props) {
     toast('Punto de recuperación creado', { icon: 'check', type: 'ok' })
   }
 
-  const restoreRecoveryPoint = (id: string) => {
-    if (!window.confirm('Este punto de recuperación reemplazará los datos actuales. ¿Deseas continuar?')) return
+  const restoreRecoveryPoint = async (id: string) => {
+    const ok = await confirm({
+      title: 'Restaurar punto de recuperacion',
+      description: 'Este punto reemplazara tus datos actuales. Se recomienda exportar un backup si tienes dudas.',
+      confirmLabel: 'Restaurar punto',
+      icon: 'refresh',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       finance.restoreBackup(readRecoverySnapshot(id))
-      recordAuditEvent('recovery', 'Punto de recuperación restaurado')
+      recordAuditEvent('recovery', 'Punto de recuperacion restaurado')
       refreshAudit()
       toast('Datos recuperados correctamente', { icon: 'refresh', type: 'ok' })
       onClose()
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'No se pudo restaurar el punto de recuperación.', { icon: 'alert' })
+      toast(error instanceof Error ? error.message : 'No se pudo restaurar el punto de recuperacion.', { icon: 'alert' })
     }
   }
 
@@ -149,7 +160,14 @@ export function SettingsModal({ onClose }: Props) {
   }
 
   const restoreCloudBackup = async (path: string) => {
-    if (!window.confirm('Este backup cloud reemplazará los datos actuales. ¿Deseas continuar?')) return
+    const ok = await confirm({
+      title: 'Restaurar backup cloud',
+      description: 'Este backup cloud reemplazara los datos actuales de la app en este dispositivo.',
+      confirmLabel: 'Restaurar backup',
+      icon: 'refresh',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       await cloudBackup.restore(path)
       refreshAudit()
@@ -275,6 +293,42 @@ export function SettingsModal({ onClose }: Props) {
                 <p className="setting-hint">Elige cuándo recibir avisos antes de exceder el límite mensual.</p>
               </SettingGroup>
 
+              <SettingGroup label="Estado de datos">
+                <div className="recovery-list">
+                  <div className="recovery-item">
+                    <div>
+                      <b>{dataHealth.accounts} cuentas</b>
+                      <span>{dataHealth.transactions} movimientos - {dataHealth.categories} categorias - {dataHealth.goals} metas</span>
+                    </div>
+                  </div>
+                  <div className="recovery-item">
+                    <div>
+                      <b>Recovery local</b>
+                      <span>{dataHealth.recoveryPoints} puntos{dataHealth.lastRecoveryAt ? ` - ultimo ${formatLocalDate(dataHealth.lastRecoveryAt)}` : ''}</span>
+                    </div>
+                  </div>
+                  <div className="recovery-item">
+                    <div>
+                      <b>Backup cloud</b>
+                      <span>{dataHealth.lastCloudBackupAt ? formatLocalDate(dataHealth.lastCloudBackupAt) : 'Sin backup cloud registrado en este equipo'}</span>
+                    </div>
+                  </div>
+                  <div className="recovery-item">
+                    <div>
+                      <b>Sincronizacion</b>
+                      <span>{dataHealth.lastSyncAt ? formatLocalDate(dataHealth.lastSyncAt) : 'Sin sincronizacion cloud registrada'}</span>
+                    </div>
+                  </div>
+                </div>
+                {dataHealth.warnings.length > 0 && (
+                  <div className="sync-conflicts">
+                    <b>Revisar antes de restaurar</b>
+                    {dataHealth.warnings.map(warning => <span key={warning}>{warning}</span>)}
+                  </div>
+                )}
+                <p className="setting-hint">Antes de cualquier restore se crea automaticamente un punto local con tus datos actuales.</p>
+              </SettingGroup>
+
               <SettingGroup label="Sensibilidad de inteligencia financiera">
                 <select className="select" value={s.anomalySensitivity}
                   onChange={event => s.setAnomalySensitivity(event.target.value as typeof s.anomalySensitivity)}>
@@ -336,9 +390,9 @@ export function SettingsModal({ onClose }: Props) {
                       <div className="recovery-item" key={snapshot.id}>
                         <div>
                           <b>{formatLocalDate(snapshot.createdAt)}</b>
-                          <span>{snapshot.reason === 'manual' ? 'Creado manualmente' : 'Snapshot automático'}</span>
+                          <span>{snapshot.reason === 'manual' ? 'Creado manualmente' : snapshot.reason === 'pre-restore' ? 'Antes de restaurar backup' : 'Snapshot automatico'}</span>
                         </div>
-                        <button className="btn-ghost" onClick={() => restoreRecoveryPoint(snapshot.id)}>Restaurar</button>
+                        <button className="btn-ghost" onClick={() => void restoreRecoveryPoint(snapshot.id)}>Restaurar</button>
                       </div>
                     ))}
                   </div>

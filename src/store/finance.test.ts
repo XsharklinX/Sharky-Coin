@@ -1,11 +1,23 @@
-import { describe, expect, it } from 'vitest'
-import { applyImportedBalances, assertAvailableBalance, canDeleteAccount, canDeleteCategory, sanitizeFinanceData } from './finance'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { applyImportedBalances, assertAvailableBalance, canDeleteAccount, canDeleteCategory, restoreFinanceDataWithSnapshot, sanitizeFinanceData } from './finance'
+import { listRecoverySnapshots } from '@/data/recovery'
 import type { Account, Transaction } from '@/types'
+import type { FinanceState } from './finance'
 
 const accounts: Account[] = [
   { id: 'cash', name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: 500, last4: null },
   { id: 'credit', name: 'Tarjeta', short: 'Credito', type: 'credit', color: '#fff', balance: -100, last4: '1234', limit: 1000 },
 ]
+
+function installMemoryStorage() {
+  const values = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    removeItem: (key: string) => values.delete(key),
+    setItem: (key: string, value: string) => values.set(key, value),
+  })
+}
 
 describe('assertAvailableBalance', () => {
   it('permite usar saldo disponible', () => {
@@ -108,5 +120,35 @@ describe('sanitizeFinanceData', () => {
     })
     expect(data.categories.map(category => category.id)).toEqual(['food'])
     expect(data.transactions.map(transaction => transaction.id)).toEqual(['valid'])
+  })
+})
+
+describe('restoreFinanceDataWithSnapshot', () => {
+  beforeEach(installMemoryStorage)
+
+  it('crea un punto de recuperacion antes de reemplazar datos', () => {
+    const current = {
+      accounts: [{ id: 'cash', name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: 1000, last4: null }],
+      categories: [],
+      goals: [],
+      goalContributions: [],
+      transactions: [],
+      currency: 'DOP',
+    } as unknown as FinanceState
+
+    const next = restoreFinanceDataWithSnapshot(current, {
+      accounts: [],
+      categories: [],
+      goals: [],
+      goalContributions: [],
+      transactions: [],
+      currency: 'USD',
+    })
+
+    expect(next.currency).toBe('USD')
+    expect(listRecoverySnapshots()[0]).toMatchObject({
+      reason: 'pre-restore',
+      backup: { data: { accounts: current.accounts } },
+    })
   })
 })

@@ -33,6 +33,20 @@ const DESKTOP_PWA_CACHE_RESET_SCRIPT: &str = r#"
 })().catch(console.error);
 "#;
 
+#[cfg(any(target_os = "linux", windows))]
+use tauri_plugin_deep_link::DeepLinkExt;
+
+#[cfg(any(target_os = "linux", windows))]
+fn register_desktop_deep_links(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    app.deep_link().register_all()?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn register_desktop_deep_links(_app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+}
+
 /// Guarda sesiones Supabase en el almacén de credenciales del sistema operativo.
 /// El frontend solo recibe el valor mientras el SDK necesita refrescar la sesión.
 #[tauri::command]
@@ -73,11 +87,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
-        .setup(|app| {
-            #[cfg(any(target_os = "linux", windows))]
-            app.deep_link().register_all()?;
-            Ok(())
-        })
+        .setup(|app| register_desktop_deep_links(app))
         .on_page_load(|webview, _| {
             let _ = webview.eval(DESKTOP_PWA_CACHE_RESET_SCRIPT);
         })
@@ -118,4 +128,3 @@ mod tests {
         );
     }
 }
-use tauri_plugin_deep_link::DeepLinkExt;

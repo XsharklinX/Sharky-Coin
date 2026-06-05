@@ -1,6 +1,6 @@
 {
   "name": "sharky",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,9 +10,13 @@
     "lint": "eslint src --ext ts,tsx",
     "test": "vitest run src",
     "test:e2e": "playwright test",
+    "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
+    "package:android": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1",
+    "android:dev": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1 -Mode dev",
+    "android:build": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1 -Mode build",
     "tauri:icon": "tauri icon public/icon.svg"
   },
   "dependencies": {

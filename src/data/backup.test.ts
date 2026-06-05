@@ -101,4 +101,74 @@ describe('backup JSON', () => {
     const state = { accounts: [cashAccount, cashAccount], categories: [], goals: [], transactions: [], currency: 'DOP' } as unknown as FinanceState
     expect(() => parseBackup(JSON.stringify(createBackup(state)))).toThrow('cuentas duplicadas')
   })
+
+  it('acepta fixtures legacy anonimizados de versiones tempranas', () => {
+    const fixtures = [
+      {
+        version: 1,
+        exportedAt: '2026-01-15T10:00:00.000Z',
+        data: {
+          accounts: [cashAccount],
+          categories: [foodCategory],
+          goals: [],
+          transactions: [{
+            id: 'tx_v03_1',
+            type: 'expense',
+            amount: 450,
+            accountId: 'cash',
+            categoryId: 'food',
+            date: '2026-01-14',
+            note: 'POS RESTAURANTE ANONIMO',
+          }],
+          currency: 'DOP',
+        },
+      },
+      {
+        version: 1,
+        exportedAt: '2026-03-20T10:00:00.000Z',
+        data: {
+          accounts: [cashAccount],
+          categories: [foodCategory],
+          goals: [goal],
+          goalContributions: [{
+            id: 'contrib_v05_1',
+            goalId: 'goal',
+            amount: 100,
+            fromAccountId: 'cash',
+            date: '2026-03-19',
+            note: 'Aporte anonimo',
+          }],
+          transactions: [],
+          currency: 'DOP',
+        },
+      },
+      {
+        version: 1,
+        exportedAt: '2026-05-12T10:00:00.000Z',
+        data: {
+          accounts: [cashAccount],
+          categories: [foodCategory],
+          goals: [goal],
+          goalContributions: [],
+          transactions: [{
+            id: 'tx_v07_1',
+            type: 'expense',
+            amount: 1200,
+            accountId: 'cash',
+            categoryId: 'food',
+            date: '2026-05-10',
+            note: 'BANCO POPULAR POS ANONIMO REF 0000',
+            tags: ['importado'],
+          }],
+          currency: 'DOP',
+        },
+      },
+    ]
+
+    expect(fixtures.map(fixture => parseBackup(JSON.stringify(fixture)).transactions.length)).toEqual([1, 0, 1])
+  })
+
+  it('rechaza backups JSON corruptos sin cambiar datos', () => {
+    expect(() => parseBackup('{"version":1,"data":')).toThrow('JSON')
+  })
 })

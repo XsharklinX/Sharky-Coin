@@ -17,7 +17,7 @@ http://127.0.0.1:3002/auth/callback
 El frontend envia automaticamente el origen activo, por lo que no depende de
 un puerto hardcoded.
 
-## Instalador y portable
+## Instalador, portable y Android APK
 
 Agregar esta URL exacta en `Authentication > URL Configuration`:
 
@@ -28,6 +28,9 @@ sharky://auth/callback
 El instalador y el portable registran el protocolo `sharky://` en Windows. Al
 abrir el correo de confirmacion o recuperacion, Supabase vuelve directamente a
 la app y el frontend intercambia el codigo PKCE por una sesion.
+
+La APK Android declara el mismo deep link con `scheme=sharky`, `host=auth` y
+`path=/callback`, por lo que el mismo redirect funciona en telefono.
 
 ## PWA web publica
 
