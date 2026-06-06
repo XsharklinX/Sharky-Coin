@@ -7,9 +7,7 @@ import { DialogProvider } from '@/components/ui/DialogProvider'
 import { CommandPalette } from '@/components/CommandPalette'
 import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
 import { MobileOnboarding } from '@/mobile/MobileOnboarding'
-import { AuthGate } from '@/modals/AuthGate'
 import { TransactionForm } from '@/modals/TransactionForm'
-import { useAuth } from '@/store/auth'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
@@ -28,7 +26,6 @@ const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default:
 
 export default function App() {
   const s = useSettings()
-  const { user, initialized, recoveryMode, initialize } = useAuth()
   const { transactions, accounts, currency, setCurrency, addTx, deleteTx } = useFinance()
 
   const [splashDone,   setSplashDone]   = useState(false)
@@ -44,8 +41,6 @@ export default function App() {
   useCloudWorkspace()
   useAutoCloudSync()
 
-  useEffect(() => { void initialize() }, [initialize])
-
   const overlayOpen = !!txForm || cmdOpen || settingsOpen
   useMobileBackDismiss(overlayOpen, () => {
     if (settingsOpen) setSettingsOpen(false)
@@ -58,16 +53,6 @@ export default function App() {
     'data-density': s.density,
     style: { '--accent': s.accent, fontFamily: `"${s.font}", system-ui, sans-serif` } as React.CSSProperties,
   }
-
-  if (s.authEnabled && !initialized) return (
-    <div className="app mobile-app" {...themeProps}>
-      <div className="fatal-error"><p>Restaurando sesión segura...</p></div>
-    </div>
-  )
-
-  if ((s.authEnabled && !user) || recoveryMode) return (
-    <div className="app mobile-app" {...themeProps}><AuthGate /></div>
-  )
 
   const hasOnboarded = !!localStorage.getItem('sharky-finance-v2')
   if (!hasOnboarded) return (
@@ -132,7 +117,7 @@ export default function App() {
           onSearch={() => setCmdOpen(true)}
           onSettings={() => setSettingsOpen(true)}
           onEditTx={tx => setTxForm(tx)}
-          userName={s.displayName || user?.name}
+          userName={s.displayName || undefined}
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}

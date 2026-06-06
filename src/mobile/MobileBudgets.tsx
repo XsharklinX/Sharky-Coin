@@ -37,13 +37,13 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const overCount   = cats.filter(c => (spent[c.id] ?? 0) > c.budget && c.budget > 0).length
 
   const save = (fields: { name: string; budget: number; color: string; icon: IconName }) => {
-    if (!fields.name.trim()) { toast('Escribe un nombre para la categoría.', { icon: 'alert' }); return }
+    if (!fields.name.trim()) { toast('Write a category name.', { icon: 'alert' }); return }
     if (editing === 'new') {
       addCategory({ name: fields.name.trim(), type: 'expense', budget: fields.budget, color: fields.color, icon: fields.icon })
-      toast('Categoría creada', { icon: 'check', type: 'ok' })
+      toast('Category created', { icon: 'check', type: 'ok' })
     } else if (editing) {
       updateCategory(editing.id, { name: fields.name.trim(), budget: fields.budget, color: fields.color, icon: fields.icon })
-      toast('Categoría actualizada', { icon: 'check', type: 'ok' })
+      toast('Category updated', { icon: 'check', type: 'ok' })
     }
     setEditing(null)
   }
@@ -51,10 +51,10 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const remove = (cat: Category) => {
     try {
       deleteCategory(cat.id)
-      toast('Categoría eliminada', { icon: 'trash' })
+      toast('Category deleted', { icon: 'trash' })
       setEditing(null)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'No se pudo eliminar.', { icon: 'alert' })
+      toast(e instanceof Error ? e.message : 'Could not delete.', { icon: 'alert' })
     }
   }
 
@@ -62,18 +62,16 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
 
   return (
     <div className="mbud-root">
-
-      {/* ─── Resumen global ─── */}
       <div className="mbud-summary">
         <div className="mbud-summary-top">
           <div>
-            <span className="mbud-summary-label">Presupuesto total</span>
+            <span className="mbud-summary-label">Total budget</span>
             <strong className="mbud-summary-total">
               <AnimatedMoney value={totalBudget} compact />
             </strong>
           </div>
           <button className="mbud-add-btn" onClick={() => setEditing('new')}>
-            <Icon name="plus" size={18} /> Nueva
+            <Icon name="plus" size={18} /> New
           </button>
         </div>
 
@@ -94,7 +92,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
             <Icon name="arrowUp" size={13} style={{ color: '#ff6b8a' }} />
             <div>
               <strong><AnimatedMoney value={totalSpent} compact /></strong>
-              <small>Gastado</small>
+              <small>Spent</small>
             </div>
           </div>
           <div className="mbud-pill-sep" />
@@ -102,7 +100,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
             <Icon name="target" size={13} style={{ color: '#35d0a2' }} />
             <div>
               <strong className={totalLeft < 0 ? 'over' : ''}><AnimatedMoney value={Math.abs(totalLeft)} compact /></strong>
-              <small>{totalLeft < 0 ? 'Excedido' : 'Disponible'}</small>
+              <small>{totalLeft < 0 ? 'Over budget' : 'Available'}</small>
             </div>
           </div>
           {overCount > 0 && (
@@ -112,7 +110,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                 <Icon name="alert" size={13} style={{ color: '#f59e0b' }} />
                 <div>
                   <strong style={{ color: '#f59e0b' }}>{overCount}</strong>
-                  <small>Excedidas</small>
+                  <small>Over limit</small>
                 </div>
               </div>
             </>
@@ -120,15 +118,14 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
         </div>
       </div>
 
-      {/* ─── Lista de categorías ─── */}
       <div className="mbud-list">
         {cats.length === 0 ? (
           <div className="mbud-empty">
             <span><Icon name="target" size={32} /></span>
-            <strong>Sin presupuestos</strong>
-            <p>Crea categorías de gasto y ponles un límite mensual</p>
+            <strong>No budgets yet</strong>
+            <p>Create expense categories with a monthly limit</p>
             <button onClick={() => setEditing('new')}>
-              <Icon name="plus" size={16} /> Crear primera categoría
+              <Icon name="plus" size={16} /> Create first category
             </button>
           </div>
         ) : (
@@ -149,7 +146,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                   <div className="mbud-row-top">
                     <span className="mbud-row-name">{cat.name}</span>
                     <span className={`mbud-row-pct${over ? ' over' : pct >= 80 ? ' warn' : ''}`}>
-                      {cat.budget > 0 ? `${Math.round(pct)}%` : 'Sin límite'}
+                      {cat.budget > 0 ? `${Math.round(pct)}%` : 'No limit'}
                     </span>
                   </div>
                   {cat.budget > 0 && (
@@ -161,22 +158,21 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                     </div>
                   )}
                   <div className="mbud-row-meta">
-                    <span>{fmtCompact(s, currency)} gastado</span>
+                    <span>{fmtCompact(s, currency)} spent</span>
                     {cat.budget > 0 && (
                       <span className={over ? 'over' : ''}>
-                        {over ? `+${fmtCompact(Math.abs(left), currency)} excedido` : `${fmtCompact(left, currency)} libre`}
+                        {over ? `+${fmtCompact(Math.abs(left), currency)} over` : `${fmtCompact(left, currency)} free`}
                       </span>
                     )}
                   </div>
                 </div>
-                <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: '#4a4a4a', flexShrink: 0 }} />
+                <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
               </button>
             )
           })
         )}
       </div>
 
-      {/* ─── Editor ─── */}
       {editing !== null && (
         <BudgetEditor
           category={editing === 'new' ? undefined : editing}
@@ -200,96 +196,108 @@ function BudgetEditor({
   onSave: (f: { name: string; budget: number; color: string; icon: IconName }) => void
   onDelete?: (c: Category) => void
 }) {
-  const [name,   setName]   = useState(category?.name ?? '')
-  const [budget, setBudget] = useState(String(category?.budget ?? ''))
-  const [color,  setColor]  = useState(category?.color ?? COLORS[0])
-  const [icon,   setIcon]   = useState<IconName>(category?.icon ?? 'cart')
+  const [name,       setName]       = useState(category?.name ?? '')
+  const [budget,     setBudget]     = useState(String(category?.budget ?? ''))
+  const [color,      setColor]      = useState(category?.color ?? COLORS[0])
+  const [icon,       setIcon]       = useState<IconName>(category?.icon ?? 'cart')
   const [confirmDel, setConfirmDel] = useState(false)
 
   useMobileBackDismiss(true, onClose)
 
   return (
-    <div className="mobile-editor-screen" role="dialog" aria-modal="true">
-      <header>
-        <button onClick={onClose}>Cancelar</button>
-        <strong>{category ? 'Editar' : 'Nueva categoría'}</strong>
-        <button onClick={() => onSave({ name, budget: Number(budget) || 0, color, icon })}>
-          Guardar
-        </button>
-      </header>
-      <div className="mobile-editor-body">
+    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+      <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
+        <header>
+          <span>{category ? 'Edit category' : 'New category'}</span>
+          <button onClick={onClose}><Icon name="close" size={18} /></button>
+        </header>
 
-        <label>
-          <span>Nombre</span>
-          <input
-            autoFocus
-            type="text"
-            value={name}
-            placeholder="Ej. Comida, Gasolina"
-            autoCapitalize="words"
-            onChange={e => setName(e.target.value)}
-          />
-        </label>
+        <div className="mbud-editor-body">
+          <label className="mbud-field">
+            <span>Name</span>
+            <input
+              className="mbud-input"
+              autoFocus
+              type="text"
+              value={name}
+              placeholder="e.g. Food, Gas"
+              autoCapitalize="words"
+              onChange={e => setName(e.target.value)}
+            />
+          </label>
 
-        <label>
-          <span>Límite mensual (RD$)</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={budget}
-            placeholder="0 = sin límite"
-            onChange={e => setBudget(e.target.value)}
-          />
-        </label>
+          <label className="mbud-field">
+            <span>Monthly limit (0 = no limit)</span>
+            <input
+              className="mbud-input"
+              type="number"
+              inputMode="decimal"
+              value={budget}
+              placeholder="0"
+              onChange={e => setBudget(e.target.value)}
+            />
+          </label>
 
-        <div>
-          <span className="mobile-editor-label">Icono</span>
-          <div className="mbud-icon-grid">
-            {ALL_ICONS.map(ic => (
-              <button
-                key={ic}
-                className={`mbud-icon-btn${icon === ic ? ' on' : ''}`}
-                style={icon === ic ? { color, background: `color-mix(in oklab, ${color} 18%, transparent)`, borderColor: color } : {}}
-                onClick={() => setIcon(ic)}
-              >
-                <Icon name={ic} size={22} />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <span className="mobile-editor-label">Color</span>
-          <div className="mobile-color-grid">
-            {COLORS.map(c => (
-              <button
-                key={c}
-                className={`mbud-color-btn${color === c ? ' on' : ''}`}
-                style={{ background: c, borderColor: color === c ? '#fff' : 'transparent' }}
-                onClick={() => setColor(c)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {category && onDelete && (
-          !confirmDel ? (
-            <button className="mobile-delete-button" onClick={() => setConfirmDel(true)}>
-              <Icon name="trash" size={18} /> Eliminar categoría
-            </button>
-          ) : (
-            <div className="mbud-confirm-del">
-              <p>¿Eliminar "{category.name}"? Esta acción no se puede deshacer.</p>
-              <div>
-                <button onClick={() => setConfirmDel(false)}>Cancelar</button>
-                <button className="danger" onClick={() => onDelete(category)}>
-                  <Icon name="trash" size={16} /> Eliminar
-                </button>
-              </div>
+          <div className="mbud-field">
+            <span>Color</span>
+            <div className="mbud-color-strip">
+              {COLORS.map(c => (
+                <button
+                  key={c}
+                  className={`mbud-color-dot${color === c ? ' on' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setColor(c)}
+                />
+              ))}
             </div>
-          )
-        )}
-      </div>
+          </div>
+
+          <div className="mbud-field">
+            <span>Icon</span>
+            <div className="mbud-icon-grid-sheet">
+              {ALL_ICONS.map(ic => (
+                <button
+                  key={ic}
+                  className={`mbud-icon-btn-sheet${icon === ic ? ' on' : ''}`}
+                  style={icon === ic ? { color, background: `color-mix(in oklab, ${color} 18%, transparent)` } : {}}
+                  onClick={() => setIcon(ic)}
+                >
+                  <Icon name={ic} size={20} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {category && onDelete && (
+            !confirmDel ? (
+              <button className="mbud-del-btn" onClick={() => setConfirmDel(true)}>
+                <Icon name="trash" size={16} /> Delete category
+              </button>
+            ) : (
+              <div className="mbud-confirm-del">
+                <p>Delete "{category.name}"? This cannot be undone.</p>
+                <div>
+                  <button onClick={() => setConfirmDel(false)}>Cancel</button>
+                  <button className="danger" onClick={() => onDelete(category)}>
+                    <Icon name="trash" size={16} /> Delete
+                  </button>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="mbud-editor-actions">
+          <button className="mbud-btn-cancel" onClick={onClose}>Cancel</button>
+          <button
+            className="mbud-btn-save"
+            style={{ background: color }}
+            onClick={() => onSave({ name, budget: Number(budget) || 0, color, icon })}
+          >
+            {category ? 'Save' : 'Create'}
+          </button>
+        </div>
+      </section>
     </div>
   )
 }

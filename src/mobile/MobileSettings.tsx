@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { APP_VERSION } from '@/data/release'
@@ -6,30 +6,26 @@ import { createBackup, parseBackup } from '@/data/backup'
 import { getDataHealthStatus } from '@/data/dataHealth'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useAuth } from '@/store/auth'
+import { useGoogleAuth, loadGIS } from '@/lib/googleAuth'
 import { openBackup, saveBackup } from '@/hooks/useTauri'
 import type { DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 const ACCENTS = [
-  { color: '#ffdd3d', label: 'Amarillo' },
-  { color: '#35d0a2', label: 'Verde' },
-  { color: '#5bc0ff', label: 'Azul' },
-  { color: '#a78bfa', label: 'Violeta' },
-  { color: '#ff6b8a', label: 'Rosa' },
-  { color: '#f59e0b', label: 'Naranja' },
+  { color: '#ffdd3d', label: 'Yellow'  },
+  { color: '#35d0a2', label: 'Green'   },
+  { color: '#5bc0ff', label: 'Blue'    },
+  { color: '#a78bfa', label: 'Violet'  },
+  { color: '#ff6b8a', label: 'Pink'    },
+  { color: '#f59e0b', label: 'Orange'  },
 ]
 
-const THEME_LABELS: Record<ThemeName, string> = {
-  dark: 'Dark', light: 'Light',
-}
-const DENSITY_LABELS: Record<DensityName, string> = {
-  compact: 'Compact', regular: 'Regular', comfy: 'Comfortable',
-}
-const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = {
-  block: 'Block', warn: 'Warn', allow: 'Allow',
-}
+const THEME_LABELS: Record<ThemeName, string>   = { dark: 'Dark', light: 'Light' }
+const DENSITY_LABELS: Record<DensityName, string> = { compact: 'Compact', regular: 'Regular', comfy: 'Comfortable' }
+const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = { block: 'Block', warn: 'Warn', allow: 'Allow' }
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
 type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
 
@@ -59,11 +55,7 @@ function SettingsRow({ icon, iconColor, label, value, danger, onClick, right }: 
   )
 }
 
-interface SheetProps {
-  title: string
-  onClose: () => void
-  children: React.ReactNode
-}
+interface SheetProps { title: string; onClose: () => void; children: React.ReactNode }
 function SettingsSheet({ title, onClose, children }: SheetProps) {
   return (
     <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
@@ -78,20 +70,53 @@ function SettingsSheet({ title, onClose, children }: SheetProps) {
   )
 }
 
+function GoogleButton({ onSignIn }: { onSignIn: (credential: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !ref.current) return
+    loadGIS(() => {
+      if (!ref.current || !window.google) return
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (r) => onSignIn(r.credential),
+      })
+      window.google.accounts.id.renderButton(ref.current, {
+        theme: 'filled_black',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: '100%',
+      })
+    })
+  }, [onSignIn])
+
+  if (!GOOGLE_CLIENT_ID) {
+    return (
+      <div className="mset-google-no-config">
+        <Icon name="info" size={15} />
+        <span>Add <code>VITE_GOOGLE_CLIENT_ID</code> to your <code>.env</code> to enable Google Sign-In.</span>
+      </div>
+    )
+  }
+
+  return <div ref={ref} className="mset-google-btn-wrap" />
+}
+
 export function MobileSettings({ onClose }: { onClose: () => void }) {
   const settings = useSettings()
-  const finance = useFinance()
-  const { user, logout } = useAuth()
+  const finance  = useFinance()
+  const { user: gUser, signIn, signOut } = useGoogleAuth()
   const t = useT()
   const [activeSheet, setActiveSheet] = useState<Sheet | null>(null)
   const [nameInput, setNameInput] = useState(settings.displayName)
   const [pendingReset, setPendingReset] = useState(false)
-  const health = getDataHealthStatus(finance, user?.mode === 'cloud' ? user.id : undefined)
+  const health = getDataHealthStatus(finance)
 
   useMobileBackDismiss(true, onClose)
   useMobileBackDismiss(!!activeSheet, () => { setActiveSheet(null); setPendingReset(false) })
 
-  const open = (sheet: Sheet) => { setActiveSheet(sheet); if (sheet === 'name') setNameInput(settings.displayName) }
+  const open  = (sheet: Sheet) => { setActiveSheet(sheet); if (sheet === 'name') setNameInput(settings.displayName) }
   const close = () => { setActiveSheet(null); setPendingReset(false) }
 
   const saveName = () => {
@@ -128,12 +153,8 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
-  const themePreviewBg: Record<ThemeName, string> = {
-    dark: '#0a0e16', light: '#f4f7fb',
-  }
-  const themePreviewFg: Record<ThemeName, string> = {
-    dark: '#e9eef7', light: '#172033',
-  }
+  const themePreviewBg: Record<ThemeName, string> = { dark: '#0a0e16', light: '#f4f7fb' }
+  const themePreviewFg: Record<ThemeName, string> = { dark: '#e9eef7', light: '#172033' }
 
   return (
     <div className="mobile-settings-screen" role="dialog" aria-modal="true">
@@ -147,17 +168,46 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
 
       <div className="mset-body">
 
-        {/* Profile */}
+        {/* ── Google Account ── */}
+        <div className="mset-section">
+          <span className="mset-section-title">Account</span>
+          {gUser ? (
+            <div className="mset-card">
+              <div className="mset-google-profile">
+                {gUser.picture
+                  ? <img className="mset-google-avatar" src={gUser.picture} alt={gUser.name} referrerPolicy="no-referrer" />
+                  : <div className="mset-google-avatar initials">{gUser.name.slice(0, 1).toUpperCase()}</div>
+                }
+                <div className="mset-google-info">
+                  <strong>{gUser.name}</strong>
+                  <small>{gUser.email}</small>
+                  <small className="mset-uid">ID: {gUser.id.slice(0, 12)}…</small>
+                </div>
+              </div>
+              <SettingsRow icon="logout" iconColor="#ff6b8a" label="Sign out of Google" danger
+                onClick={() => { signOut(); toast('Signed out', { icon: 'check' }) }} />
+            </div>
+          ) : (
+            <div className="mset-card">
+              <div className="mset-google-signin-wrap">
+                <p className="mset-google-desc">Sign in to sync your data and keep it safe across devices.</p>
+                <GoogleButton onSignIn={(cred) => { signIn(cred); toast('Signed in with Google', { icon: 'check', type: 'ok' }) }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Profile ── */}
         <div className="mset-section">
           <span className="mset-section-title">Profile</span>
           <div className="mset-card">
-            <SettingsRow icon="user" iconColor="#5bc0ff" label="Name"
+            <SettingsRow icon="user" iconColor="#5bc0ff" label="Display name"
               value={settings.displayName || 'Not set'}
               onClick={() => open('name')} />
           </div>
         </div>
 
-        {/* Finance */}
+        {/* ── Finance ── */}
         <div className="mset-section">
           <span className="mset-section-title">Finance</span>
           <div className="mset-card">
@@ -170,7 +220,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Appearance */}
+        {/* ── Appearance ── */}
         <div className="mset-section">
           <span className="mset-section-title">Appearance</span>
           <div className="mset-card">
@@ -195,7 +245,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Data */}
+        {/* ── Data ── */}
         <div className="mset-section">
           <span className="mset-section-title">Data</span>
           <div className="mset-card">
@@ -220,31 +270,8 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Security */}
+        {/* ── App ── */}
         <div className="mset-section">
-          <span className="mset-section-title">Security</span>
-          <div className="mset-card">
-            <div className="mset-row">
-              <span className="mset-icon" style={{ color: '#a78bfa', background: 'color-mix(in oklab, #a78bfa 14%, transparent)' }}>
-                <Icon name="lock" size={18} />
-              </span>
-              <span className="mset-label">Require login on open</span>
-              <label className="mset-toggle">
-                <input type="checkbox" checked={settings.authEnabled} onChange={e => settings.setAuthEnabled(e.target.checked)} />
-                <span />
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* App */}
-        <div className="mset-section">
-          {user && (
-            <div className="mset-card" style={{ marginBottom: 10 }}>
-              <SettingsRow icon="logout" iconColor="#ff6b8a" label="Sign out"
-                danger onClick={() => { logout(); onClose() }} />
-            </div>
-          )}
           <div className="mset-card">
             <div className="mset-info-row">
               <span>$harky</span>
@@ -258,16 +285,12 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       {/* ─── Sheets ─── */}
 
       {activeSheet === 'name' && (
-        <SettingsSheet title="Your name" onClose={close}>
+        <SettingsSheet title="Display name" onClose={close}>
           <div className="mset-sheet-body">
             <input
-              className="mset-text-input"
-              autoFocus
-              type="text"
-              value={nameInput}
-              placeholder="e.g. John Smith"
-              autoCapitalize="words"
-              enterKeyHint="done"
+              className="mset-text-input" autoFocus type="text"
+              value={nameInput} placeholder="e.g. John Smith"
+              autoCapitalize="words" enterKeyHint="done"
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveName() }}
             />

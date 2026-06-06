@@ -20,22 +20,23 @@ type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'movements'
   if (view === 'stats') return 'analytics'
-  if (view === 'accounts' || view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar') return 'reports'
+  if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports') return 'reports'
   return 'home'
 }
 
 function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
   if (route === 'movements') return 'transactions'
   if (route === 'analytics') return 'stats'
-  if (route === 'reports') return 'accounts'
+  if (route === 'reports') return 'reports'
   return 'dashboard'
 }
 
 const INTERNAL_TITLES: Partial<Record<ViewId, string>> = {
-  annual: 'Reporte anual',
-  calendar: 'Calendario',
-  budgets: 'Presupuestos',
-  goals: 'Metas',
+  annual:   'Annual report',
+  calendar: 'Calendar',
+  budgets:  'Budgets',
+  goals:    'Goals',
+  reports:  'Reports',
 }
 
 export function MobileShell({
@@ -74,9 +75,9 @@ export function MobileShell({
     setRoute('home')
     setView('dashboard')
   })
-  // Back navigation: sub-views inside reports → main reports (accounts)
-  const isInSubView = route === 'reports' && view !== 'accounts'
-  useMobileBackDismiss(isInSubView, () => setView('accounts'))
+  // Back navigation: sub-views inside reports → main reports
+  const isInSubView = route === 'reports' && view !== 'reports'
+  useMobileBackDismiss(isInSubView, () => setView('reports'))
   // Back navigation: movements → home
   useMobileBackDismiss(route === 'movements', () => {
     setRoute('home')
@@ -128,8 +129,17 @@ export function MobileShell({
 
     if (route === 'analytics') return <MobileAnalytics mkey={mkey} />
 
-    if (route === 'reports' && view === 'accounts') {
-      return <MobileReports goto={setView} onSettings={onSettings} createRequest={viewProps.createRequest} />
+    if (route === 'reports') {
+      if (view === 'annual') return <MobileAnnual mkey={mkey} />
+      const renderer = mobileViews[view]
+      if (renderer) {
+        return (
+          <ViewErrorBoundary resetKey={`${route}:${view}`}>
+            {renderer(viewProps)}
+          </ViewErrorBoundary>
+        )
+      }
+      return <MobileReports />
     }
 
     if (route === 'profile') {
@@ -137,20 +147,9 @@ export function MobileShell({
         <MobileProfile
           userName={userName}
           onSettings={onSettings}
+          createRequest={viewProps.createRequest}
           goto={next => { setRoute('reports'); setView(next) }}
         />
-      )
-    }
-
-    // Sub-vistas: annual (nativa mobile), budgets, goals, calendar (via mobileViews)
-    if (view === 'annual') return <MobileAnnual mkey={mkey} />
-
-    const renderer = mobileViews[view]
-    if (renderer) {
-      return (
-        <ViewErrorBoundary resetKey={`${route}:${view}`}>
-          {renderer(viewProps)}
-        </ViewErrorBoundary>
       )
     }
 

@@ -1,79 +1,93 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useFinance } from '@/store/finance'
 import { Icon } from '@/components/ui/Icon'
-import type { IconName, ViewId } from '@/types'
+import { fmtCompact } from '@/data/helpers'
+import { useT } from '@/i18n'
+import type { IconName } from '@/types'
 
 interface Result {
-  id:     string
-  icon:   IconName
-  label:  string
-  sub?:   string
-  color?: string
-  action: () => void
+  id:       string
+  icon:     IconName
+  label:    string
+  sub?:     string
+  color?:   string
+  type:     'tx' | 'account' | 'goal'
+  action:   () => void
 }
-
-const VIEWS: { id: ViewId; label: string; icon: IconName }[] = [
-  { id: 'dashboard',    label: 'Inicio',          icon: 'grid'   },
-  { id: 'transactions', label: 'Transacciones',   icon: 'list'   },
-  { id: 'accounts',     label: 'Cuentas',         icon: 'cards'  },
-  { id: 'stats',        label: 'Estadísticas',    icon: 'chart'  },
-  { id: 'budgets',      label: 'Presupuestos',    icon: 'target' },
-  { id: 'goals',        label: 'Metas',           icon: 'trend'  },
-  { id: 'calendar',     label: 'Calendario',      icon: 'calendar' },
-  { id: 'annual',       label: 'Reporte anual',   icon: 'shark' },
-]
 
 interface Props {
   onClose:  () => void
-  goto:     (v: ViewId) => void
+  goto:     (v: import('@/types').ViewId) => void
   onEditTx: (tx: import('@/types').Transaction) => void
 }
 
 export function CommandPalette({ onClose, goto, onEditTx }: Props) {
-  const { transactions, accounts, goals, categories } = useFinance()
-  const [q, setQ]       = useState('')
-  const [idx, setIdx]   = useState(0)
-  const inputRef        = useRef<HTMLInputElement>(null)
-  const listRef         = useRef<HTMLDivElement>(null)
+  const t = useT()
+  const { transactions, accounts, goals, categories, currency } = useFinance()
+  const [q, setQ]     = useState('')
+  const [idx, setIdx] = useState(0)
+  const inputRef      = useRef<HTMLInputElement>(null)
+  const listRef       = useRef<HTMLDivElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  const results: Result[] = q.length < 1
-    ? VIEWS.map(v => ({ id: v.id, icon: v.icon, label: v.label, action: () => { goto(v.id); onClose() } }))
-    : (() => {
-        const ql = q.toLowerCase()
-        const out: Result[] = []
+  const results: Result[] = (() => {
+    if (!q.trim()) return []
+    const ql = q.toLowerCase()
+    const out: Result[] = []
 
-        // vistas
-        VIEWS.filter(v => v.label.toLowerCase().includes(ql))
-          .forEach(v => out.push({ id: v.id, icon: v.icon, label: v.label, sub: 'Vista', action: () => { goto(v.id); onClose() } }))
+    // Transactions — search note, category name, account name
+    transactions.slice(0, 500)
+      .filter(tx => {
+        const cat  = categories.find(c => c.id === tx.categoryId)
+        const acct = accounts.find(a => a.id === tx.accountId)
+        return (
+          (tx.note ?? '').toLowerCase().includes(ql) ||
+          (cat?.name ?? '').toLowerCase().includes(ql) ||
+          (acct?.name ?? '').toLowerCase().includes(ql)
+        )
+      })
+      .slice(0, 10)
+      .forEach(tx => {
+        const cat  = categories.find(c => c.id === tx.categoryId)
+        const acct = accounts.find(a => a.id === tx.accountId)
+        out.push({
+          id:     tx.id,
+          icon:   cat?.icon ?? 'list',
+          label:  tx.note || cat?.name || '—',
+          sub:    `${tx.date}${acct ? ' · ' + acct.name : ''}${cat ? ' · ' + cat.name : ''}`,
+          color:  cat?.color,
+          type:   'tx',
+          action: () => { onEditTx(tx); onClose() },
+        })
+      })
 
-        // cuentas
-        accounts.filter(a => a.name.toLowerCase().includes(ql)).slice(0, 3)
-          .forEach(a => out.push({ id: a.id, icon: 'cards', label: a.name, sub: a.short, color: a.color, action: () => { goto('accounts'); onClose() } }))
+    // Accounts
+    accounts.filter(a => a.name.toLowerCase().includes(ql)).slice(0, 3)
+      .forEach(a => out.push({
+        id:     a.id,
+        icon:   'cards',
+        label:  a.name,
+        sub:    fmtCompact(a.balance, currency),
+        color:  a.color,
+        type:   'account',
+        action: () => { goto('accounts'); onClose() },
+      }))
 
-        // metas
-        goals.filter(g => g.name.toLowerCase().includes(ql)).slice(0, 3)
-          .forEach(g => out.push({ id: g.id, icon: g.icon, label: g.name, sub: 'Meta de ahorro', color: g.color, action: () => { goto('goals'); onClose() } }))
+    // Goals
+    goals.filter(g => g.name.toLowerCase().includes(ql)).slice(0, 3)
+      .forEach(g => out.push({
+        id:     g.id,
+        icon:   g.icon,
+        label:  g.name,
+        sub:    `Goal · ${fmtCompact(g.saved, currency)} saved`,
+        color:  g.color,
+        type:   'goal',
+        action: () => { goto('goals'); onClose() },
+      }))
 
-        // transacciones (últimas 200)
-        transactions.slice(0, 200)
-          .filter(t => (t.note ?? '').toLowerCase().includes(ql))
-          .slice(0, 5)
-          .forEach(t => {
-            const cat = categories.find(c => c.id === t.categoryId)
-            out.push({
-              id:    t.id,
-              icon:  cat?.icon ?? 'list',
-              label: t.note,
-              sub:   `${t.date} · ${cat?.name ?? ''}`,
-              color: cat?.color,
-              action: () => { onEditTx(t); onClose() },
-            })
-          })
-
-        return out
-      })()
+    return out
+  })()
 
   const clampedIdx = Math.min(idx, Math.max(0, results.length - 1))
 
@@ -95,6 +109,12 @@ export function CommandPalette({ onClose, goto, onEditTx }: Props) {
     if (e.key === 'Escape')    { e.preventDefault(); onClose() }
   }
 
+  const TYPE_LABEL: Record<Result['type'], string> = {
+    tx:      'Transaction',
+    account: 'Account',
+    goal:    'Goal',
+  }
+
   return (
     <div className="cmd-overlay" onMouseDown={onClose}>
       <div className="cmd-panel" onMouseDown={e => e.stopPropagation()}>
@@ -103,18 +123,17 @@ export function CommandPalette({ onClose, goto, onEditTx }: Props) {
           <input
             ref={inputRef}
             className="cmd-input"
-            placeholder="Buscar transacciones, cuentas, metas, vistas…"
+            placeholder={t('search') + ' transactions, accounts, goals…'}
             value={q}
             onChange={e => setQ(e.target.value)}
             onKeyDown={onKey}
-            aria-label="Búsqueda global"
+            aria-label="Search"
           />
           <kbd className="cmd-esc" onClick={onClose}>Esc</kbd>
         </div>
 
-        {results.length > 0 && (
+        {q && results.length > 0 && (
           <div ref={listRef} className="cmd-results" role="listbox">
-            {!q && <div className="cmd-section">Vistas rápidas</div>}
             {results.map((r, i) => (
               <button
                 key={r.id}
@@ -129,13 +148,21 @@ export function CommandPalette({ onClose, goto, onEditTx }: Props) {
                 </span>
                 <span className="cmd-label">{r.label}</span>
                 {r.sub && <span className="cmd-sub">{r.sub}</span>}
+                <span className="cmd-type-badge">{TYPE_LABEL[r.type]}</span>
               </button>
             ))}
           </div>
         )}
 
         {q && results.length === 0 && (
-          <div className="cmd-empty">Sin resultados para "{q}"</div>
+          <div className="cmd-empty">No results for "{q}"</div>
+        )}
+
+        {!q && (
+          <div className="cmd-hint">
+            <Icon name="search" size={28} style={{ opacity: .15 }} />
+            <p>Search your transactions, accounts and goals</p>
+          </div>
         )}
       </div>
     </div>
