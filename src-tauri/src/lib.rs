@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 /// Escribe el backup a una ruta específica pasada desde JS.
 /// El lado JS usa tauri-plugin-dialog para pedir la ruta al usuario.
 #[tauri::command]
