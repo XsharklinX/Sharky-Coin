@@ -1,8 +1,7 @@
-import { Suspense, useMemo, useState } from 'react'
-import type { ComponentType } from 'react'
-import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { useMemo, useState } from 'react'
 import { Empty, MiniStat } from '@/views/shared'
 import { totals, txForMonth } from '@/data/helpers'
+import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute } from './MobileBottomNav'
 import { MobileAnalytics } from './MobileAnalytics'
@@ -14,6 +13,8 @@ import { MobileReports } from './MobileReports'
 import { MobileTopBar } from './MobileTopBar'
 import { MobileTransactionList } from './MobileTransactionList'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+
+type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'movements'
@@ -40,35 +41,32 @@ export function MobileShell({
   view,
   setView,
   viewProps,
-  views,
+  mobileViews,
   mkey,
   keys,
   onMonth,
   onSearch,
   onSettings,
   onEditTx,
-  onCreateAccount,
-  onCreateGoal,
   userName,
 }: {
   view: ViewId
   setView: (view: ViewId) => void
   viewProps: ViewProps
-  views: Record<ViewId, ComponentType<ViewProps>>
+  mobileViews: Partial<Record<ViewId, MobileViewRenderer>>
   mkey: string
   keys: string[]
   onMonth: (mkey: string) => void
   onSearch: () => void
   onSettings: () => void
   onEditTx: (transaction: Transaction) => void
-  onCreateAccount: () => void
-  onCreateGoal: () => void
   userName?: string
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const monthTx = useMemo(() => txForMonth(viewProps.txns, mkey), [viewProps.txns, mkey])
   const monthTotals = totals(monthTx)
   const mIdx = keys.indexOf(mkey)
+
   useMobileBackDismiss(route === 'add', () => {
     setRoute('home')
     setView('dashboard')
@@ -84,12 +82,7 @@ export function MobileShell({
       return (
         <MobileCreateFlow
           mkey={mkey}
-          onSaved={() => {
-            setRoute('home')
-            setView('dashboard')
-          }}
-          onCreateAccount={() => { setRoute('reports'); onCreateAccount() }}
-          onCreateGoal={() => { setRoute('reports'); onCreateGoal() }}
+          onSaved={() => { setRoute('home'); setView('dashboard') }}
         />
       )
     }
@@ -99,14 +92,8 @@ export function MobileShell({
         <MobileHome
           mkey={mkey}
           onAdd={() => setRoute('add')}
-          onMovements={() => {
-            setRoute('movements')
-            setView('transactions')
-          }}
-          onBudgets={() => {
-            setRoute('reports')
-            setView('budgets')
-          }}
+          onMovements={() => { setRoute('movements'); setView('transactions') }}
+          onBudgets={() => { setRoute('reports'); setView('budgets') }}
           onEditTx={onEditTx}
           onDeleteTx={viewProps.onDeleteTx}
         />
@@ -128,41 +115,35 @@ export function MobileShell({
       )
     }
 
-    if (route === 'analytics') {
-      return <MobileAnalytics mkey={mkey} />
-    }
+    if (route === 'analytics') return <MobileAnalytics mkey={mkey} />
 
     if (route === 'reports' && view === 'accounts') {
       return <MobileReports goto={setView} onSettings={onSettings} createRequest={viewProps.createRequest} />
     }
 
     if (route === 'profile') {
-      return <MobileProfile
-        userName={userName}
-        onSettings={onSettings}
-        goto={next => {
-          setRoute('reports')
-          setView(next)
-        }}
-      />
+      return (
+        <MobileProfile
+          userName={userName}
+          onSettings={onSettings}
+          goto={next => { setRoute('reports'); setView(next) }}
+        />
+      )
     }
 
-    const routeView = viewFromRoute(route)
-    const activeView = routeView !== view && ['budgets', 'goals', 'calendar', 'annual'].includes(view) ? view : routeView
+    // Sub-vistas: annual (nativa mobile), budgets, goals, calendar (via mobileViews)
+    if (view === 'annual') return <MobileAnnual mkey={mkey} />
 
-    // Vistas con implementación nativa mobile
-    if (activeView === 'annual') {
-      return <MobileAnnual mkey={mkey} />
-    }
-
-    const Component = views[activeView]
-    return (
-      <Suspense fallback={<div className="card card-copy">Cargando...</div>}>
-        <ViewErrorBoundary resetKey={`${route}:${activeView}`}>
-          <Component {...viewProps} />
+    const renderer = mobileViews[view]
+    if (renderer) {
+      return (
+        <ViewErrorBoundary resetKey={`${route}:${view}`}>
+          {renderer(viewProps)}
         </ViewErrorBoundary>
-      </Suspense>
-    )
+      )
+    }
+
+    return null
   }
 
   return (

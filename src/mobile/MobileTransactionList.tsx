@@ -46,9 +46,15 @@ export function MobileTransactionList({
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [openActionId, setOpenActionId] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const startX = useRef(0)
   useMobileBackDismiss(searchOpen, () => setSearchOpen(false))
   useMobileBackDismiss(!!selected, () => setSelected(null))
+
+  const closeSwipe = () => {
+    setOpenActionId(null)
+    setPendingDeleteId(null)
+  }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -70,7 +76,10 @@ export function MobileTransactionList({
   const showSearch = !compact
 
   return (
-    <section className={`mobile-list-card${compact ? ' compact' : ''}`}>
+    <section
+      className={`mobile-list-card${compact ? ' compact' : ''}`}
+      onClick={openActionId ? closeSwipe : undefined}
+    >
       {!compact && (
         <div className="mobile-movement-tools">
           <div className="mobile-filter-chips" role="tablist" aria-label="Filtrar movimientos">
@@ -115,9 +124,11 @@ export function MobileTransactionList({
                   onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? 0 }}
                   onTouchEnd={event => {
                     const delta = (event.changedTouches[0]?.clientX ?? 0) - startX.current
-                    if (delta < -42) setOpenActionId(tx.id)
-                    if (delta > 42) setOpenActionId(null)
-                  }}>
+                    if (delta < -42) { setOpenActionId(tx.id); setPendingDeleteId(null) }
+                    if (delta > 42) closeSwipe()
+                  }}
+                  onClick={opened ? (event => { event.stopPropagation(); closeSwipe() }) : undefined}
+                >
                   <button className="mobile-tx-row" onClick={() => setSelected(tx)}>
                     {tx.type === 'transfer'
                       ? <span className="mobile-transfer-icon"><Icon name="repeat" size={24} /></span>
@@ -133,9 +144,23 @@ export function MobileTransactionList({
                     </strong>
                   </button>
                   {!compact && (
-                    <div className="mobile-row-actions" aria-label="Acciones del movimiento">
-                      <button onClick={() => onEdit(tx)}><Icon name="edit" size={17} />Editar</button>
-                      {onDelete && <button className="danger" onClick={() => onDelete(tx.id)}><Icon name="trash" size={17} />Eliminar</button>}
+                    <div className="mobile-row-actions" aria-label="Acciones del movimiento" onClick={event => event.stopPropagation()}>
+                      <button onClick={() => { onEdit(tx); closeSwipe() }}><Icon name="edit" size={17} />Editar</button>
+                      {onDelete && (
+                        <button
+                          className={`danger${pendingDeleteId === tx.id ? ' confirm' : ''}`}
+                          onClick={() => {
+                            if (pendingDeleteId === tx.id) {
+                              onDelete(tx.id)
+                              closeSwipe()
+                            } else {
+                              setPendingDeleteId(tx.id)
+                            }
+                          }}>
+                          <Icon name="trash" size={17} />
+                          {pendingDeleteId === tx.id ? '¿Seguro?' : 'Eliminar'}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

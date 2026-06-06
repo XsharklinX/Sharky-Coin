@@ -44,13 +44,9 @@ function formatDateShort(date: string): string {
 export function MobileCreateFlow({
   mkey,
   onSaved,
-  onCreateAccount,
-  onCreateGoal,
 }: {
   mkey: string
   onSaved: () => void
-  onCreateAccount: () => void
-  onCreateGoal: () => void
 }) {
   const { accounts, categories, currency, addTx, transfer, addCategory } = useFinance()
   const [mode, setMode] = useState<MobileTxMode>('expense')
@@ -68,6 +64,9 @@ export function MobileCreateFlow({
     return current.startsWith(mkey) ? current : `${mkey}-01`
   })
   const dateInputRef = useRef<HTMLInputElement>(null)
+
+  const [formError, setFormError] = useState<string | null>(null)
+  const [shaking,   setShaking]   = useState(false)
 
   const amount = Number(amountText || 0)
   const categoryType = mode === 'income' ? 'income' : 'expense'
@@ -93,13 +92,31 @@ export function MobileCreateFlow({
   const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote('') }
 
   const pressKey = (key: (typeof keypad)[number]) => {
+    setFormError(null)
     if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
     if (key === '.' && amountText.includes('.')) return
     setAmountText(v => cleanAmount(v + key))
   }
 
+  const triggerShake = () => {
+    setShaking(true)
+    setTimeout(() => setShaking(false), 420)
+  }
+
   const save = () => {
-    if (!canSave) { toast('Completa monto, cuenta y categoría.', { icon: 'alert' }); return }
+    if (!canSave) {
+      const msg = amount <= 0
+        ? 'Ingresa un monto mayor a 0'
+        : mode !== 'transfer' && !activeCategory
+          ? 'Selecciona una categoría'
+          : mode === 'transfer' && fromAccount === toAccount
+            ? 'Elige dos cuentas distintas'
+            : 'Completa todos los campos'
+      setFormError(msg)
+      triggerShake()
+      return
+    }
+    setFormError(null)
     try {
       if (mode === 'transfer') {
         transfer({ fromAccount, toAccount, amount, date, note: note.trim() || 'Transferencia' })
@@ -236,7 +253,7 @@ export function MobileCreateFlow({
       {/* ─── Fixed bottom: amount + note + keypad + save ─── */}
       <div className="mobile-create-bottom">
         {/* Amount display */}
-        <div className="mobile-create-amount-row">
+        <div className={`mobile-create-amount-row${shaking ? ' shake' : ''}`}>
           <span className="mobile-create-amount-label">
             {mode === 'expense' ? 'Gasto' : mode === 'income' ? 'Ingreso' : 'Monto'}
           </span>
@@ -246,6 +263,12 @@ export function MobileCreateFlow({
               : `${currencyPrefix} 0`}
           </strong>
         </div>
+        {formError && (
+          <div className="mobile-create-error">
+            <Icon name="alert" size={13} />
+            {formError}
+          </div>
+        )}
 
         {/* Note input */}
         <div className="mobile-create-note-input">

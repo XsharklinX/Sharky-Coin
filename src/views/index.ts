@@ -1,6 +1,0 @@
-export { Dashboard } from './Dashboard'
-export { Transactions } from './Transactions'
-export { Accounts } from './Accounts'
-export { Budgets } from './Budgets'
-export { Goals } from './Goals'
-export { Calendar } from './Calendar'

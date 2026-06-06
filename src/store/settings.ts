@@ -14,6 +14,7 @@ interface SettingsState {
   anomalySensitivity: 'strict' | 'balanced' | 'relaxed'
   releaseChannel: 'stable' | 'beta'
   errorTelemetryEnabled: boolean
+  displayName: string
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -26,6 +27,7 @@ interface SettingsState {
   setAnomalySensitivity: (v: SettingsState['anomalySensitivity']) => void
   setReleaseChannel: (v: SettingsState['releaseChannel']) => void
   setErrorTelemetryEnabled: (v: boolean) => void
+  setDisplayName: (v: string) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -42,6 +44,7 @@ export const useSettings = create<SettingsState>()(
       anomalySensitivity: 'balanced',
       releaseChannel: 'stable',
       errorTelemetryEnabled: false,
+      displayName: '',
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -54,6 +57,7 @@ export const useSettings = create<SettingsState>()(
       setAnomalySensitivity: (anomalySensitivity) => set({ anomalySensitivity }),
       setReleaseChannel: (releaseChannel) => set({ releaseChannel }),
       setErrorTelemetryEnabled: (errorTelemetryEnabled) => set({ errorTelemetryEnabled }),
+      setDisplayName: (displayName) => set({ displayName }),
     }),
     {
       name:    'sharky-settings-v2',
