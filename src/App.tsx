@@ -7,6 +7,7 @@ import { ToastHost, toast } from '@/components/ui/Toast'
 import { DialogProvider } from '@/components/ui/DialogProvider'
 import { CommandPalette } from '@/components/CommandPalette'
 import { Welcome } from '@/modals/Welcome'
+import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
 import { AuthGate } from '@/modals/AuthGate'
 import { TransactionForm } from '@/modals/TransactionForm'
 import { SettingsModal } from '@/modals/SettingsModal'
@@ -144,7 +145,11 @@ export default function App() {
 
   const hasOnboarded = !!localStorage.getItem('sharky-finance-v2')
   if (!hasOnboarded) return (
-    <div className="app" {...themeProps}><Welcome /></div>
+    <div className="app" {...themeProps}>
+      {isMobile
+        ? <div className="mobile-app" style={{ minHeight: '100dvh' }}><MobileWelcomeHub /></div>
+        : <Welcome />}
+    </div>
   )
 
   const keys  = monthKeys(transactions)
@@ -201,7 +206,7 @@ export default function App() {
           onEditTx={tx => setTxForm(tx)}
           onCreateAccount={() => createNew('account')}
           onCreateGoal={() => createNew('goal')}
-          userName={user?.name}
+          userName={s.displayName || user?.name}
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}

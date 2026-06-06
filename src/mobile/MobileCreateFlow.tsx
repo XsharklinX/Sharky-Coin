@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt } from '@/data/helpers'
+import { fmt, fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import type { Category, IconName, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -11,7 +11,17 @@ type MobileTxMode = Transaction['type']
 const today = () => new Date().toISOString().slice(0, 10)
 const keypad = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'back'] as const
 const CATEGORY_COLORS = ['#ffdd3d', '#35d0a2', '#5bc0ff', '#a78bfa', '#ff6b8a', '#f59e0b']
-const CATEGORY_ICONS: IconName[] = ['cart', 'food', 'car', 'bolt', 'play', 'heart', 'bag', 'book', 'wallet', 'laptop', 'trend', 'home']
+const CATEGORY_ICONS: IconName[] = [
+  'cart', 'food', 'car', 'bolt', 'heart', 'home',
+  'bag', 'book', 'wallet', 'laptop', 'trend', 'play',
+  'music', 'coffee', 'phone', 'gym', 'bus', 'building',
+  'gamepad', 'gift', 'scissors', 'baby', 'paw', 'pill',
+  'plane', 'briefcase', 'shirt', 'pizza', 'star', 'fuel', 'flame', 'soda',
+]
+
+const ACCT_ICONS: Record<string, IconName> = {
+  cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
+}
 
 function cleanAmount(value: string): string {
   const normalized = value.replace(',', '.').replace(/[^\d.]/g, '')
@@ -25,6 +35,10 @@ function notePlaceholder(mode: MobileTxMode, category?: Category): string {
   if (mode === 'transfer') return 'Ej. Transferencia a ahorros'
   if (category) return `Ej. ${category.name}`
   return mode === 'income' ? 'Ej. Pago recibido' : 'Ej. Compra'
+}
+
+function formatDateShort(date: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('es-DO', { day: 'numeric', month: 'short' })
 }
 
 export function MobileCreateFlow({
@@ -47,76 +61,54 @@ export function MobileCreateFlow({
   const [toAccount, setToAccount] = useState(accounts[1]?.id ?? accounts[0]?.id ?? '')
   const [note, setNote] = useState('')
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
+  const [transferPicker, setTransferPicker] = useState<'from' | 'to' | null>(null)
   const [date, setDate] = useState(() => {
     const current = today()
     return current.startsWith(mkey) ? current : `${mkey}-01`
   })
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const amount = Number(amountText || 0)
   const categoryType = mode === 'income' ? 'income' : 'expense'
   const visibleCategories = useMemo(
-    () => categories.filter(category => category.type === categoryType).slice(0, 16),
+    () => categories.filter(c => c.type === categoryType).slice(0, 24),
     [categories, categoryType],
   )
-  const activeCategory = visibleCategories.find(category => category.id === categoryId) ?? visibleCategories[0]
-  const activeAccountId = accounts.some(account => account.id === accountId) ? accountId : accounts[0]?.id ?? ''
+  const activeCategory = visibleCategories.find(c => c.id === categoryId) ?? visibleCategories[0]
+  const activeAccountId = accounts.some(a => a.id === accountId) ? accountId : accounts[0]?.id ?? ''
+  const activeAccount = accounts.find(a => a.id === activeAccountId)
+  const fromAccountObj = accounts.find(a => a.id === fromAccount)
+  const toAccountObj = accounts.find(a => a.id === toAccount)
   const validTransfer = mode === 'transfer' && !!fromAccount && !!toAccount && fromAccount !== toAccount
   const canSave = amount > 0 && date && accounts.length > 0 && (
     mode === 'transfer' ? validTransfer : !!activeCategory && !!activeAccountId
   )
+  const isToday = date === today()
 
-  const switchMode = (next: MobileTxMode) => {
-    setMode(next)
-    setCategoryId(null)
-    setNote('')
-  }
+  useMobileBackDismiss(categoryEditorOpen, () => setCategoryEditorOpen(false))
+  useMobileBackDismiss(!!transferPicker, () => setTransferPicker(null))
+
+  const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote('') }
 
   const pressKey = (key: (typeof keypad)[number]) => {
-    if (key === 'back') {
-      setAmountText(value => value.slice(0, -1))
-      return
-    }
+    if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
     if (key === '.' && amountText.includes('.')) return
-    setAmountText(value => cleanAmount(value + key))
-  }
-
-  const resetEntry = () => {
-    setAmountText('')
-    setNote('')
-    setCategoryId(null)
+    setAmountText(v => cleanAmount(v + key))
   }
 
   const save = () => {
-    if (!canSave) {
-      toast('Completa monto, cuenta y categoría.', { icon: 'alert' })
-      return
-    }
-
+    if (!canSave) { toast('Completa monto, cuenta y categoría.', { icon: 'alert' }); return }
     try {
       if (mode === 'transfer') {
-        transfer({
-          fromAccount,
-          toAccount,
-          amount,
-          date,
-          note: note.trim() || 'Transferencia',
-        })
+        transfer({ fromAccount, toAccount, amount, date, note: note.trim() || 'Transferencia' })
       } else {
-        addTx({
-          type: mode,
-          amount,
-          date,
-          note: note.trim() || activeCategory!.name,
-          categoryId: activeCategory!.id,
-          accountId: activeAccountId,
-        })
+        addTx({ type: mode, amount, date, note: note.trim() || activeCategory!.name, categoryId: activeCategory!.id, accountId: activeAccountId })
       }
       navigator.vibrate?.(18)
-      toast(mode === 'transfer' ? 'Transferencia registrada' : 'Movimiento guardado', {
-        icon: 'check',
-        type: 'ok',
-      })
-      resetEntry()
+      toast(mode === 'transfer' ? 'Transferencia registrada' : 'Movimiento guardado', { icon: 'check', type: 'ok' })
+      setAmountText('')
+      setNote('')
+      setCategoryId(null)
       onSaved()
     } catch (error) {
       toast(error instanceof Error ? error.message : 'No se pudo guardar.', { icon: 'alert' })
@@ -125,136 +117,192 @@ export function MobileCreateFlow({
 
   const createCategory = (fields: { name: string; icon: IconName; color: string; budget: number }) => {
     const name = fields.name.trim()
-    if (!name) {
-      toast('Escribe un nombre para la categoría.', { icon: 'alert' })
-      return
-    }
+    if (!name) { toast('Escribe un nombre para la categoría.', { icon: 'alert' }); return }
     addCategory({ name, icon: fields.icon, color: fields.color, budget: fields.budget, type: categoryType })
     toast(`Categoría "${name}" creada`, { icon: 'check', type: 'ok' })
     setCategoryEditorOpen(false)
   }
 
+  const amountColor = mode === 'income' ? '#35d0a2' : mode === 'transfer' ? '#ffdd3d' : '#f65574'
+  const currencyPrefix = currency === 'DOP' ? 'RD$' : currency === 'USD' ? '$' : '€'
+
   return (
     <div className="mobile-create-flow" aria-label="Agregar movimiento">
-      <div className="mobile-segment" role="tablist" aria-label="Tipo de movimiento">
-        {([
-          ['expense', 'Gasto'],
-          ['income', 'Ingreso'],
-          ['transfer', 'Transferencia'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            className={mode === value ? 'on' : ''}
-            aria-selected={mode === value}
-            role="tab"
-            onClick={() => switchMode(value)}>
-            {label}
-          </button>
-        ))}
-      </div>
 
-      <section className="mobile-amount-panel">
-        <small>{mode === 'transfer' ? 'Monto a transferir' : 'Monto'}</small>
-        <strong>{fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 })}</strong>
-      </section>
+      {/* ─── Scrollable top section ─── */}
+      <div className="mobile-create-scroll">
 
-      {mode !== 'transfer' && (
-        <section className="mobile-create-section">
-          <div className="mobile-section-title">
-            <h2>Categoría</h2>
-            <button onClick={() => setCategoryEditorOpen(true)}><Icon name="plus" size={15} /> Nueva</button>
-          </div>
-          {visibleCategories.length ? (
-            <div className="mobile-category-grid">
-              {visibleCategories.map(category => {
-                const selected = activeCategory?.id === category.id
-                return (
-                  <button
-                    key={category.id}
-                    className={selected ? 'on' : ''}
-                    aria-pressed={selected}
-                    onClick={() => setCategoryId(category.id)}>
-                    <span style={{
-                      color: category.color,
-                      background: `color-mix(in oklab, ${category.color} 22%, transparent)`,
-                    }}>
-                      <Icon name={category.icon} size={25} />
-                    </span>
-                    <small>{category.name}</small>
-                  </button>
-                )
-              })}
-              <button className="mobile-category-add" onClick={() => setCategoryEditorOpen(true)}>
-                <span><Icon name="plus" size={24} /></span>
-                <small>Nueva</small>
+        {/* Mode tabs */}
+        <div className="mobile-segment" role="tablist" aria-label="Tipo de movimiento">
+          {([['expense', 'Gasto'], ['income', 'Ingreso'], ['transfer', 'Transferencia']] as const).map(([value, label]) => (
+            <button key={value} className={mode === value ? 'on' : ''} role="tab" aria-selected={mode === value}
+              onClick={() => switchMode(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode !== 'transfer' ? (
+          <>
+            {/* Category header */}
+            <div className="mobile-create-section-header">
+              <span>Categoría</span>
+              <button className="mobile-create-new-btn" onClick={() => setCategoryEditorOpen(true)}>
+                <Icon name="plus" size={12} /> Nueva
               </button>
             </div>
-          ) : (
-            <button className="mobile-empty-action" onClick={() => setCategoryEditorOpen(true)}>
-              Crear una categoría para continuar
-            </button>
-          )}
-        </section>
-      )}
 
-      <section className="mobile-create-section mobile-quick-fields">
-        {mode === 'transfer' ? (
-          <div className="mobile-field-grid two">
-            <label>
-              <span>Desde</span>
-              <select value={fromAccount} onChange={event => setFromAccount(event.target.value)}>
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Hacia</span>
-              <select value={toAccount} onChange={event => setToAccount(event.target.value)}>
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
-              </select>
-            </label>
-          </div>
+            {/* Category grid */}
+            {visibleCategories.length ? (
+              <div className="mobile-category-grid">
+                {visibleCategories.map(category => {
+                  const selected = activeCategory?.id === category.id
+                  return (
+                    <button key={category.id} className={selected ? 'on' : ''} aria-pressed={selected}
+                      onClick={() => setCategoryId(category.id)}>
+                      <span style={{ color: category.color, background: `color-mix(in oklab, ${category.color} 22%, transparent)` }}>
+                        <Icon name={category.icon} size={20} />
+                      </span>
+                      <small>{category.name}</small>
+                    </button>
+                  )
+                })}
+                <button className="mobile-category-add" onClick={() => setCategoryEditorOpen(true)}>
+                  <span><Icon name="plus" size={20} /></span>
+                  <small>Nueva</small>
+                </button>
+              </div>
+            ) : (
+              <button className="mobile-empty-action" onClick={() => setCategoryEditorOpen(true)}>
+                Crear una categoría para continuar
+              </button>
+            )}
+
+            {/* Account + Date */}
+            {accounts.length > 0 && (
+              <div className="mobile-create-meta-row">
+                <label className="mobile-create-account-pill">
+                  <Icon name={ACCT_ICONS[activeAccount?.type ?? 'debit']} size={15} />
+                  <select value={activeAccountId} onChange={e => setAccountId(e.target.value)}>
+                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </label>
+                <button className="mobile-create-date-pill" onClick={() => dateInputRef.current?.showPicker?.()}>
+                  <Icon name="calendar" size={13} />
+                  <span>{isToday ? 'Hoy' : formatDateShort(date)}</span>
+                  <input ref={dateInputRef} type="date" value={date} onChange={e => setDate(e.target.value)} className="mobile-date-hidden" />
+                </button>
+              </div>
+            )}
+          </>
         ) : (
-          <label>
-            <span>Cuenta</span>
-            <select value={activeAccountId} onChange={event => setAccountId(event.target.value)}>
-              {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
-            </select>
-          </label>
+          <>
+            {/* Transfer: visual account cards */}
+            <div className="mobile-transfer-cards">
+              <button className="mobile-transfer-card" onClick={() => setTransferPicker('from')}>
+                <span style={{ color: fromAccountObj?.color ?? '#ffdd3d', background: `color-mix(in oklab, ${fromAccountObj?.color ?? '#ffdd3d'} 16%, transparent)` }}>
+                  <Icon name={ACCT_ICONS[fromAccountObj?.type ?? 'cash']} size={26} />
+                </span>
+                <b>{fromAccountObj?.name ?? 'Origen'}</b>
+                <small>{fromAccountObj ? fmtCompact(fromAccountObj.balance, currency) : '—'}</small>
+                <em>Origen</em>
+              </button>
+              <div className="mobile-transfer-arrow">→</div>
+              <button className="mobile-transfer-card" onClick={() => setTransferPicker('to')}>
+                <span style={{ color: toAccountObj?.color ?? '#35d0a2', background: `color-mix(in oklab, ${toAccountObj?.color ?? '#35d0a2'} 16%, transparent)` }}>
+                  <Icon name={ACCT_ICONS[toAccountObj?.type ?? 'cash']} size={26} />
+                </span>
+                <b>{toAccountObj?.name ?? 'Destino'}</b>
+                <small>{toAccountObj ? fmtCompact(toAccountObj.balance, currency) : '—'}</small>
+                <em>Destino</em>
+              </button>
+            </div>
+
+            {/* Transfer date row */}
+            <div className="mobile-create-meta-row">
+              <button className="mobile-create-date-pill" style={{ flex: 1 }} onClick={() => dateInputRef.current?.showPicker?.()}>
+                <Icon name="calendar" size={13} />
+                <span>{isToday ? 'Hoy' : formatDateShort(date)}</span>
+                <input ref={dateInputRef} type="date" value={date} onChange={e => setDate(e.target.value)} className="mobile-date-hidden" />
+              </button>
+            </div>
+          </>
         )}
-        <div className="mobile-field-grid two">
-          <label>
-            <span>Fecha</span>
-            <input type="date" value={date} onChange={event => setDate(event.target.value)} />
-          </label>
-          <label>
-            <span>Nota</span>
-            <input
-              value={note}
-              placeholder={notePlaceholder(mode, activeCategory)}
-              enterKeyHint="done"
-              onChange={event => setNote(event.target.value)}
-            />
-          </label>
+      </div>
+
+      {/* ─── Fixed bottom: amount + note + keypad + save ─── */}
+      <div className="mobile-create-bottom">
+        {/* Amount display */}
+        <div className="mobile-create-amount-row">
+          <span className="mobile-create-amount-label">
+            {mode === 'expense' ? 'Gasto' : mode === 'income' ? 'Ingreso' : 'Monto'}
+          </span>
+          <strong className="mobile-create-amount-value" style={{ color: amountText ? amountColor : '#3a3a3a' }}>
+            {amountText
+              ? fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 })
+              : `${currencyPrefix} 0`}
+          </strong>
         </div>
-      </section>
 
-      <section className="mobile-keypad" aria-label="Teclado numérico">
-        {keypad.map(key => (
-          <button key={key} onClick={() => pressKey(key)}>
-            {key === 'back' ? <Icon name="close" size={22} /> : key}
-          </button>
-        ))}
-      </section>
+        {/* Note input */}
+        <div className="mobile-create-note-input">
+          <Icon name="edit" size={14} />
+          <input
+            type="text"
+            value={note}
+            placeholder={notePlaceholder(mode, activeCategory)}
+            enterKeyHint="done"
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            onChange={e => setNote(e.target.value)}
+          />
+        </div>
 
-      <button className="mobile-save-button" disabled={!canSave} onClick={save}>
-        <Icon name="check" size={21} />
-        Guardar
-      </button>
+        {/* Numpad */}
+        <div className="mobile-keypad-compact">
+          {keypad.map(key => (
+            <button key={key} onClick={() => pressKey(key)}>
+              {key === 'back' ? <Icon name="close" size={18} /> : key}
+            </button>
+          ))}
+        </div>
 
-      <section className="mobile-secondary-actions">
-        <button onClick={onCreateAccount}><Icon name="cards" size={18} /> Cuenta</button>
-        <button onClick={onCreateGoal}><Icon name="target" size={18} /> Meta</button>
-      </section>
+        {/* Save */}
+        <button className="mobile-save-button" disabled={!canSave} onClick={save}>
+          <Icon name="check" size={20} />
+          {mode === 'transfer' ? 'Transferir' : 'Guardar'}
+        </button>
+      </div>
+
+      {/* Transfer account picker sheet */}
+      {transferPicker && (
+        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setTransferPicker(null)}>
+          <section onClick={e => e.stopPropagation()}>
+            <header>
+              <span>{transferPicker === 'from' ? 'Cuenta origen' : 'Cuenta destino'}</span>
+              <button onClick={() => setTransferPicker(null)}><Icon name="close" size={18} /></button>
+            </header>
+            <div className="mobile-picker-list">
+              {accounts
+                .filter(a => transferPicker === 'from' ? a.id !== toAccount : a.id !== fromAccount)
+                .map(account => (
+                  <button key={account.id} className="mobile-picker-row"
+                    onClick={() => {
+                      if (transferPicker === 'from') setFromAccount(account.id)
+                      else setToAccount(account.id)
+                      setTransferPicker(null)
+                    }}>
+                    <span style={{ color: account.color }}>
+                      <Icon name={ACCT_ICONS[account.type] ?? 'wallet'} size={22} />
+                    </span>
+                    <b>{account.name}</b>
+                    <small>{fmtCompact(account.balance, currency)}</small>
+                  </button>
+                ))}
+            </div>
+          </section>
+        </div>
+      )}
 
       {categoryEditorOpen && (
         <MobileCategoryEditor
@@ -299,7 +347,16 @@ function MobileCategoryEditor({
         </label>
         <label>
           <span>Nombre</span>
-          <input autoFocus value={name} placeholder={type === 'income' ? 'Ej. Bono' : 'Ej. Mascotas'} onChange={event => setName(event.target.value)} />
+          <input
+            autoFocus
+            type="text"
+            value={name}
+            placeholder={type === 'income' ? 'Ej. Bono' : 'Ej. Mascotas'}
+            autoCapitalize="words"
+            autoCorrect="on"
+            enterKeyHint="done"
+            onChange={event => setName(event.target.value)}
+          />
         </label>
         {type === 'expense' && (
           <label>

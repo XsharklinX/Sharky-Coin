@@ -6,6 +6,7 @@ import { totals, txForMonth } from '@/data/helpers'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute } from './MobileBottomNav'
 import { MobileAnalytics } from './MobileAnalytics'
+import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
 import { MobileHome } from './MobileHome'
 import { MobileProfile } from './MobileProfile'
@@ -148,6 +149,12 @@ export function MobileShell({
 
     const routeView = viewFromRoute(route)
     const activeView = routeView !== view && ['budgets', 'goals', 'calendar', 'annual'].includes(view) ? view : routeView
+
+    // Vistas con implementación nativa mobile
+    if (activeView === 'annual') {
+      return <MobileAnnual mkey={mkey} />
+    }
+
     const Component = views[activeView]
     return (
       <Suspense fallback={<div className="card card-copy">Cargando...</div>}>
@@ -171,10 +178,16 @@ export function MobileShell({
         onSearch={onSearch}
         onSettings={onSettings}
       />
-      <div className="mobile-content">
-        {renderMain()}
-      </div>
-      {route !== 'add' && <MobileBottomNav route={route} onRoute={goRoute} />}
+      {route === 'add' ? (
+        renderMain()
+      ) : (
+        <>
+          <div className="mobile-content">
+            {renderMain()}
+          </div>
+          <MobileBottomNav route={route} onRoute={goRoute} />
+        </>
+      )}
     </main>
   )
 }
