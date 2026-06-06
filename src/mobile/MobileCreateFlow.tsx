@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
@@ -17,6 +18,9 @@ const CATEGORY_ICONS: IconName[] = [
   'music', 'coffee', 'phone', 'gym', 'bus', 'building',
   'gamepad', 'gift', 'scissors', 'baby', 'paw', 'pill',
   'plane', 'briefcase', 'shirt', 'pizza', 'star', 'fuel', 'flame', 'soda',
+  'tree', 'sun', 'bike', 'train', 'tv', 'monitor', 'headphones', 'clock',
+  'key', 'tool', 'brush', 'graduation', 'stethoscope', 'salad', 'wine',
+  'crown', 'trophy', 'shield', 'map', 'package',
 ]
 
 const ACCT_ICONS: Record<string, IconName> = {
@@ -59,12 +63,11 @@ export function MobileCreateFlow({
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
   const [transferPicker, setTransferPicker] = useState<'from' | 'to' | null>(null)
   const [accountPicker, setAccountPicker] = useState(false)
+  const [datePicker, setDatePicker] = useState(false)
   const [date, setDate] = useState(() => {
     const current = today()
     return current.startsWith(mkey) ? current : `${mkey}-01`
   })
-  const dateInputRef = useRef<HTMLInputElement>(null)
-
   const [formError, setFormError] = useState<string | null>(null)
   const [shaking,   setShaking]   = useState(false)
 
@@ -88,6 +91,7 @@ export function MobileCreateFlow({
   useMobileBackDismiss(categoryEditorOpen, () => setCategoryEditorOpen(false))
   useMobileBackDismiss(!!transferPicker, () => setTransferPicker(null))
   useMobileBackDismiss(accountPicker, () => setAccountPicker(false))
+  useMobileBackDismiss(datePicker, () => setDatePicker(false))
 
   const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote('') }
 
@@ -197,7 +201,7 @@ export function MobileCreateFlow({
               </button>
             )}
 
-            {/* Account + Date */}
+            {/* Account + Date + Note */}
             {accounts.length > 0 && (
               <div className="mobile-create-meta-row">
                 <button className="mobile-create-account-pill" onClick={() => setAccountPicker(true)}>
@@ -207,13 +211,26 @@ export function MobileCreateFlow({
                   <span className="mobile-create-account-name">{activeAccount?.name ?? 'Cuenta'}</span>
                   <Icon name="arrowDn" size={12} style={{ color: '#5a5a5a', marginLeft: 'auto' }} />
                 </button>
-                <button className="mobile-create-date-pill" onClick={() => dateInputRef.current?.showPicker?.()}>
+                <button className="mobile-create-date-pill" onClick={() => setDatePicker(true)}>
                   <Icon name="calendar" size={13} />
                   <span>{isToday ? 'Hoy' : formatDateShort(date)}</span>
-                  <input ref={dateInputRef} type="date" value={date} onChange={e => setDate(e.target.value)} className="mobile-date-hidden" />
                 </button>
               </div>
             )}
+
+            {/* Note — in scrollable area to avoid keyboard overlap */}
+            <div className="mobile-create-note-input">
+              <Icon name="edit" size={14} />
+              <input
+                type="text"
+                value={note}
+                placeholder={notePlaceholder(mode, activeCategory)}
+                enterKeyHint="done"
+                autoCapitalize="sentences"
+                autoCorrect="on"
+                onChange={e => setNote(e.target.value)}
+              />
+            </div>
           </>
         ) : (
           <>
@@ -238,19 +255,31 @@ export function MobileCreateFlow({
               </button>
             </div>
 
-            {/* Transfer date row */}
+            {/* Date + Note for transfer */}
             <div className="mobile-create-meta-row">
-              <button className="mobile-create-date-pill" style={{ flex: 1 }} onClick={() => dateInputRef.current?.showPicker?.()}>
+              <button className="mobile-create-date-pill" style={{ flex: 1 }} onClick={() => setDatePicker(true)}>
                 <Icon name="calendar" size={13} />
                 <span>{isToday ? 'Hoy' : formatDateShort(date)}</span>
-                <input ref={dateInputRef} type="date" value={date} onChange={e => setDate(e.target.value)} className="mobile-date-hidden" />
               </button>
+            </div>
+
+            <div className="mobile-create-note-input">
+              <Icon name="edit" size={14} />
+              <input
+                type="text"
+                value={note}
+                placeholder={notePlaceholder(mode, activeCategory)}
+                enterKeyHint="done"
+                autoCapitalize="sentences"
+                autoCorrect="on"
+                onChange={e => setNote(e.target.value)}
+              />
             </div>
           </>
         )}
       </div>
 
-      {/* ─── Fixed bottom: amount + note + keypad + save ─── */}
+      {/* ─── Fixed bottom: amount + keypad + save ─── */}
       <div className="mobile-create-bottom">
         {/* Amount display */}
         <div className={`mobile-create-amount-row${shaking ? ' shake' : ''}`}>
@@ -269,20 +298,6 @@ export function MobileCreateFlow({
             {formError}
           </div>
         )}
-
-        {/* Note input */}
-        <div className="mobile-create-note-input">
-          <Icon name="edit" size={14} />
-          <input
-            type="text"
-            value={note}
-            placeholder={notePlaceholder(mode, activeCategory)}
-            enterKeyHint="done"
-            autoCapitalize="sentences"
-            autoCorrect="on"
-            onChange={e => setNote(e.target.value)}
-          />
-        </div>
 
         {/* Numpad */}
         <div className="mobile-keypad-compact">
@@ -354,6 +369,16 @@ export function MobileCreateFlow({
             </div>
           </section>
         </div>
+      )}
+
+      {/* Date picker */}
+      {datePicker && (
+        <MobileDatePicker
+          value={date}
+          onChange={setDate}
+          onClose={() => setDatePicker(false)}
+          mkey={mkey}
+        />
       )}
 
       {categoryEditorOpen && (

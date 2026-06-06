@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { currentMonthKey, monthKeys } from '@/data/helpers'
-import { Icon } from '@/components/ui/Icon'
 import { ToastHost, toast } from '@/components/ui/Toast'
 import { DialogProvider } from '@/components/ui/DialogProvider'
 import { CommandPalette } from '@/components/CommandPalette'
@@ -19,10 +18,10 @@ import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
+import { MobileBudgets } from '@/mobile/MobileBudgets'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
-const Budgets      = lazy(() => import('@/views/Budgets').then(m => ({ default: m.Budgets })))
 const Goals        = lazy(() => import('@/views/Goals').then(m => ({ default: m.Goals })))
 const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default: m.Calendar })))
 
@@ -108,18 +107,14 @@ export default function App() {
   }
 
   const mobileViews = {
-    budgets: (props: ViewProps) => (
-      <Suspense fallback={<div style={{ padding: 24, color: '#666' }}>Cargando...</div>}>
-        <Budgets {...props} />
-      </Suspense>
-    ),
+    budgets: (props: ViewProps) => <MobileBudgets {...props} />,
     goals: (props: ViewProps) => (
-      <Suspense fallback={<div style={{ padding: 24, color: '#666' }}>Cargando...</div>}>
+      <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>Cargando...</div>}>
         <Goals {...props} />
       </Suspense>
     ),
     calendar: (props: ViewProps) => (
-      <Suspense fallback={<div style={{ padding: 24, color: '#666' }}>Cargando...</div>}>
+      <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>Cargando...</div>}>
         <CalendarView {...props} />
       </Suspense>
     ),

@@ -14,6 +14,8 @@ const ICONS = new Set([
   'bell','close','calendar','dots','edit','trash','download','print','settings','logout',
   'repeat','tag','camera','check','alert','refresh','dollar','piggy','sliders','upload',
   'fileJson','eye','eyeOff','info','lock','user','palette',
+  'tree','sun','bike','train','tv','monitor','headphones','clock','key','tool',
+  'brush','graduation','stethoscope','salad','wine','crown','trophy','shield','map','package',
 ])
 const text = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0
 const amount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)

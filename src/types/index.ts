@@ -26,6 +26,11 @@ export type IconName =
   | 'check' | 'alert' | 'refresh' | 'dollar' | 'piggy'
   | 'sliders' | 'upload' | 'fileJson' | 'eye' | 'eyeOff' | 'info'
   | 'lock' | 'user' | 'palette'
+  // 20 iconos nuevos
+  | 'tree' | 'sun' | 'bike' | 'train' | 'tv' | 'monitor'
+  | 'headphones' | 'clock' | 'key' | 'tool' | 'brush'
+  | 'graduation' | 'stethoscope' | 'salad' | 'wine'
+  | 'crown' | 'trophy' | 'shield' | 'map' | 'package'
 
 // ── Entidades financieras ─────────────────────────────────
 export interface Account {
