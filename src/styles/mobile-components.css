@@ -595,3 +595,109 @@
 
 
 
+
+/* ── MobileSubscriptions ────────────────────────────────── */
+  .msub-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 24px; }
+
+  .msub-hero {
+    background: linear-gradient(135deg, var(--m-surface) 0%, color-mix(in oklab, var(--m-primary) 12%, var(--m-surface)) 100%);
+    border-bottom: 1px solid var(--m-border);
+    padding: 24px 20px 20px;
+    text-align: center;
+  }
+  .msub-hero-label { color: var(--m-muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .msub-hero-amount { color: var(--m-text); font-size: 32px; font-weight: 800; letter-spacing: -.02em; margin: 4px 0; }
+  .msub-hero-count { color: var(--m-muted); font-size: 13px; }
+
+  .msub-section { padding: 0 16px; }
+  .msub-section-header {
+    align-items: center; color: var(--m-muted);
+    display: flex; font-size: 11px; font-weight: 700;
+    justify-content: space-between; letter-spacing: .06em;
+    padding: 20px 4px 8px; text-transform: uppercase;
+  }
+
+  .msub-row {
+    align-items: center; background: var(--m-surface);
+    border: 1px solid var(--m-border); border-radius: 14px;
+    display: flex; gap: 12px; margin-bottom: 8px;
+    padding: 14px; width: 100%; text-align: left;
+  }
+  .msub-row:active { opacity: .75; }
+  .msub-cat-icon {
+    align-items: center; border-radius: 10px;
+    display: flex; flex-shrink: 0;
+    height: 40px; justify-content: center; width: 40px;
+  }
+  .msub-row-info { flex: 1; min-width: 0; }
+  .msub-row-info b { display: block; font-size: 15px; }
+  .msub-row-info small { color: var(--m-muted); font-size: 12px; }
+  .msub-overdue { color: #f59e0b; }
+  .msub-row-right strong { font-size: 15px; font-weight: 700; white-space: nowrap; }
+
+  .msub-empty {
+    align-items: center; color: var(--m-muted);
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 60vh; justify-content: center; padding: 40px 32px; text-align: center;
+  }
+  .msub-empty p { color: var(--m-text); font-size: 16px; font-weight: 600; margin: 0; }
+  .msub-empty small { font-size: 13px; line-height: 1.5; }
+
+  /* Subscription action sheet */
+  .msub-sheet {
+    background: var(--m-surface); border-radius: 20px 20px 0 0;
+    display: flex; flex-direction: column;
+    margin-top: auto; max-height: 70dvh; width: 100%;
+  }
+  .msub-sheet header {
+    align-items: center; border-bottom: 1px solid var(--m-border);
+    display: flex; font-weight: 700; font-size: 16px;
+    justify-content: space-between; padding: 18px 20px;
+  }
+  .msub-sheet-body { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+  .msub-sheet-amount {
+    align-items: baseline; color: var(--m-text);
+    display: flex; font-size: 28px; font-weight: 800; gap: 6px;
+  }
+  .msub-sheet-amount span { color: var(--m-muted); font-size: 14px; font-weight: 500; }
+  .msub-sheet-meta { color: var(--m-muted); font-size: 13px; }
+  .msub-sheet-meta strong { color: var(--m-text); }
+
+  .msub-action-btn {
+    align-items: center; border-radius: 12px;
+    display: flex; font-size: 15px; font-weight: 600;
+    gap: 8px; justify-content: center; padding: 14px;
+    width: 100%;
+  }
+  .msub-action-btn.warn { background: color-mix(in oklab, #f59e0b 12%, transparent); color: #f59e0b; }
+  .msub-action-btn.danger { background: color-mix(in oklab, #ff6b8a 12%, transparent); color: #ff6b8a; }
+
+  .msub-confirm { background: color-mix(in oklab, #ff6b8a 8%, transparent); border-radius: 12px; padding: 16px; }
+  .msub-confirm p { color: var(--m-text); font-size: 14px; line-height: 1.5; margin: 0 0 14px; }
+  .msub-confirm-row { display: flex; gap: 10px; }
+  .msub-confirm-row button { border-radius: 10px; flex: 1; font-size: 14px; font-weight: 600; padding: 12px; }
+  .msub-confirm-row button.danger { background: #ff6b8a; color: #fff; }
+
+/* ── MobileBiometricGate ─────────────────────────────────── */
+  .mbio-root {
+    align-items: center; background: var(--m-bg);
+    display: flex; inset: 0; justify-content: center;
+    position: fixed; z-index: 9999;
+  }
+  .mbio-card {
+    align-items: center; display: flex; flex-direction: column;
+    gap: 16px; max-width: 300px; padding: 40px 24px; text-align: center;
+  }
+  .mbio-icon {
+    align-items: center; background: color-mix(in oklab, var(--m-primary) 14%, transparent);
+    border-radius: 24px; color: var(--m-primary);
+    display: flex; height: 96px; justify-content: center; width: 96px;
+  }
+  .mbio-card h2 { color: var(--m-text); font-size: 24px; font-weight: 800; margin: 0; }
+  .mbio-card p  { color: var(--m-muted); font-size: 15px; margin: 0; }
+  .mbio-retry {
+    align-items: center; background: var(--m-surface);
+    border: 1px solid var(--m-border); border-radius: 12px;
+    color: var(--m-text); display: flex; font-size: 15px; font-weight: 600;
+    gap: 8px; margin-top: 8px; padding: 14px 24px;
+  }

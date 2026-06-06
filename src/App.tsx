@@ -13,6 +13,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
+import { MobileBiometricGate } from '@/mobile/MobileBiometricGate'
 import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
@@ -28,6 +29,7 @@ export default function App() {
   const s = useSettings()
   const { transactions, accounts, currency, setCurrency, addTx, deleteTx } = useFinance()
 
+  const [bioUnlocked, setBioUnlocked]  = useState(!s.requireBiometric)
   const [splashDone,   setSplashDone]   = useState(false)
   const [view,         setView]         = useState<ViewId>('dashboard')
   const [mkey,         setMkey]         = useState(currentMonthKey())
@@ -53,6 +55,12 @@ export default function App() {
     'data-density': s.density,
     style: { '--accent': s.accent, fontFamily: `"${s.font}", system-ui, sans-serif` } as React.CSSProperties,
   }
+
+  if (s.requireBiometric && !bioUnlocked) return (
+    <div className="app mobile-app" {...themeProps}>
+      <MobileBiometricGate onUnlocked={() => setBioUnlocked(true)} />
+    </div>
+  )
 
   const hasOnboarded = !!localStorage.getItem('sharky-finance-v2')
   if (!hasOnboarded) return (

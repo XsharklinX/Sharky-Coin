@@ -159,6 +159,7 @@ export function MobileProfile({
         <div className="mpr-section-header"><span>Quick links</span></div>
         <div className="mpr-link-list">
           <button onClick={onSettings}><Icon name="settings" size={20} />Settings &amp; backup<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
+          <button onClick={() => goto('subscriptions')}><Icon name="repeat" size={20} />Subscriptions<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
           <button onClick={() => goto('annual')}><Icon name="chart" size={20} />Annual report<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
           <button onClick={() => goto('goals')}><Icon name="target" size={20} />Goals<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
           <button onClick={() => goto('calendar')}><Icon name="calendar" size={20} />Calendar<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>

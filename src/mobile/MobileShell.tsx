@@ -11,6 +11,7 @@ import { MobileCurrencySheet } from './MobileCurrencySheet'
 import { MobileHome } from './MobileHome'
 import { MobileProfile } from './MobileProfile'
 import { MobileReports } from './MobileReports'
+import { MobileSubscriptions } from './MobileSubscriptions'
 import { MobileTopBar } from './MobileTopBar'
 import { MobileTransactionList } from './MobileTransactionList'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -20,7 +21,7 @@ type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'movements'
   if (view === 'stats') return 'analytics'
-  if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports') return 'reports'
+  if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports' || view === 'subscriptions') return 'reports'
   return 'home'
 }
 
@@ -32,11 +33,12 @@ function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
 }
 
 const INTERNAL_TITLES: Partial<Record<ViewId, string>> = {
-  annual:   'Annual report',
-  calendar: 'Calendar',
-  budgets:  'Budgets',
-  goals:    'Goals',
-  reports:  'Reports',
+  annual:        'Annual report',
+  calendar:      'Calendar',
+  budgets:       'Budgets',
+  goals:         'Goals',
+  reports:       'Reports',
+  subscriptions: 'Subscriptions',
 }
 
 export function MobileShell({
@@ -131,6 +133,7 @@ export function MobileShell({
 
     if (route === 'reports') {
       if (view === 'annual') return <MobileAnnual mkey={mkey} />
+      if (view === 'subscriptions') return <MobileSubscriptions />
       const renderer = mobileViews[view]
       if (renderer) {
         return (

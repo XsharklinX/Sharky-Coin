@@ -14,7 +14,22 @@ fn read_backup(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
-const SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas.supabase";
+/// Guarda un backup en la carpeta de documentos de la app (sin diálogo, ideal para Android).
+/// Devuelve la ruta donde se guardó el archivo.
+#[tauri::command]
+fn save_backup_auto(app: tauri::AppHandle, json: String) -> Result<String, String> {
+    let doc_dir = app.path().app_document_dir().map_err(|e| e.to_string())?;
+    let backup_dir = doc_dir.join("backups");
+    std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let filename = format!("sharky-backup-{}.json", today);
+    let path = backup_dir.join(&filename);
+    std::fs::write(&path, &json).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+const SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas";
+extern crate chrono;
 const DESKTOP_PWA_CACHE_RESET_SCRIPT: &str = r#"
 (async () => {
   const resetKey = "sharky-desktop-pwa-reset-v1";
@@ -87,6 +102,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_biometric::init())
         .setup(|app| register_desktop_deep_links(app))
         .on_page_load(|webview, _| {
             let _ = webview.eval(DESKTOP_PWA_CACHE_RESET_SCRIPT);
@@ -94,6 +110,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             write_backup,
             read_backup,
+            save_backup_auto,
             secure_storage_set,
             secure_storage_get,
             secure_storage_remove,

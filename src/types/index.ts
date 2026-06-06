@@ -139,6 +139,7 @@ export type ViewId =
   | 'annual'
   | 'calendar'
   | 'reports'
+  | 'subscriptions'
 
 export interface ViewProps {
   txns:        Transaction[]

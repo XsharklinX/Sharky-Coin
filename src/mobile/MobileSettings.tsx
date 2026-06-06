@@ -7,7 +7,8 @@ import { getDataHealthStatus } from '@/data/dataHealth'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useGoogleAuth, loadGIS } from '@/lib/googleAuth'
-import { openBackup, saveBackup } from '@/hooks/useTauri'
+import { isTauri, openBackup, saveBackup } from '@/hooks/useTauri'
+import { checkBiometric } from '@/lib/biometric'
 import type { DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -111,7 +112,12 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
   const [activeSheet, setActiveSheet] = useState<Sheet | null>(null)
   const [nameInput, setNameInput] = useState(settings.displayName)
   const [pendingReset, setPendingReset] = useState(false)
+  const [bioAvailable, setBioAvailable] = useState(false)
   const health = getDataHealthStatus(finance)
+
+  useEffect(() => {
+    if (isTauri()) checkBiometric().then(s => setBioAvailable(s.available))
+  }, [])
 
   useMobileBackDismiss(true, onClose)
   useMobileBackDismiss(!!activeSheet, () => { setActiveSheet(null); setPendingReset(false) })
@@ -269,6 +275,31 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
               danger onClick={() => open('reset')} />
           </div>
         </div>
+
+        {/* ── Security (Tauri only) ── */}
+        {isTauri() && (
+          <div className="mset-section">
+            <div className="mset-section-label">Security</div>
+            <div className="mset-card">
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+                  <Icon name="lock" size={18} />
+                </span>
+                <div className="mset-row-text">
+                  <b>Require biometrics</b>
+                  <small>{bioAvailable ? 'Lock app on open' : 'Not available on this device'}</small>
+                </div>
+                <label className="mset-toggle-wrap">
+                  <input type="checkbox" className="mset-toggle-input"
+                    checked={settings.requireBiometric}
+                    disabled={!bioAvailable}
+                    onChange={e => settings.setRequireBiometric(e.target.checked)} />
+                  <span className="mset-toggle" />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── App ── */}
         <div className="mset-section">

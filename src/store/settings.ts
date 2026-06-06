@@ -16,6 +16,7 @@ interface SettingsState {
   errorTelemetryEnabled: boolean
   displayName: string
   language: 'en' | 'es'
+  requireBiometric: boolean
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -30,6 +31,7 @@ interface SettingsState {
   setErrorTelemetryEnabled: (v: boolean) => void
   setDisplayName: (v: string) => void
   setLanguage: (v: 'en' | 'es') => void
+  setRequireBiometric: (v: boolean) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -48,6 +50,7 @@ export const useSettings = create<SettingsState>()(
       errorTelemetryEnabled: false,
       displayName: '',
       language: 'en',
+      requireBiometric: false,
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -62,6 +65,7 @@ export const useSettings = create<SettingsState>()(
       setErrorTelemetryEnabled: (errorTelemetryEnabled) => set({ errorTelemetryEnabled }),
       setDisplayName: (displayName) => set({ displayName }),
       setLanguage: (language) => set({ language }),
+      setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
     }),
     {
       name:    'sharky-settings-v2',

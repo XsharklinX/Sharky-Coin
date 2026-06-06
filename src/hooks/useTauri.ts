@@ -28,14 +28,30 @@ async function tauriOpenDialog(opts: { filters?: Array<{ name: string; extension
 // ── API pública ────────────────────────────────────────────
 
 /**
+ * Guarda un backup en la carpeta de documentos de la app (solo Tauri Android).
+ * Devuelve la ruta donde se guardó el archivo.
+ */
+export async function saveBackupAuto(json: string): Promise<string> {
+  return tauriInvoke<string>('save_backup_auto', { json })
+}
+
+/**
  * Guarda un backup JSON.
- * - En Tauri: abre diálogo de guardado nativo → escribe al FS
- * - En browser: descarga el archivo
+ * - En Tauri Android: auto-guarda a {app_document_dir}/backups/
+ * - En Tauri desktop: abre diálogo de guardado nativo → escribe al FS
+ * - En Android PWA: usa navigator.share() con el archivo
+ * - En browser desktop: descarga el archivo
  */
 export async function saveBackup(json: string): Promise<void> {
   const filename = `sharky-backup-${new Date().toISOString().slice(0, 10)}.json`
 
   if (isTauri()) {
+    // On Android the save dialog is unreliable — auto-save to app documents folder
+    const isAndroid = /android/i.test(navigator.userAgent)
+    if (isAndroid) {
+      await tauriInvoke('save_backup_auto', { json })
+      return
+    }
     const path = await tauriSaveDialog({
       defaultPath: filename,
       filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -45,7 +61,14 @@ export async function saveBackup(json: string): Promise<void> {
     return
   }
 
-  // Fallback web
+  // Web Share API — preferred on Android PWA (shares to Files, Drive, WhatsApp, etc.)
+  const file = new File([json], filename, { type: 'application/json' })
+  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: '$harky backup' })
+    return
+  }
+
+  // Fallback: programmatic download (desktop browsers)
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
   const a   = Object.assign(document.createElement('a'), { href: url, download: filename })
   a.click()
