@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
+import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { MobileDatePicker } from './MobileDatePicker'
-import type { Category, IconName, Transaction } from '@/types'
+import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 type MobileTxMode = Transaction['type']
@@ -70,6 +71,10 @@ export function MobileCreateFlow({
   })
   const [formError, setFormError] = useState<string | null>(null)
   const [shaking,   setShaking]   = useState(false)
+  const [recurring, setRecurring] = useState(false)
+  const [recurFreq, setRecurFreq] = useState<RecurrenceFrequency>('monthly')
+  const [recurEnd,  setRecurEnd]  = useState('')
+  const [recurEndPicker, setRecurEndPicker] = useState(false)
 
   const amount = Number(amountText || 0)
   const categoryType = mode === 'income' ? 'income' : 'expense'
@@ -92,6 +97,7 @@ export function MobileCreateFlow({
   useMobileBackDismiss(!!transferPicker, () => setTransferPicker(null))
   useMobileBackDismiss(accountPicker, () => setAccountPicker(false))
   useMobileBackDismiss(datePicker, () => setDatePicker(false))
+  useMobileBackDismiss(recurEndPicker, () => setRecurEndPicker(false))
 
   const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote('') }
 
@@ -125,13 +131,31 @@ export function MobileCreateFlow({
       if (mode === 'transfer') {
         transfer({ fromAccount, toAccount, amount, date, note: note.trim() || 'Transferencia' })
       } else {
-        addTx({ type: mode, amount, date, note: note.trim() || activeCategory!.name, categoryId: activeCategory!.id, accountId: activeAccountId })
+        addTx({
+          type: mode, amount, date,
+          note: note.trim() || activeCategory!.name,
+          categoryId: activeCategory!.id,
+          accountId: activeAccountId,
+          ...(recurring ? {
+            recurring: recurFreq,
+            recurringStart: date,
+            recurringEnd: recurEnd || undefined,
+            recurringNext: advanceRecurrenceDate(date, recurFreq),
+          } : {}),
+        })
       }
       navigator.vibrate?.(18)
-      toast(mode === 'transfer' ? 'Transferencia registrada' : 'Movimiento guardado', { icon: 'check', type: 'ok' })
+      toast(
+        recurring
+          ? `Movimiento ${recurFreq === 'weekly' ? 'semanal' : 'mensual'} programado`
+          : mode === 'transfer' ? 'Transferencia registrada' : 'Movimiento guardado',
+        { icon: 'check', type: 'ok' },
+      )
       setAmountText('')
       setNote('')
       setCategoryId(null)
+      setRecurring(false)
+      setRecurEnd('')
       onSaved()
     } catch (error) {
       toast(error instanceof Error ? error.message : 'No se pudo guardar.', { icon: 'alert' })
@@ -231,6 +255,40 @@ export function MobileCreateFlow({
                 onChange={e => setNote(e.target.value)}
               />
             </div>
+
+            {/* Recurring toggle */}
+            <button
+              className={`mobile-create-recurring-toggle${recurring ? ' active' : ''}`}
+              onClick={() => setRecurring(r => !r)}
+            >
+              <span className="mobile-recur-icon">
+                <Icon name="repeat" size={15} />
+              </span>
+              <span className="mobile-recur-label">Repetir movimiento</span>
+              <span className={`mobile-recur-switch${recurring ? ' on' : ''}`} />
+            </button>
+
+            {recurring && (
+              <div className="mobile-create-recurring-opts">
+                <div className="mobile-segment mobile-recur-freq">
+                  <button className={recurFreq === 'weekly' ? 'on' : ''} onClick={() => setRecurFreq('weekly')}>
+                    Semanal
+                  </button>
+                  <button className={recurFreq === 'monthly' ? 'on' : ''} onClick={() => setRecurFreq('monthly')}>
+                    Mensual
+                  </button>
+                </div>
+                <button className="mobile-create-date-pill" onClick={() => setRecurEndPicker(true)}>
+                  <Icon name="calendar" size={13} />
+                  <span>{recurEnd ? `Hasta ${formatDateShort(recurEnd)}` : 'Sin fecha límite'}</span>
+                  {recurEnd && (
+                    <span style={{ marginLeft: 'auto' }} onClick={e => { e.stopPropagation(); setRecurEnd('') }}>
+                      <Icon name="close" size={12} />
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -377,6 +435,16 @@ export function MobileCreateFlow({
           value={date}
           onChange={setDate}
           onClose={() => setDatePicker(false)}
+          mkey={mkey}
+        />
+      )}
+
+      {/* Recurring end date picker */}
+      {recurEndPicker && (
+        <MobileDatePicker
+          value={recurEnd || date}
+          onChange={v => setRecurEnd(v)}
+          onClose={() => setRecurEndPicker(false)}
           mkey={mkey}
         />
       )}

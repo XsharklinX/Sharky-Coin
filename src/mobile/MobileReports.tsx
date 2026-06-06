@@ -108,19 +108,40 @@ export function MobileReports({
               <span>{group.group}</span>
               <strong>{fmtCompact(group.accounts.reduce((sum, account) => sum + account.balance, 0), currency)}</strong>
             </div>
-            {group.accounts.map(account => (
-              <button key={account.id} className="mobile-account-row" onClick={() => setEditing(account)}>
-                <span style={{ color: account.color }}>
-                  <Icon name={TYPE_META[account.type].icon} size={24} />
-                </span>
-                <div>
-                  <b>{account.name}</b>
-                  <small>{TYPE_META[account.type].label}{account.last4 ? ` · ${account.last4}` : ''}</small>
-                </div>
-                <strong className={accountBalanceKind(account) === 'debt' ? 'expense' : ''}>{fmtCompact(account.balance, currency)}</strong>
-                <Icon name="arrowUp" size={15} style={{ transform: 'rotate(90deg)' }} />
-              </button>
-            ))}
+            {group.accounts.map(account => {
+              const used = account.type === 'credit' && account.limit
+                ? Math.abs(Math.min(0, account.balance))
+                : null
+              const utilPct = used !== null && account.limit
+                ? Math.min(100, used / account.limit * 100)
+                : null
+              return (
+                <button key={account.id} className="mobile-account-row" onClick={() => setEditing(account)}>
+                  <span style={{ color: account.color }}>
+                    <Icon name={TYPE_META[account.type].icon} size={24} />
+                  </span>
+                  <div className="mobile-account-row-body">
+                    <b>{account.name}</b>
+                    <small>{TYPE_META[account.type].label}{account.last4 ? ` · ${account.last4}` : ''}</small>
+                    {utilPct !== null && account.limit && (
+                      <div className="mobile-credit-util">
+                        <div className="mobile-credit-bar">
+                          <div style={{
+                            width: `${utilPct}%`,
+                            background: utilPct >= 90 ? '#ff6b8a' : utilPct >= 70 ? '#f59e0b' : '#35d0a2',
+                          }} />
+                        </div>
+                        <span className={utilPct >= 90 ? 'over' : utilPct >= 70 ? 'warn' : ''}>
+                          {Math.round(utilPct)}% · {fmtCompact(account.limit - used!, currency)} libre
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <strong className={accountBalanceKind(account) === 'debt' ? 'expense' : ''}>{fmtCompact(account.balance, currency)}</strong>
+                  <Icon name="arrowUp" size={15} style={{ transform: 'rotate(90deg)' }} />
+                </button>
+              )
+            })}
           </div>
         ))}
         {!accounts.length && (

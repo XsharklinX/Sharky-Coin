@@ -135,9 +135,12 @@ export function MobileTransactionList({
                       ? <span className="mobile-transfer-icon"><Icon name="repeat" size={24} /></span>
                       : <CatBadge category={category} size={52} />}
                     <span>
-                      <b>{tx.type === 'transfer' ? 'Transferencia' : tx.note}</b>
+                      <b>
+                        {tx.type === 'transfer' ? 'Transferencia' : tx.note}
+                        {tx.recurring && <i className="mobile-recur-dot" title="Recurrente"><Icon name="repeat" size={11} /></i>}
+                      </b>
                       <small>{tx.type === 'transfer'
-                        ? `${getAccount(tx.fromAccount, accounts)?.name ?? 'Origen'} -> ${getAccount(tx.toAccount, accounts)?.name ?? 'Destino'}`
+                        ? `${getAccount(tx.fromAccount, accounts)?.name ?? 'Origen'} → ${getAccount(tx.toAccount, accounts)?.name ?? 'Destino'}`
                         : `${category?.name ?? 'Sin categoría'} · ${account?.name ?? 'Sin cuenta'}`}</small>
                     </span>
                     <strong className={income ? 'income' : tx.type === 'transfer' ? 'transfer' : ''}>
