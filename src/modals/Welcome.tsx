@@ -3,7 +3,6 @@ import { BrandMark } from '@/components/ui/BrandMark'
 import { useFinance } from '@/store/finance'
 
 export function Welcome() {
-  const startDemo  = useFinance(s => s.startDemo)
   const startEmpty = useFinance(s => s.startEmpty)
 
   return (
@@ -18,11 +17,8 @@ export function Welcome() {
           controla presupuestos y visualiza tus finanzas en gráficas.
         </p>
         <div className="welcome-actions">
-          <button className="btn-primary lg" onClick={startDemo}>
-            <Icon name="chart" size={17} />Explorar con datos de ejemplo
-          </button>
-          <button className="btn-ghost lg" onClick={startEmpty}>
-            Empezar de cero
+          <button className="btn-primary lg" onClick={startEmpty}>
+            Comenzar ahora
           </button>
         </div>
         <div className="welcome-feats">

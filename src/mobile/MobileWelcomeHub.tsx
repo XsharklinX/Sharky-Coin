@@ -1,6 +1,7 @@
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { useFinance } from '@/store/finance'
+import type { IconName } from '@/types'
 
 const FEATS = [
   {
@@ -24,7 +25,6 @@ const FEATS = [
 ] as const
 
 export function MobileWelcomeHub() {
-  const startDemo  = useFinance(s => s.startDemo)
   const startEmpty = useFinance(s => s.startEmpty)
 
   return (
@@ -58,12 +58,8 @@ export function MobileWelcomeHub() {
       </div>
 
       <div className="mobile-welcome-actions">
-        <button className="mobile-welcome-primary" onClick={startDemo}>
-          <Icon name="chart" size={18} />
-          Explorar con datos de ejemplo
-        </button>
-        <button className="mobile-welcome-ghost" onClick={startEmpty}>
-          Empezar de cero
+        <button className="mobile-welcome-primary" onClick={startEmpty}>
+          Comenzar ahora
         </button>
         <p className="mobile-welcome-fine">
           Sin cuenta en la nube · Tus datos, 100% privados

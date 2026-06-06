@@ -13,14 +13,17 @@ import {
   Settings, LogOut,
   AlertCircle, CheckCircle2, RefreshCw, Tag, Camera,
   Repeat, DollarSign, PiggyBank, Eye, EyeOff,
-  Upload, FileJson, SlidersHorizontal, Info,
+  Upload, FileJson, SlidersHorizontal, Info, Lock, User, Palette,
+  Music, Coffee, Phone, Dumbbell, Building2, Bus,
+  Gamepad2, Gift, Scissors, Baby, PawPrint, Pill,
+  Plane, Briefcase, Shirt, Pizza, Star, Fuel, Flame, CupSoda,
 } from 'lucide-react'
 import type { IconName } from '@/types'
 
 type LucideIcon = React.ComponentType<LucideProps>
 
 const MAP: Partial<Record<IconName, LucideIcon>> = {
-  // categorías
+  // categorías existentes
   home:     Home,
   cart:     ShoppingCart,
   food:     Utensils,
@@ -33,6 +36,27 @@ const MAP: Partial<Record<IconName, LucideIcon>> = {
   wallet:   Wallet,
   laptop:   Laptop,
   trend:    TrendingUp,
+  // nuevas categorías
+  music:    Music,
+  coffee:   Coffee,
+  phone:    Phone,
+  gym:      Dumbbell,
+  building: Building2,
+  bus:      Bus,
+  gamepad:  Gamepad2,
+  gift:     Gift,
+  scissors: Scissors,
+  baby:     Baby,
+  paw:      PawPrint,
+  pill:     Pill,
+  plane:    Plane,
+  briefcase: Briefcase,
+  shirt:    Shirt,
+  pizza:    Pizza,
+  star:     Star,
+  fuel:     Fuel,
+  flame:    Flame,
+  soda:     CupSoda,
   // nav
   grid:     LayoutGrid,
   list:     List,
@@ -69,6 +93,9 @@ const MAP: Partial<Record<IconName, LucideIcon>> = {
   eye:      Eye,
   eyeOff:   EyeOff,
   info:     Info,
+  lock:     Lock,
+  user:     User,
+  palette:  Palette,
 }
 
 interface IconProps {

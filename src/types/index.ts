@@ -7,9 +7,14 @@ export type DensityName  = 'compact' | 'regular' | 'comfy'
 export type OverdraftPolicy = 'block' | 'warn' | 'allow'
 export type RecurrenceFrequency = 'weekly' | 'monthly'
 export type IconName =
-  // categorías
+  // categorías existentes
   | 'home' | 'cart' | 'food' | 'car' | 'bolt' | 'play' | 'heart'
   | 'bag'  | 'book' | 'wallet' | 'laptop' | 'trend'
+  // nuevas categorías
+  | 'music' | 'coffee' | 'phone' | 'gym' | 'building' | 'bus'
+  | 'gamepad' | 'gift' | 'scissors' | 'baby' | 'paw' | 'pill'
+  | 'plane' | 'briefcase' | 'shirt' | 'pizza' | 'star' | 'fuel'
+  | 'flame' | 'soda'
   // nav
   | 'grid' | 'list' | 'cards' | 'chart' | 'target'
   // acciones comunes
@@ -20,6 +25,7 @@ export type IconName =
   | 'settings' | 'logout' | 'repeat' | 'tag' | 'camera'
   | 'check' | 'alert' | 'refresh' | 'dollar' | 'piggy'
   | 'sliders' | 'upload' | 'fileJson' | 'eye' | 'eyeOff' | 'info'
+  | 'lock' | 'user' | 'palette'
 
 // ── Entidades financieras ─────────────────────────────────
 export interface Account {

@@ -62,6 +62,7 @@ export function MobileCreateFlow({
   const [note, setNote] = useState('')
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
   const [transferPicker, setTransferPicker] = useState<'from' | 'to' | null>(null)
+  const [accountPicker, setAccountPicker] = useState(false)
   const [date, setDate] = useState(() => {
     const current = today()
     return current.startsWith(mkey) ? current : `${mkey}-01`
@@ -87,6 +88,7 @@ export function MobileCreateFlow({
 
   useMobileBackDismiss(categoryEditorOpen, () => setCategoryEditorOpen(false))
   useMobileBackDismiss(!!transferPicker, () => setTransferPicker(null))
+  useMobileBackDismiss(accountPicker, () => setAccountPicker(false))
 
   const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote('') }
 
@@ -181,12 +183,13 @@ export function MobileCreateFlow({
             {/* Account + Date */}
             {accounts.length > 0 && (
               <div className="mobile-create-meta-row">
-                <label className="mobile-create-account-pill">
-                  <Icon name={ACCT_ICONS[activeAccount?.type ?? 'debit']} size={15} />
-                  <select value={activeAccountId} onChange={e => setAccountId(e.target.value)}>
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </label>
+                <button className="mobile-create-account-pill" onClick={() => setAccountPicker(true)}>
+                  <span style={{ color: activeAccount?.color ?? '#ffdd3d' }}>
+                    <Icon name={ACCT_ICONS[activeAccount?.type ?? 'debit']} size={15} />
+                  </span>
+                  <span className="mobile-create-account-name">{activeAccount?.name ?? 'Cuenta'}</span>
+                  <Icon name="arrowDn" size={12} style={{ color: '#5a5a5a', marginLeft: 'auto' }} />
+                </button>
                 <button className="mobile-create-date-pill" onClick={() => dateInputRef.current?.showPicker?.()}>
                   <Icon name="calendar" size={13} />
                   <span>{isToday ? 'Hoy' : formatDateShort(date)}</span>
@@ -273,6 +276,32 @@ export function MobileCreateFlow({
           {mode === 'transfer' ? 'Transferir' : 'Guardar'}
         </button>
       </div>
+
+      {/* Single account picker */}
+      {accountPicker && (
+        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setAccountPicker(false)}>
+          <section onClick={e => e.stopPropagation()}>
+            <header>
+              <span>Seleccionar cuenta</span>
+              <button onClick={() => setAccountPicker(false)}><Icon name="close" size={18} /></button>
+            </header>
+            <div className="mobile-picker-list">
+              {accounts.map(account => (
+                <button key={account.id}
+                  className={`mobile-picker-row${account.id === activeAccountId ? ' active' : ''}`}
+                  onClick={() => { setAccountId(account.id); setAccountPicker(false) }}>
+                  <span style={{ color: account.color }}>
+                    <Icon name={ACCT_ICONS[account.type] ?? 'wallet'} size={22} />
+                  </span>
+                  <b>{account.name}</b>
+                  <small>{fmtCompact(account.balance, currency)}</small>
+                  {account.id === activeAccountId && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 4 }} />}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Transfer account picker sheet */}
       {transferPicker && (
