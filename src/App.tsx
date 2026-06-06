@@ -19,6 +19,7 @@ import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
 import { MobileBudgets } from '@/mobile/MobileBudgets'
+import { MobileGoals } from '@/mobile/MobileGoals'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
@@ -108,11 +109,7 @@ export default function App() {
 
   const mobileViews = {
     budgets: (props: ViewProps) => <MobileBudgets {...props} />,
-    goals: (props: ViewProps) => (
-      <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>Cargando...</div>}>
-        <Goals {...props} />
-      </Suspense>
-    ),
+    goals: (props: ViewProps) => <MobileGoals {...props} />,
     calendar: (props: ViewProps) => (
       <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>Cargando...</div>}>
         <CalendarView {...props} />

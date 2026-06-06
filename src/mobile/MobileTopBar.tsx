@@ -1,14 +1,16 @@
 import { Icon } from '@/components/ui/Icon'
 import { monthLabel } from '@/data/helpers'
+import { getCurrencyMeta } from '@/data/currencies'
+import { useFinance } from '@/store/finance'
 import type { MobileRoute } from './MobileBottomNav'
 
 const TITLES: Record<MobileRoute, string> = {
-  home: 'Inicio',
+  home:      'Inicio',
   movements: 'Movimientos',
   analytics: 'Gráficos',
-  add: 'Agregar',
-  reports: 'Informes',
-  profile: 'Perfil',
+  add:       'Agregar',
+  reports:   'Informes',
+  profile:   'Perfil',
 }
 
 export function MobileTopBar({
@@ -21,17 +23,22 @@ export function MobileTopBar({
   onNextMonth,
   onSearch,
   onSettings,
+  onCurrency,
 }: {
-  route: MobileRoute
-  mkey: string
-  title?: string
-  canGoBack: boolean
+  route:        MobileRoute
+  mkey:         string
+  title?:       string
+  canGoBack:    boolean
   canGoForward: boolean
-  onPrevMonth: () => void
-  onNextMonth: () => void
-  onSearch: () => void
-  onSettings: () => void
+  onPrevMonth:  () => void
+  onNextMonth:  () => void
+  onSearch:     () => void
+  onSettings:   () => void
+  onCurrency:   () => void
 }) {
+  const { currency } = useFinance()
+  const meta = getCurrencyMeta(currency)
+
   return (
     <header className="mobile-topbar">
       <button className="mobile-icon-btn" aria-label="Buscar" onClick={onSearch}>
@@ -51,9 +58,15 @@ export function MobileTopBar({
           </div>
         )}
       </div>
-      <button className="mobile-icon-btn" aria-label="Configuración" onClick={onSettings}>
-        <Icon name="settings" size={21} />
-      </button>
+      <div className="mobile-topbar-right">
+        <button className="mobile-currency-btn" aria-label="Cambiar moneda" onClick={onCurrency}>
+          <span className="mobile-currency-flag">{meta.flag}</span>
+          <span className="mobile-currency-code">{currency}</span>
+        </button>
+        <button className="mobile-icon-btn" aria-label="Configuración" onClick={onSettings}>
+          <Icon name="settings" size={21} />
+        </button>
+      </div>
     </header>
   )
 }

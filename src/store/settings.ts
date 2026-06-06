@@ -8,13 +8,14 @@ interface SettingsState {
   density:           DensityName
   font:              string
   showSidebarLabels: boolean
-  authEnabled:       boolean   // false = sin login obligatorio
+  authEnabled:       boolean
   overdraftPolicy:   OverdraftPolicy
   budgetAlertThresholds: number[]
   anomalySensitivity: 'strict' | 'balanced' | 'relaxed'
   releaseChannel: 'stable' | 'beta'
   errorTelemetryEnabled: boolean
   displayName: string
+  language: 'en' | 'es'
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -28,6 +29,7 @@ interface SettingsState {
   setReleaseChannel: (v: SettingsState['releaseChannel']) => void
   setErrorTelemetryEnabled: (v: boolean) => void
   setDisplayName: (v: string) => void
+  setLanguage: (v: 'en' | 'es') => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -45,6 +47,7 @@ export const useSettings = create<SettingsState>()(
       releaseChannel: 'stable',
       errorTelemetryEnabled: false,
       displayName: '',
+      language: 'en',
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -58,6 +61,7 @@ export const useSettings = create<SettingsState>()(
       setReleaseChannel: (releaseChannel) => set({ releaseChannel }),
       setErrorTelemetryEnabled: (errorTelemetryEnabled) => set({ errorTelemetryEnabled }),
       setDisplayName: (displayName) => set({ displayName }),
+      setLanguage: (language) => set({ language }),
     }),
     {
       name:    'sharky-settings-v2',

@@ -35,7 +35,7 @@ const CURRENCIES: Array<{ code: CurrencyCode; label: string; symbol: string }> =
   { code: 'EUR', label: 'Euro', symbol: '€' },
 ]
 
-type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset'
+type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
 
 interface SettingsRowProps {
   icon: IconName
@@ -192,6 +192,9 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
             <SettingsRow icon="grid" iconColor="#f59e0b" label="Densidad"
               value={DENSITY_LABELS[settings.density]}
               onClick={() => open('density')} />
+            <SettingsRow icon="map" iconColor="#64d2ff" label="Idioma / Language"
+              value={settings.language === 'en' ? 'English' : 'Español'}
+              onClick={() => open('language')} />
           </div>
         </div>
 
@@ -348,6 +351,21 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
                 <strong>{OVERDRAFT_LABELS[policy]}</strong>
                 <small>{policy === 'block' ? 'No permite gastos si no hay saldo' : policy === 'warn' ? 'Advierte pero permite continuar' : 'Permite siempre sin restricción'}</small>
                 {settings.overdraftPolicy === policy && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 'auto', flexShrink: 0 }} />}
+              </button>
+            ))}
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'language' && (
+        <SettingsSheet title="Idioma / Language" onClose={close}>
+          <div className="mset-sheet-options">
+            {(['en', 'es'] as const).map(lang => (
+              <button key={lang} className={`mset-option-row${settings.language === lang ? ' on' : ''}`}
+                onClick={() => { settings.setLanguage(lang); close() }}>
+                <strong>{lang === 'en' ? '🇺🇸 English' : '🇩🇴 Español'}</strong>
+                <small>{lang === 'en' ? 'Interface in English' : 'Interfaz en español'}</small>
+                {settings.language === lang && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
           </div>

@@ -46,7 +46,7 @@ export function sanitizeFinanceData(value: unknown): FinanceData {
     && amount(contribution.amount) && contribution.amount > 0 && date(contribution.date))
   return {
     accounts, categories, goals, transactions, goalContributions,
-    currency: ['DOP', 'USD', 'EUR'].includes(data.currency ?? '') ? data.currency! : 'DOP',
+    currency: ['DOP','USD','EUR','MXN','GBP','COP','ARS','BRL','CAD'].includes(data.currency ?? '') ? data.currency! : 'DOP',
   }
 }
 

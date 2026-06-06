@@ -7,6 +7,7 @@ import { MobileBottomNav, type MobileRoute } from './MobileBottomNav'
 import { MobileAnalytics } from './MobileAnalytics'
 import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
+import { MobileCurrencySheet } from './MobileCurrencySheet'
 import { MobileHome } from './MobileHome'
 import { MobileProfile } from './MobileProfile'
 import { MobileReports } from './MobileReports'
@@ -63,11 +64,21 @@ export function MobileShell({
   userName?: string
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
+  const [currencyOpen, setCurrencyOpen] = useState(false)
   const monthTx = useMemo(() => txForMonth(viewProps.txns, mkey), [viewProps.txns, mkey])
   const monthTotals = totals(monthTx)
   const mIdx = keys.indexOf(mkey)
 
+  // Back navigation: add-flow → home
   useMobileBackDismiss(route === 'add', () => {
+    setRoute('home')
+    setView('dashboard')
+  })
+  // Back navigation: sub-views inside reports → main reports (accounts)
+  const isInSubView = route === 'reports' && view !== 'accounts'
+  useMobileBackDismiss(isInSubView, () => setView('accounts'))
+  // Back navigation: movements → home
+  useMobileBackDismiss(route === 'movements', () => {
     setRoute('home')
     setView('dashboard')
   })
@@ -148,6 +159,7 @@ export function MobileShell({
 
   return (
     <main className="mobile-shell">
+      {currencyOpen && <MobileCurrencySheet onClose={() => setCurrencyOpen(false)} />}
       <MobileTopBar
         route={route}
         mkey={mkey}
@@ -158,6 +170,7 @@ export function MobileShell({
         onNextMonth={() => mIdx >= 0 && mIdx < keys.length - 1 && onMonth(keys[mIdx + 1])}
         onSearch={onSearch}
         onSettings={onSettings}
+        onCurrency={() => setCurrencyOpen(true)}
       />
       {route === 'add' ? (
         renderMain()

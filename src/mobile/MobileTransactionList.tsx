@@ -203,7 +203,7 @@ export function MobileTransactionList({
         <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setSelected(null)}>
           <section onClick={event => event.stopPropagation()}>
             <header>
-              <span>{selected.type === 'transfer' ? <Icon name="repeat" size={28} /> : <CatBadge category={getCategory(selected.categoryId, categories)} size={56} />}</span>
+              <span className="sheet-icon">{selected.type === 'transfer' ? <Icon name="repeat" size={28} /> : <CatBadge category={getCategory(selected.categoryId, categories)} size={56} />}</span>
               <button onClick={() => setSelected(null)}><Icon name="close" size={18} /></button>
             </header>
             <h2>{selected.type === 'transfer' ? 'Transferencia' : selected.note}</h2>

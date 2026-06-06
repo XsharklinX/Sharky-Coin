@@ -5,9 +5,15 @@ export const TODAY = new Date()
 
 // ── Monedas ───────────────────────────────────────────────
 export const CURRENCIES: Record<CurrencyCode, Currency> = {
-  DOP: { code: 'DOP', symbol: 'RD$', rate: 1,        decimals: 2 },
-  USD: { code: 'USD', symbol: 'US$', rate: 1 / 60,   decimals: 2 },
-  EUR: { code: 'EUR', symbol: '€',   rate: 1 / 65.5, decimals: 2 },
+  DOP: { code: 'DOP', symbol: 'RD$', rate: 1,            decimals: 2 },
+  USD: { code: 'USD', symbol: 'US$', rate: 1 / 58.5,     decimals: 2 },
+  EUR: { code: 'EUR', symbol: '€',   rate: 0.92 / 58.5,  decimals: 2 },
+  MXN: { code: 'MXN', symbol: 'MX$', rate: 17.1 / 58.5, decimals: 2 },
+  GBP: { code: 'GBP', symbol: '£',   rate: 0.79 / 58.5, decimals: 2 },
+  COP: { code: 'COP', symbol: 'COP', rate: 3950 / 58.5,  decimals: 0 },
+  ARS: { code: 'ARS', symbol: 'AR$', rate: 900 / 58.5,   decimals: 0 },
+  BRL: { code: 'BRL', symbol: 'R$',  rate: 5.0 / 58.5,   decimals: 2 },
+  CAD: { code: 'CAD', symbol: 'CA$', rate: 1.36 / 58.5,  decimals: 2 },
 }
 
 // ── Seeds ─────────────────────────────────────────────────
