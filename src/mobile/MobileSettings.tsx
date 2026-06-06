@@ -8,7 +8,8 @@ import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useAuth } from '@/store/auth'
 import { openBackup, saveBackup } from '@/hooks/useTauri'
-import type { CurrencyCode, DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
+import type { DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 const ACCENTS = [
@@ -21,19 +22,14 @@ const ACCENTS = [
 ]
 
 const THEME_LABELS: Record<ThemeName, string> = {
-  midnight: 'Medianoche', slate: 'Pizarra', carbon: 'Carbón', light: 'Claro',
+  dark: 'Dark', light: 'Light',
 }
 const DENSITY_LABELS: Record<DensityName, string> = {
-  compact: 'Compacta', regular: 'Normal', comfy: 'Cómoda',
+  compact: 'Compact', regular: 'Regular', comfy: 'Comfortable',
 }
 const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = {
-  block: 'Bloquear', warn: 'Advertir', allow: 'Permitir',
+  block: 'Block', warn: 'Warn', allow: 'Allow',
 }
-const CURRENCIES: Array<{ code: CurrencyCode; label: string; symbol: string }> = [
-  { code: 'DOP', label: 'Peso dominicano', symbol: 'RD$' },
-  { code: 'USD', label: 'Dólar estadounidense', symbol: '$' },
-  { code: 'EUR', label: 'Euro', symbol: '€' },
-]
 
 type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
 
@@ -86,6 +82,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
   const settings = useSettings()
   const finance = useFinance()
   const { user, logout } = useAuth()
+  const t = useT()
   const [activeSheet, setActiveSheet] = useState<Sheet | null>(null)
   const [nameInput, setNameInput] = useState(settings.displayName)
   const [pendingReset, setPendingReset] = useState(false)
@@ -99,16 +96,16 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
 
   const saveName = () => {
     settings.setDisplayName(nameInput.trim())
-    toast('Nombre guardado', { icon: 'check', type: 'ok' })
+    toast('Name saved', { icon: 'check', type: 'ok' })
     close()
   }
 
   const exportBackup = async () => {
     try {
       await saveBackup(JSON.stringify(createBackup(finance), null, 2))
-      toast('Backup exportado', { icon: 'download', type: 'ok' })
+      toast('Backup exported', { icon: 'download', type: 'ok' })
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'No se pudo exportar.', { icon: 'alert' })
+      toast(error instanceof Error ? error.message : 'Export failed.', { icon: 'alert' })
     }
   }
 
@@ -117,25 +114,25 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       const text = await openBackup()
       if (!text) return
       finance.restoreBackup(parseBackup(text))
-      toast('Backup restaurado', { icon: 'check', type: 'ok' })
+      toast('Backup restored', { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Archivo inválido.', { icon: 'alert' })
+      toast(error instanceof Error ? error.message : 'Invalid file.', { icon: 'alert' })
     }
   }
 
   const confirmReset = () => {
     finance.startEmpty()
-    toast('Datos eliminados', { icon: 'trash' })
+    toast('All data deleted', { icon: 'trash' })
     close()
     onClose()
   }
 
   const themePreviewBg: Record<ThemeName, string> = {
-    midnight: '#0a0e16', slate: '#11161d', carbon: '#0b0c0e', light: '#f4f7fb',
+    dark: '#0a0e16', light: '#f4f7fb',
   }
   const themePreviewFg: Record<ThemeName, string> = {
-    midnight: '#e9eef7', slate: '#e6ecf3', carbon: '#ededee', light: '#172033',
+    dark: '#e9eef7', light: '#172033',
   }
 
   return (
@@ -144,43 +141,43 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
         <button className="mset-back" onClick={onClose}>
           <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
         </button>
-        <strong>Configuración</strong>
+        <strong>{t('settings')}</strong>
         <span />
       </header>
 
       <div className="mset-body">
 
-        {/* ─── Perfil ─── */}
+        {/* Profile */}
         <div className="mset-section">
-          <span className="mset-section-title">Perfil</span>
+          <span className="mset-section-title">Profile</span>
           <div className="mset-card">
-            <SettingsRow icon="user" iconColor="#5bc0ff" label="Nombre"
-              value={settings.displayName || 'Sin definir'}
+            <SettingsRow icon="user" iconColor="#5bc0ff" label="Name"
+              value={settings.displayName || 'Not set'}
               onClick={() => open('name')} />
           </div>
         </div>
 
-        {/* ─── Finanzas ─── */}
+        {/* Finance */}
         <div className="mset-section">
-          <span className="mset-section-title">Finanzas</span>
+          <span className="mset-section-title">Finance</span>
           <div className="mset-card">
-            <SettingsRow icon="dollar" iconColor="#35d0a2" label="Moneda"
+            <SettingsRow icon="dollar" iconColor="#35d0a2" label={t('currency')}
               value={finance.currency}
               onClick={() => open('currency')} />
-            <SettingsRow icon="alert" iconColor="#f59e0b" label="Sobregiro"
+            <SettingsRow icon="alert" iconColor="#f59e0b" label="Overdraft"
               value={OVERDRAFT_LABELS[settings.overdraftPolicy]}
               onClick={() => open('overdraft')} />
           </div>
         </div>
 
-        {/* ─── Apariencia ─── */}
+        {/* Appearance */}
         <div className="mset-section">
-          <span className="mset-section-title">Apariencia</span>
+          <span className="mset-section-title">Appearance</span>
           <div className="mset-card">
-            <SettingsRow icon="palette" iconColor="#a78bfa" label="Tema"
+            <SettingsRow icon="palette" iconColor="#a78bfa" label={t('theme')}
               value={THEME_LABELS[settings.theme]}
               onClick={() => open('theme')} />
-            <SettingsRow icon="sliders" iconColor="#ff6b8a" label="Color de acento"
+            <SettingsRow icon="sliders" iconColor="#ff6b8a" label="Accent color"
               onClick={() => open('accent')}
               right={
                 <>
@@ -189,49 +186,49 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
                 </>
               }
             />
-            <SettingsRow icon="grid" iconColor="#f59e0b" label="Densidad"
+            <SettingsRow icon="grid" iconColor="#f59e0b" label="Density"
               value={DENSITY_LABELS[settings.density]}
               onClick={() => open('density')} />
-            <SettingsRow icon="map" iconColor="#64d2ff" label="Idioma / Language"
+            <SettingsRow icon="map" iconColor="#64d2ff" label={t('language')}
               value={settings.language === 'en' ? 'English' : 'Español'}
               onClick={() => open('language')} />
           </div>
         </div>
 
-        {/* ─── Datos ─── */}
+        {/* Data */}
         <div className="mset-section">
-          <span className="mset-section-title">Datos</span>
+          <span className="mset-section-title">Data</span>
           <div className="mset-card">
             <div className="mset-stats">
-              <div><strong>{health.transactions}</strong><small>Movimientos</small></div>
-              <div><strong>{health.categories}</strong><small>Categorías</small></div>
-              <div><strong>{health.goals}</strong><small>Metas</small></div>
+              <div><strong>{health.transactions}</strong><small>Transactions</small></div>
+              <div><strong>{health.categories}</strong><small>Categories</small></div>
+              <div><strong>{health.goals}</strong><small>{t('goals')}</small></div>
             </div>
             {health.warnings.map(w => (
               <p className="mset-warning" key={w}><Icon name="alert" size={13} />{w}</p>
             ))}
           </div>
           <div className="mset-card">
-            <SettingsRow icon="download" iconColor="#35d0a2" label="Exportar backup"
+            <SettingsRow icon="download" iconColor="#35d0a2" label="Export backup"
               onClick={() => void exportBackup()} />
-            <SettingsRow icon="upload" iconColor="#5bc0ff" label="Restaurar backup"
+            <SettingsRow icon="upload" iconColor="#5bc0ff" label="Restore backup"
               onClick={() => void importBackup()} />
           </div>
           <div className="mset-card">
-            <SettingsRow icon="trash" iconColor="#ff6b8a" label="Eliminar todos los datos"
+            <SettingsRow icon="trash" iconColor="#ff6b8a" label="Delete all data"
               danger onClick={() => open('reset')} />
           </div>
         </div>
 
-        {/* ─── Seguridad ─── */}
+        {/* Security */}
         <div className="mset-section">
-          <span className="mset-section-title">Seguridad</span>
+          <span className="mset-section-title">Security</span>
           <div className="mset-card">
             <div className="mset-row">
               <span className="mset-icon" style={{ color: '#a78bfa', background: 'color-mix(in oklab, #a78bfa 14%, transparent)' }}>
                 <Icon name="lock" size={18} />
               </span>
-              <span className="mset-label">Requerir login al abrir</span>
+              <span className="mset-label">Require login on open</span>
               <label className="mset-toggle">
                 <input type="checkbox" checked={settings.authEnabled} onChange={e => settings.setAuthEnabled(e.target.checked)} />
                 <span />
@@ -240,11 +237,11 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* ─── App ─── */}
+        {/* App */}
         <div className="mset-section">
           {user && (
             <div className="mset-card" style={{ marginBottom: 10 }}>
-              <SettingsRow icon="logout" iconColor="#ff6b8a" label="Cerrar sesión"
+              <SettingsRow icon="logout" iconColor="#ff6b8a" label="Sign out"
                 danger onClick={() => { logout(); onClose() }} />
             </div>
           )}
@@ -261,28 +258,28 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       {/* ─── Sheets ─── */}
 
       {activeSheet === 'name' && (
-        <SettingsSheet title="Tu nombre" onClose={close}>
+        <SettingsSheet title="Your name" onClose={close}>
           <div className="mset-sheet-body">
             <input
               className="mset-text-input"
               autoFocus
               type="text"
               value={nameInput}
-              placeholder="Ej. María García"
+              placeholder="e.g. John Smith"
               autoCapitalize="words"
               enterKeyHint="done"
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveName() }}
             />
-            <button className="mset-sheet-confirm" onClick={saveName}>Guardar</button>
+            <button className="mset-sheet-confirm" onClick={saveName}>{t('save')}</button>
           </div>
         </SettingsSheet>
       )}
 
       {activeSheet === 'theme' && (
-        <SettingsSheet title="Tema" onClose={close}>
+        <SettingsSheet title="Theme" onClose={close}>
           <div className="mset-sheet-options">
-            {(['midnight', 'slate', 'carbon', 'light'] as ThemeName[]).map(theme => (
+            {(['dark', 'light'] as ThemeName[]).map(theme => (
               <button key={theme} className={`mset-theme-opt${settings.theme === theme ? ' on' : ''}`}
                 onClick={() => { settings.setTheme(theme); close() }}>
                 <span className="mset-theme-preview" style={{ background: themePreviewBg[theme], color: themePreviewFg[theme] }}>
@@ -297,7 +294,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'accent' && (
-        <SettingsSheet title="Color de acento" onClose={close}>
+        <SettingsSheet title="Accent color" onClose={close}>
           <div className="mset-sheet-body">
             <div className="mset-accent-grid">
               {ACCENTS.map(({ color, label }) => (
@@ -313,13 +310,13 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'density' && (
-        <SettingsSheet title="Densidad de interfaz" onClose={close}>
+        <SettingsSheet title="Interface density" onClose={close}>
           <div className="mset-sheet-options">
             {(['compact', 'regular', 'comfy'] as DensityName[]).map(density => (
               <button key={density} className={`mset-option-row${settings.density === density ? ' on' : ''}`}
                 onClick={() => { settings.setDensity(density); close() }}>
                 <strong>{DENSITY_LABELS[density]}</strong>
-                <small>{density === 'compact' ? 'Más contenido visible' : density === 'comfy' ? 'Más espacio entre elementos' : 'Equilibrada'}</small>
+                <small>{density === 'compact' ? 'More content visible' : density === 'comfy' ? 'More space between elements' : 'Balanced'}</small>
                 {settings.density === density && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
@@ -328,13 +325,12 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'currency' && (
-        <SettingsSheet title="Moneda predeterminada" onClose={close}>
+        <SettingsSheet title="Default currency" onClose={close}>
           <div className="mset-sheet-options">
-            {CURRENCIES.map(({ code, label, symbol }) => (
+            {(['DOP','USD','EUR','MXN','GBP','COP','ARS','BRL','CAD'] as const).map(code => (
               <button key={code} className={`mset-option-row${finance.currency === code ? ' on' : ''}`}
                 onClick={() => { finance.setCurrency(code); close() }}>
-                <strong>{symbol} — {code}</strong>
-                <small>{label}</small>
+                <strong>{code}</strong>
                 {finance.currency === code && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
@@ -343,13 +339,13 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'overdraft' && (
-        <SettingsSheet title="Política de sobregiro" onClose={close}>
+        <SettingsSheet title="Overdraft policy" onClose={close}>
           <div className="mset-sheet-options">
             {(['block', 'warn', 'allow'] as OverdraftPolicy[]).map(policy => (
               <button key={policy} className={`mset-option-row${settings.overdraftPolicy === policy ? ' on' : ''}`}
                 onClick={() => { settings.setOverdraftPolicy(policy); close() }}>
                 <strong>{OVERDRAFT_LABELS[policy]}</strong>
-                <small>{policy === 'block' ? 'No permite gastos si no hay saldo' : policy === 'warn' ? 'Advierte pero permite continuar' : 'Permite siempre sin restricción'}</small>
+                <small>{policy === 'block' ? 'Prevents spending when balance is zero' : policy === 'warn' ? 'Warns but allows to continue' : 'Always allows, no restriction'}</small>
                 {settings.overdraftPolicy === policy && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
@@ -373,22 +369,22 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'reset' && (
-        <SettingsSheet title="Eliminar datos" onClose={close}>
+        <SettingsSheet title="Delete data" onClose={close}>
           <div className="mset-sheet-body">
             <p className="mset-reset-warning">
-              Esta acción eliminará <strong>todos tus movimientos, cuentas, categorías y metas</strong>. No se puede deshacer.
+              This will permanently delete <strong>all your transactions, accounts, categories and goals</strong>. This cannot be undone.
             </p>
             {!pendingReset ? (
               <button className="mset-sheet-danger" onClick={() => setPendingReset(true)}>
-                Continuar
+                Continue
               </button>
             ) : (
               <>
                 <button className="mset-sheet-danger" onClick={confirmReset}>
-                  <Icon name="trash" size={18} /> Sí, eliminar todo
+                  <Icon name="trash" size={18} /> Yes, delete everything
                 </button>
                 <button className="mset-sheet-cancel" onClick={() => setPendingReset(false)}>
-                  Cancelar
+                  {t('cancel')}
                 </button>
               </>
             )}

@@ -35,7 +35,7 @@ interface SettingsState {
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
-      theme:             'midnight',
+      theme:             'dark',
       accent:            '#3b82f6',
       density:           'regular',
       font:              'Plus Jakarta Sans',
@@ -66,6 +66,12 @@ export const useSettings = create<SettingsState>()(
     {
       name:    'sharky-settings-v2',
       storage: createJSONStorage(() => localStorage),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<SettingsState>
+        const oldDark = ['midnight', 'slate', 'carbon']
+        const theme = oldDark.includes(p.theme as string) ? 'dark' : (p.theme === 'light' ? 'light' : current.theme)
+        return { ...current, ...p, theme }
+      },
     },
   ),
 )
