@@ -21,7 +21,7 @@ fn save_backup_auto(app: tauri::AppHandle, json: String) -> Result<String, Strin
     let doc_dir = app.path().app_document_dir().map_err(|e| e.to_string())?;
     let backup_dir = doc_dir.join("backups");
     std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let filename = format!("sharky-backup-{}.json", today);
     let path = backup_dir.join(&filename);
     std::fs::write(&path, &json).map_err(|e| e.to_string())?;
