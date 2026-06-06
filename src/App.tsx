@@ -18,6 +18,7 @@ import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
+import { MobileSplash } from '@/mobile/MobileSplash'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
@@ -30,6 +31,7 @@ export default function App() {
   const { user, initialized, recoveryMode, initialize } = useAuth()
   const { transactions, accounts, currency, setCurrency, addTx, deleteTx } = useFinance()
 
+  const [splashDone,   setSplashDone]   = useState(false)
   const [view,         setView]         = useState<ViewId>('dashboard')
   const [mkey,         setMkey]         = useState(currentMonthKey())
   const [txForm,       setTxForm]       = useState<Transaction | 'new' | null>(null)
@@ -125,6 +127,7 @@ export default function App() {
 
   return (
     <div className="app mobile-app" {...themeProps}>
+      {!splashDone && <MobileSplash onGone={() => setSplashDone(true)} />}
       <DialogProvider>
         <MobileShell
           view={view}

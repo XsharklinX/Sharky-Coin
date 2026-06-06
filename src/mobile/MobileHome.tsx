@@ -1,3 +1,5 @@
+import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { byCategory, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
@@ -49,7 +51,8 @@ export function MobileHome({
         <div className="mhome-hero-main">
           <span className="mhome-hero-sub">Balance del mes</span>
           <h2 className={`mhome-hero-amount ${isPositive ? '' : 'neg'}`}>
-            {isPositive ? '+' : ''}{fmtCompact(summary.net, currency)}
+            {isPositive ? '+' : '–'}
+            <AnimatedMoney value={Math.abs(summary.net)} compact />
           </h2>
         </div>
 
@@ -57,7 +60,7 @@ export function MobileHome({
           <div className="mhome-pill income">
             <span className="mhome-pill-icon"><Icon name="arrowDn" size={13} /></span>
             <div>
-              <strong>{fmtCompact(summary.income, currency)}</strong>
+              <strong><AnimatedMoney value={summary.income} compact /></strong>
               <small>Ingresos</small>
             </div>
           </div>
@@ -65,7 +68,7 @@ export function MobileHome({
           <div className="mhome-pill expense">
             <span className="mhome-pill-icon"><Icon name="arrowUp" size={13} /></span>
             <div>
-              <strong>{fmtCompact(summary.expense, currency)}</strong>
+              <strong><AnimatedMoney value={summary.expense} compact /></strong>
               <small>Gastos</small>
             </div>
           </div>
@@ -74,10 +77,10 @@ export function MobileHome({
 
       {/* ─── Cuentas ─── */}
       {accounts.length > 0 && (
-        <div className="mhome-section">
+        <div className="mhome-section mhome-stagger-1">
           <div className="mhome-section-hdr">
             <span>Cuentas</span>
-            <strong>{fmtCompact(totalBalance, currency)}</strong>
+            <strong><AnimatedMoney value={totalBalance} compact /></strong>
           </div>
           <div className="mhome-accounts-row">
             {accounts.map(account => (
@@ -90,7 +93,7 @@ export function MobileHome({
                 </span>
                 <small>{account.name}</small>
                 <b className={account.balance < 0 ? 'neg' : ''}>
-                  {fmtCompact(account.balance, currency)}
+                  <AnimatedMoney value={account.balance} compact />
                 </b>
               </div>
             ))}
@@ -100,7 +103,7 @@ export function MobileHome({
 
       {/* ─── Presupuesto ─── */}
       {totalBudget > 0 && (
-        <button className="mhome-budget" onClick={onBudgets}>
+        <button className="mhome-budget mhome-stagger-2" onClick={onBudgets}>
           <div className="mhome-budget-row">
             <span>Presupuesto del mes</span>
             <span className={budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warn' : 'ok'}>
@@ -114,7 +117,7 @@ export function MobileHome({
             }} />
           </div>
           <div className="mhome-budget-meta">
-            <span>{fmtCompact(summary.expense, currency)} gastado</span>
+            <span><AnimatedMoney value={summary.expense} compact /> gastado</span>
             <span>de {fmtCompact(totalBudget, currency)}</span>
           </div>
         </button>
@@ -122,18 +125,18 @@ export function MobileHome({
 
       {/* ─── Insight rápido ─── */}
       {topExpense && summary.expense > 0 && (
-        <div className="mhome-insight">
+        <div className="mhome-insight mhome-stagger-3">
           <span style={{ color: topExpense.category.color, background: `color-mix(in oklab, ${topExpense.category.color} 14%, transparent)` }}>
             <Icon name={topExpense.category.icon} size={16} />
           </span>
           <p>
-            Mayor gasto: <strong>{topExpense.category.name}</strong> ({fmtCompact(topExpense.amount, currency)})
+            Mayor gasto: <strong>{topExpense.category.name}</strong> (<AnimatedMoney value={topExpense.amount} compact />)
           </p>
         </div>
       )}
 
       {/* ─── Movimientos recientes ─── */}
-      <div className="mhome-section">
+      <div className="mhome-section mhome-stagger-4">
         <div className="mhome-section-hdr">
           <span>Movimientos</span>
           <button onClick={onMovements}>Ver todo</button>
@@ -149,7 +152,7 @@ export function MobileHome({
           </div>
         ) : (
           <div className="mhome-empty">
-            <span><Icon name="list" size={26} /></span>
+            <BrandMark size={52} className="mhome-empty-brand" />
             <p>Sin movimientos este mes</p>
             <button onClick={onAdd}>Registrar el primero</button>
           </div>

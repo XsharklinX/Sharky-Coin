@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { CatBadge } from '@/views/shared'
 import { fmt, fmtCompact, getAccount, getCategory } from '@/data/helpers'
@@ -151,9 +152,11 @@ export function MobileTransactionList({
                           className={`danger${pendingDeleteId === tx.id ? ' confirm' : ''}`}
                           onClick={() => {
                             if (pendingDeleteId === tx.id) {
+                              navigator.vibrate?.([12, 40, 24])
                               onDelete(tx.id)
                               closeSwipe()
                             } else {
+                              navigator.vibrate?.(8)
                               setPendingDeleteId(tx.id)
                             }
                           }}>
@@ -172,7 +175,7 @@ export function MobileTransactionList({
 
       {rows.length === 0 && (
         <div className="mobile-empty-list">
-          <Icon name="list" size={25} />
+          <BrandMark size={48} />
           <strong>Sin movimientos</strong>
           <span>Prueba otro filtro o registra un nuevo movimiento.</span>
         </div>
@@ -212,7 +215,7 @@ export function MobileTransactionList({
             </dl>
             <div className="mobile-detail-actions">
               <button onClick={() => { onEdit(selected); setSelected(null) }}><Icon name="edit" size={18} />Editar</button>
-              {onDelete && <button className="danger" onClick={() => { onDelete(selected.id); setSelected(null) }}><Icon name="trash" size={18} />Eliminar</button>}
+              {onDelete && <button className="danger" onClick={() => { navigator.vibrate?.([12, 40, 24]); onDelete(selected.id); setSelected(null) }}><Icon name="trash" size={18} />Eliminar</button>}
             </div>
           </section>
         </div>
