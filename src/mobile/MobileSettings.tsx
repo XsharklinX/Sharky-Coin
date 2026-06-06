@@ -174,34 +174,36 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
 
       <div className="mset-body">
 
-        {/* ── Google Account ── */}
-        <div className="mset-section">
-          <span className="mset-section-title">Account</span>
-          {gUser ? (
-            <div className="mset-card">
-              <div className="mset-google-profile">
-                {gUser.picture
-                  ? <img className="mset-google-avatar" src={gUser.picture} alt={gUser.name} referrerPolicy="no-referrer" />
-                  : <div className="mset-google-avatar initials">{gUser.name.slice(0, 1).toUpperCase()}</div>
-                }
-                <div className="mset-google-info">
-                  <strong>{gUser.name}</strong>
-                  <small>{gUser.email}</small>
-                  <small className="mset-uid">ID: {gUser.id.slice(0, 12)}…</small>
+        {/* ── Google Account (only when client ID is configured) ── */}
+        {GOOGLE_CLIENT_ID && (
+          <div className="mset-section">
+            <span className="mset-section-title">Account</span>
+            {gUser ? (
+              <div className="mset-card">
+                <div className="mset-google-profile">
+                  {gUser.picture
+                    ? <img className="mset-google-avatar" src={gUser.picture} alt={gUser.name} referrerPolicy="no-referrer" />
+                    : <div className="mset-google-avatar initials">{gUser.name.slice(0, 1).toUpperCase()}</div>
+                  }
+                  <div className="mset-google-info">
+                    <strong>{gUser.name}</strong>
+                    <small>{gUser.email}</small>
+                    <small className="mset-uid">ID: {gUser.id.slice(0, 12)}…</small>
+                  </div>
+                </div>
+                <SettingsRow icon="logout" iconColor="#ff6b8a" label="Sign out of Google" danger
+                  onClick={() => { signOut(); toast('Signed out', { icon: 'check' }) }} />
+              </div>
+            ) : (
+              <div className="mset-card">
+                <div className="mset-google-signin-wrap">
+                  <p className="mset-google-desc">Sign in to sync your data and keep it safe across devices.</p>
+                  <GoogleButton onSignIn={(cred) => { signIn(cred); toast('Signed in with Google', { icon: 'check', type: 'ok' }) }} />
                 </div>
               </div>
-              <SettingsRow icon="logout" iconColor="#ff6b8a" label="Sign out of Google" danger
-                onClick={() => { signOut(); toast('Signed out', { icon: 'check' }) }} />
-            </div>
-          ) : (
-            <div className="mset-card">
-              <div className="mset-google-signin-wrap">
-                <p className="mset-google-desc">Sign in to sync your data and keep it safe across devices.</p>
-                <GoogleButton onSignIn={(cred) => { signIn(cred); toast('Signed in with Google', { icon: 'check', type: 'ok' }) }} />
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* ── Profile ── */}
         <div className="mset-section">

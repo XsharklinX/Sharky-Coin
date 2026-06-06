@@ -34,14 +34,14 @@ export function currentMonthKey(now = new Date()): string {
   return `${y}-${String(m + 1).padStart(2, '0')}`
 }
 
-export function monthLabel(key: string): string {
+export function monthLabel(key: string, locale = 'es-DO'): string {
   const [y, m] = key.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('es-DO', { month: 'long', year: 'numeric' })
+  return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 }
 
-export function shortMonth(key: string): string {
+export function shortMonth(key: string, locale = 'es-DO'): string {
   const [y, m] = key.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('es-DO', { month: 'short' })
+  return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short' })
 }
 
 // ── Cálculos ──────────────────────────────────────────────

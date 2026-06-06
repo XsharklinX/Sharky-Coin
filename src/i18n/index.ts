@@ -23,6 +23,11 @@ const en = {
   note: 'Note', category: 'Category', account: 'Account', date: 'Date',
   amount: 'Amount', recurring: 'Recurring', weekly: 'Weekly', monthly: 'Monthly',
   endDate: 'End date',
+  thisMonth: 'This month', monthBalance: 'Monthly balance',
+  incomes: 'Income', monthBudget: 'Monthly budget',
+  spent: 'spent', of: 'of', topExpense: 'Top expense',
+  viewAll: 'View all', noMovementsMonth: 'No movements this month',
+  registerFirst: 'Add the first one',
 } satisfies Record<string, string>
 
 export type LangKey = keyof typeof en
@@ -51,6 +56,11 @@ const es: Record<LangKey, string> = {
   note: 'Nota', category: 'Categoría', account: 'Cuenta', date: 'Fecha',
   amount: 'Monto', recurring: 'Recurrente', weekly: 'Semanal', monthly: 'Mensual',
   endDate: 'Fecha de fin',
+  thisMonth: 'Este mes', monthBalance: 'Balance del mes',
+  incomes: 'Ingresos', monthBudget: 'Presupuesto del mes',
+  spent: 'gastado', of: 'de', topExpense: 'Mayor gasto',
+  viewAll: 'Ver todo', noMovementsMonth: 'Sin movimientos este mes',
+  registerFirst: 'Registrar el primero',
 }
 
 const DICTS: Record<Language, Record<LangKey, string>> = { en, es }

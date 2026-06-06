@@ -2,6 +2,7 @@ import { Icon } from '@/components/ui/Icon'
 import { monthLabel } from '@/data/helpers'
 import { getCurrencyMeta } from '@/data/currencies'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import type { MobileRoute } from './MobileBottomNav'
 
@@ -30,6 +31,8 @@ export function MobileTopBar({
 }) {
   const { currency } = useFinance()
   const meta = getCurrencyMeta(currency)
+  const lang = useSettings(s => s.language)
+  const locale = lang === 'es' ? 'es-DO' : 'en-US'
   const t = useT()
 
   const TITLES: Record<MobileRoute, string> = {
@@ -53,7 +56,7 @@ export function MobileTopBar({
             <button aria-label="Previous month" disabled={!canGoBack} onClick={onPrevMonth}>
               <Icon name="arrowUp" size={15} style={{ transform: 'rotate(-90deg)' }} />
             </button>
-            <span>{monthLabel(mkey)}</span>
+            <span>{monthLabel(mkey, locale)}</span>
             <button aria-label="Next month" disabled={!canGoForward} onClick={onNextMonth}>
               <Icon name="arrowUp" size={15} style={{ transform: 'rotate(90deg)' }} />
             </button>

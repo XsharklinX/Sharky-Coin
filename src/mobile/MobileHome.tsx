@@ -3,6 +3,8 @@ import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { byCategory, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { useT } from '@/i18n'
 import { MobileTransactionList } from './MobileTransactionList'
 import type { IconName, Transaction } from '@/types'
 
@@ -26,6 +28,9 @@ export function MobileHome({
   onDeleteTx?: (id: string) => void
 }) {
   const { transactions, categories, accounts, currency } = useFinance()
+  const lang = useSettings(s => s.language)
+  const locale = lang === 'es' ? 'es-DO' : 'en-US'
+  const t = useT()
   const monthTx = txForMonth(transactions, mkey)
   const summary = totals(monthTx)
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
@@ -42,14 +47,14 @@ export function MobileHome({
       {/* ─── Hero ─── */}
       <section className="mhome-hero">
         <div className="mhome-hero-top">
-          <span className="mhome-label-tiny">Este mes · {monthLabel(mkey)}</span>
+          <span className="mhome-label-tiny">{t('thisMonth')} · {monthLabel(mkey, locale)}</span>
           <button className="mhome-add-fab" onClick={onAdd} aria-label="Agregar movimiento">
             <Icon name="plus" size={18} />
           </button>
         </div>
 
         <div className="mhome-hero-main">
-          <span className="mhome-hero-sub">Balance del mes</span>
+          <span className="mhome-hero-sub">{t('monthBalance')}</span>
           <h2 className={`mhome-hero-amount ${isPositive ? '' : 'neg'}`}>
             {isPositive ? '+' : '–'}
             <AnimatedMoney value={Math.abs(summary.net)} compact />
@@ -61,7 +66,7 @@ export function MobileHome({
             <span className="mhome-pill-icon"><Icon name="arrowDn" size={13} /></span>
             <div>
               <strong><AnimatedMoney value={summary.income} compact /></strong>
-              <small>Ingresos</small>
+              <small>{t('incomes')}</small>
             </div>
           </div>
           <div className="mhome-pill-sep" />
@@ -69,7 +74,7 @@ export function MobileHome({
             <span className="mhome-pill-icon"><Icon name="arrowUp" size={13} /></span>
             <div>
               <strong><AnimatedMoney value={summary.expense} compact /></strong>
-              <small>Gastos</small>
+              <small>{t('expenses')}</small>
             </div>
           </div>
         </div>
@@ -79,7 +84,7 @@ export function MobileHome({
       {accounts.length > 0 && (
         <div className="mhome-section mhome-stagger-1">
           <div className="mhome-section-hdr">
-            <span>Cuentas</span>
+            <span>{t('accounts')}</span>
             <strong><AnimatedMoney value={totalBalance} compact /></strong>
           </div>
           <div className="mhome-accounts-row">
@@ -105,7 +110,7 @@ export function MobileHome({
       {totalBudget > 0 && (
         <button className="mhome-budget mhome-stagger-2" onClick={onBudgets}>
           <div className="mhome-budget-row">
-            <span>Presupuesto del mes</span>
+            <span>{t('monthBudget')}</span>
             <span className={budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warn' : 'ok'}>
               {budgetPct}%
             </span>
@@ -117,8 +122,8 @@ export function MobileHome({
             }} />
           </div>
           <div className="mhome-budget-meta">
-            <span><AnimatedMoney value={summary.expense} compact /> gastado</span>
-            <span>de {fmtCompact(totalBudget, currency)}</span>
+            <span><AnimatedMoney value={summary.expense} compact /> {t('spent')}</span>
+            <span>{t('of')} {fmtCompact(totalBudget, currency)}</span>
           </div>
         </button>
       )}
@@ -130,7 +135,7 @@ export function MobileHome({
             <Icon name={topExpense.category.icon} size={16} />
           </span>
           <p>
-            Mayor gasto: <strong>{topExpense.category.name}</strong> (<AnimatedMoney value={topExpense.amount} compact />)
+            {t('topExpense')}: <strong>{topExpense.category.name}</strong> (<AnimatedMoney value={topExpense.amount} compact />)
           </p>
         </div>
       )}
@@ -138,8 +143,8 @@ export function MobileHome({
       {/* ─── Movimientos recientes ─── */}
       <div className="mhome-section mhome-stagger-4">
         <div className="mhome-section-hdr">
-          <span>Movimientos</span>
-          <button onClick={onMovements}>Ver todo</button>
+          <span>{t('movements')}</span>
+          <button onClick={onMovements}>{t('viewAll')}</button>
         </div>
         {recent.length ? (
           <div className="mhome-tx-card">
@@ -153,8 +158,8 @@ export function MobileHome({
         ) : (
           <div className="mhome-empty">
             <BrandMark size={52} className="mhome-empty-brand" />
-            <p>Sin movimientos este mes</p>
-            <button onClick={onAdd}>Registrar el primero</button>
+            <p>{t('noMovementsMonth')}</p>
+            <button onClick={onAdd}>{t('registerFirst')}</button>
           </div>
         )}
       </div>
