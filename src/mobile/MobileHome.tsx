@@ -2,7 +2,11 @@ import { Icon } from '@/components/ui/Icon'
 import { byCategory, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { MobileTransactionList } from './MobileTransactionList'
-import type { Transaction } from '@/types'
+import type { IconName, Transaction } from '@/types'
+
+const ACCT_ICONS: Record<string, IconName> = {
+  cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
+}
 
 export function MobileHome({
   mkey,
@@ -19,84 +23,139 @@ export function MobileHome({
   onEditTx: (tx: Transaction) => void
   onDeleteTx?: (id: string) => void
 }) {
-  const { transactions, categories, currency } = useFinance()
+  const { transactions, categories, accounts, currency } = useFinance()
   const monthTx = txForMonth(transactions, mkey)
   const summary = totals(monthTx)
-  const expenseCategories = categories.filter(category => category.type === 'expense')
-  const totalBudget = expenseCategories.reduce((sum, category) => sum + category.budget, 0)
-  const remaining = totalBudget - summary.expense
-  const topCategory = byCategory(monthTx, 'expense', categories)[0]
-  const budgetPct = totalBudget > 0 ? Math.min(999, Math.round(summary.expense / totalBudget * 100)) : 0
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+  const expCats = categories.filter(c => c.type === 'expense')
+  const totalBudget = expCats.reduce((s, c) => s + c.budget, 0)
+  const budgetPct = totalBudget > 0 ? Math.min(100, Math.round(summary.expense / totalBudget * 100)) : 0
   const recent = monthTx.slice(0, 5)
-  const alerts = [
-    remaining < 0 ? `Presupuesto excedido por ${fmtCompact(Math.abs(remaining), currency)}.` : '',
-    topCategory && topCategory.category.budget > 0 && topCategory.amount > topCategory.category.budget
-      ? `${topCategory.category.name} superó su límite mensual.`
-      : '',
-    summary.net < 0 ? 'El mes está cerrando en negativo.' : '',
-    summary.expense === 0 ? 'Todavía no hay gastos este mes.' : '',
-  ].filter(Boolean).slice(0, 2)
+  const topExpense = byCategory(monthTx, 'expense', categories)[0]
+  const isPositive = summary.net >= 0
 
   return (
     <div className="mobile-home">
-      <section className="mobile-hero-card">
-        <span>{monthLabel(mkey)}</span>
-        <h2>{summary.net >= 0 ? 'Balance disponible' : 'Balance del mes'}</h2>
-        <strong className={summary.net >= 0 ? 'income' : 'expense'}>
-          {fmtCompact(summary.net, currency)}
-        </strong>
-        <button onClick={onAdd}><Icon name="plus" size={19} />Agregar movimiento</button>
-      </section>
 
-      <section className="mobile-metrics-row">
-        <article>
-          <small>Gastos</small>
-          <strong className="expense">{fmtCompact(summary.expense, currency)}</strong>
-        </article>
-        <article>
-          <small>Ingresos</small>
-          <strong className="income">{fmtCompact(summary.income, currency)}</strong>
-        </article>
-        <article>
-          <small>Presupuesto</small>
-          <strong>{totalBudget ? `${Math.max(0, 100 - budgetPct)}%` : 'N/D'}</strong>
-        </article>
-      </section>
-
-      <section className="mobile-budget-card">
-        <div>
-          <small>Presupuesto restante</small>
-          <strong className={remaining >= 0 ? 'income' : 'expense'}>{fmtCompact(remaining, currency)}</strong>
+      {/* ─── Hero ─── */}
+      <section className="mhome-hero">
+        <div className="mhome-hero-top">
+          <span className="mhome-label-tiny">Este mes · {monthLabel(mkey)}</span>
+          <button className="mhome-add-fab" onClick={onAdd} aria-label="Agregar movimiento">
+            <Icon name="plus" size={18} />
+          </button>
         </div>
-        <div className="mobile-progress-track">
-          <span style={{ width: `${Math.min(100, budgetPct)}%` }} />
+
+        <div className="mhome-hero-main">
+          <span className="mhome-hero-sub">Balance del mes</span>
+          <h2 className={`mhome-hero-amount ${isPositive ? '' : 'neg'}`}>
+            {isPositive ? '+' : ''}{fmtCompact(summary.net, currency)}
+          </h2>
         </div>
-        <button onClick={onBudgets}>Ver presupuestos</button>
+
+        <div className="mhome-hero-pills">
+          <div className="mhome-pill income">
+            <span className="mhome-pill-icon"><Icon name="arrowDn" size={13} /></span>
+            <div>
+              <strong>{fmtCompact(summary.income, currency)}</strong>
+              <small>Ingresos</small>
+            </div>
+          </div>
+          <div className="mhome-pill-sep" />
+          <div className="mhome-pill expense">
+            <span className="mhome-pill-icon"><Icon name="arrowUp" size={13} /></span>
+            <div>
+              <strong>{fmtCompact(summary.expense, currency)}</strong>
+              <small>Gastos</small>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {alerts.length > 0 && (
-        <section className="mobile-alert-stack">
-          {alerts.map(alert => (
-            <article key={alert}>
-              <Icon name="alert" size={18} />
-              <span>{alert}</span>
-            </article>
-          ))}
-        </section>
+      {/* ─── Cuentas ─── */}
+      {accounts.length > 0 && (
+        <div className="mhome-section">
+          <div className="mhome-section-hdr">
+            <span>Cuentas</span>
+            <strong>{fmtCompact(totalBalance, currency)}</strong>
+          </div>
+          <div className="mhome-accounts-row">
+            {accounts.map(account => (
+              <div key={account.id} className="mhome-account-card">
+                <span className="mhome-account-icon" style={{
+                  color: account.color,
+                  background: `color-mix(in oklab, ${account.color} 15%, transparent)`,
+                }}>
+                  <Icon name={ACCT_ICONS[account.type] ?? 'wallet'} size={18} />
+                </span>
+                <small>{account.name}</small>
+                <b className={account.balance < 0 ? 'neg' : ''}>
+                  {fmtCompact(account.balance, currency)}
+                </b>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      <section className="mobile-section-card">
-        <header>
-          <div>
-            <h2>Últimos movimientos</h2>
-            <p>{recent.length ? 'Actividad reciente del mes' : 'Sin actividad todavía'}</p>
+      {/* ─── Presupuesto ─── */}
+      {totalBudget > 0 && (
+        <button className="mhome-budget" onClick={onBudgets}>
+          <div className="mhome-budget-row">
+            <span>Presupuesto del mes</span>
+            <span className={budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warn' : 'ok'}>
+              {budgetPct}%
+            </span>
           </div>
+          <div className="mhome-bar-track">
+            <span className="mhome-bar-fill" style={{
+              width: `${Math.min(100, budgetPct)}%`,
+              background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : '#ffdd3d',
+            }} />
+          </div>
+          <div className="mhome-budget-meta">
+            <span>{fmtCompact(summary.expense, currency)} gastado</span>
+            <span>de {fmtCompact(totalBudget, currency)}</span>
+          </div>
+        </button>
+      )}
+
+      {/* ─── Insight rápido ─── */}
+      {topExpense && summary.expense > 0 && (
+        <div className="mhome-insight">
+          <span style={{ color: topExpense.category.color, background: `color-mix(in oklab, ${topExpense.category.color} 14%, transparent)` }}>
+            <Icon name={topExpense.category.icon} size={16} />
+          </span>
+          <p>
+            Mayor gasto: <strong>{topExpense.category.name}</strong> ({fmtCompact(topExpense.amount, currency)})
+          </p>
+        </div>
+      )}
+
+      {/* ─── Movimientos recientes ─── */}
+      <div className="mhome-section">
+        <div className="mhome-section-hdr">
+          <span>Movimientos</span>
           <button onClick={onMovements}>Ver todo</button>
-        </header>
-        {recent.length
-          ? <MobileTransactionList transactions={recent} onEdit={onEditTx} onDelete={onDeleteTx} compact />
-          : <button className="mobile-empty-action" onClick={onAdd}>Agregar el primero</button>}
-      </section>
+        </div>
+        {recent.length ? (
+          <div className="mhome-tx-card">
+            <MobileTransactionList
+              transactions={recent}
+              onEdit={onEditTx}
+              onDelete={onDeleteTx}
+              compact
+            />
+          </div>
+        ) : (
+          <div className="mhome-empty">
+            <span><Icon name="list" size={26} /></span>
+            <p>Sin movimientos este mes</p>
+            <button onClick={onAdd}>Registrar el primero</button>
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }

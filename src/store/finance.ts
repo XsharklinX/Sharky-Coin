@@ -6,7 +6,15 @@ import { useSettings } from '@/store/settings'
 import type { Account, Category, Transaction, Goal, GoalContribution, CurrencyCode, OverdraftPolicy } from '@/types'
 
 type FinanceData = Pick<FinanceState, 'accounts' | 'transactions' | 'categories' | 'goals' | 'goalContributions' | 'currency'>
-const ICONS = new Set(['home', 'cart', 'food', 'car', 'bolt', 'play', 'heart', 'bag', 'book', 'wallet', 'laptop', 'trend'])
+const ICONS = new Set([
+  'home','cart','food','car','bolt','play','heart','bag','book','wallet','laptop','trend',
+  'music','coffee','phone','gym','building','bus','gamepad','gift','scissors','baby','paw',
+  'pill','plane','briefcase','shirt','pizza','star','fuel','flame','soda',
+  'grid','list','cards','chart','target','plus','arrowUp','arrowDn','shark','search',
+  'bell','close','calendar','dots','edit','trash','download','print','settings','logout',
+  'repeat','tag','camera','check','alert','refresh','dollar','piggy','sliders','upload',
+  'fileJson','eye','eyeOff','info','lock','user','palette',
+])
 const text = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0
 const amount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const date = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
