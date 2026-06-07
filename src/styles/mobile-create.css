@@ -454,10 +454,10 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .mobile-home,
-  .mobile-analytics,
+  .man-root,
   .mobile-create-flow,
-  .mobile-reports,
-  .mobile-profile,
+  .mrep-root,
+  .mpr-root,
   .mobile-route,
   .mobile-welcome-hub {
     animation: mobile-enter 0.22s ease both;

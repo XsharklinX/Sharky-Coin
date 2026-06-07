@@ -799,15 +799,16 @@
     gap: 5px;
     justify-content: center;
     min-height: 58px;
+    transition: color .15s ease;
   }
   .mobile-bottom-nav > button.on {
-    color: #ffdd3d;
+    color: var(--m-primary);
   }
   .mobile-bottom-nav .mobile-add-fab {
-    background: #ffdd3d;
+    background: var(--m-primary);
     border-radius: 999px;
-    box-shadow: 0 10px 30px rgba(255,221,61,.22);
-    color: #151515;
+    box-shadow: 0 10px 30px color-mix(in oklab, var(--m-primary) 35%, transparent);
+    color: var(--m-primary-text);
     height: 66px;
     margin: -26px auto 0;
     min-height: 66px;
