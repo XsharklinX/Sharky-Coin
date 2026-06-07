@@ -207,11 +207,11 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
   useMobileBackDismiss(true, onClose)
 
   return (
-    <div className="mobile-detail-sheet" onClick={onClose}>
+    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={debt ? 'Editar deuda' : 'Nueva deuda'} onClick={onClose}>
       <section className="mdebt-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <span>{debt ? 'Editar deuda' : 'Nueva deuda'}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mdebt-sheet-body">
@@ -245,6 +245,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
             <div className="mdebt-color-row">
               {COLORS.map(c => (
                 <button key={c} className={`mdebt-color-dot${f.color === c ? ' on' : ''}`}
+                  aria-label={`Color ${c}`} aria-pressed={f.color === c}
                   style={{ background: c }} onClick={() => p('color', c)} />
               ))}
             </div>

@@ -323,9 +323,9 @@
   .mgl-color-dot {
     border: 3px solid transparent;
     border-radius: 50%;
-    height: 32px;
+    height: 40px;
     outline-offset: 2px;
-    width: 32px;
+    width: 40px;
   }
   .mgl-color-dot.on { outline: 2px solid var(--text); }
   .mgl-icons { display: grid; gap: 8px; grid-template-columns: repeat(6, 1fr); }

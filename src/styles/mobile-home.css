@@ -1,4 +1,4 @@
-﻿  /* ── Mobile Home (new) ── */
+  /* -- Mobile Home (new) -- */
   .mobile-home {
     display: flex;
     flex-direction: column;
@@ -28,7 +28,7 @@
     gap: 2px;
   }
   .mhome-hero-sub {
-    color: #6b7280;
+    color: var(--m-muted);
     font-size: 12px;
     font-weight: 700;
   }
@@ -59,7 +59,7 @@
   }
   .mhome-pill div { display: grid; gap: 1px; }
   .mhome-pill strong { font-size: 17px; font-weight: 900; letter-spacing: -.03em; }
-  .mhome-pill small { color: #6b7280; font-size: 11px; font-weight: 700; }
+  .mhome-pill small { color: var(--m-muted); font-size: 11px; font-weight: 700; }
   .mhome-pill.income .mhome-pill-icon { color: #35d0a2; background: rgba(53,208,162,.15); }
   .mhome-pill.expense .mhome-pill-icon { color: #ff6b8a; background: rgba(255,107,138,.15); }
   .mhome-pill-icon {
@@ -101,11 +101,15 @@
     font-weight: 900;
   }
   .mhome-section-hdr > button {
+    align-items: center;
     background: 0;
     border: 0;
     color: var(--accent);
+    display: flex;
     font-size: 13px;
     font-weight: 800;
+    justify-content: flex-end;
+    min-height: 44px;
     padding: 4px 0;
     transition: opacity .12s ease;
   }
@@ -194,7 +198,7 @@
     display: flex;
     justify-content: space-between;
   }
-  .mhome-budget-meta span { color: #6b7280; font-size: 11px; font-weight: 700; }
+  .mhome-budget-meta span { color: var(--m-muted); font-size: 11px; font-weight: 700; }
   .mhome-insight {
     align-items: center;
     background: rgba(255,255,255,.03);
@@ -259,12 +263,12 @@
     font-size: 13px;
     font-weight: 800;
     margin-top: 6px;
-    min-height: 38px;
+    min-height: 44px;
     padding: 0 16px;
   }
   .neg { color: #ff6b8a; }
 
-  /* ── shared by Analytics/Reports/Profile ── */
+  /* -- shared by Analytics/Reports/Profile -- */
   .mobile-analytics {
     display: grid;
     gap: 14px;
@@ -832,7 +836,7 @@
     color: #151515;
   }
 
-  /* ── Annual mobile ── */
+  /* -- Annual mobile -- */
   .mobile-annual {
     animation: mobile-enter 0.22s ease both;
     display: grid;
@@ -1061,7 +1065,7 @@
     width: 46px;
   }
 
-  /* ─── Mobile Welcome Hub ─── */
+  /* --- Mobile Welcome Hub --- */
   .mobile-welcome-hub {
     background: #090909;
     display: flex;

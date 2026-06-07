@@ -1,4 +1,4 @@
-﻿  /* ── MobileOnboarding ────────────────────────────── */
+  /* -- MobileOnboarding ------------------------------ */
   .mob-onboard {
     align-items: center;
     display: flex;
@@ -39,7 +39,7 @@
     margin: 0;
   }
   .mob-onboard-header p {
-    color: #6b7280;
+    color: var(--m-muted);
     font-size: 14px;
     font-weight: 600;
     margin: 0;
@@ -80,7 +80,7 @@
     font-weight: 800;
   }
   .mob-onboard-type small {
-    color: #6b7280;
+    color: var(--m-muted);
     font-size: 12px;
     font-weight: 600;
   }
@@ -159,7 +159,7 @@
     padding: 0 18px;
   }
   .mob-onboard-balance-symbol {
-    color: #6b7280;
+    color: var(--m-muted);
     font-size: 18px;
     font-weight: 800;
   }
@@ -183,7 +183,7 @@
     text-align: center;
   }
 
-  /* ── CreateFlow: error inline + shake ────────────── */
+  /* -- CreateFlow: error inline + shake -------------- */
   .mobile-create-error {
     align-items: center;
     color: #ff6b8a;
@@ -204,7 +204,7 @@
     animation: mobile-shake 0.42s ease;
   }
 
-  /* ── Splash screen ───────────────────────────────── */
+  /* -- Splash screen --------------------------------- */
   .splash-screen {
     align-items: center;
     background: #07090f;
@@ -278,7 +278,7 @@
     100% { transform: scaleX(1); }
   }
 
-  /* ── MobileHome stagger ──────────────────────────── */
+  /* -- MobileHome stagger ---------------------------- */
   @keyframes mhome-rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -288,9 +288,9 @@
   .mhome-stagger-3 { animation: mhome-rise 0.32s ease both; animation-delay: 170ms; }
   .mhome-stagger-4 { animation: mhome-rise 0.32s ease both; animation-delay: 220ms; }
 
-  /* ── BrandMark empty state ───────────────────────── */
+  /* -- BrandMark empty state ------------------------- */
 
-  /* ── Dark mode refinements (CSS variables en mobile) */
+  /* -- Dark mode refinements (CSS variables en mobile) */
   .mobile-app .mhome-hero         { background: linear-gradient(160deg, var(--surface, #181c25) 0%, color-mix(in oklab, var(--bg, #12151c) 80%, #000) 100%); }
   .mobile-app .mhome-account-card,
   .mobile-app .mhome-budget,
@@ -304,14 +304,14 @@
   .mobile-app .mobile-top-bar     { background: var(--bg, #0a0e16); border-color: var(--border, rgba(255,255,255,.06)); }
   .mobile-app .mobile-bottom-nav  { background: var(--bg, #0a0e16); border-color: var(--border, rgba(255,255,255,.06)); }
 
-  /* Números animados: tabular nums consistentes */
+  /* N�meros animados: tabular nums consistentes */
   .mhome-hero-amount,
   .mhome-pill strong,
   .mhome-account-card b {
     font-variant-numeric: tabular-nums;
   }
 
-  /* ─── MobileReports ──────────────────────────── */
+  /* --- MobileReports ---------------------------- */
   .mrep-root { display: flex; flex-direction: column; gap: 16px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
   .mrep-hero {
     background: linear-gradient(135deg, var(--m-surface) 0%, color-mix(in oklab, var(--m-primary) 10%, var(--m-surface)) 100%);
@@ -362,7 +362,7 @@
   .text-expense { color: #ff6b8a !important; }
   .text-warn    { color: #f59e0b !important; }
 
-  /* ─── MobileProfile ──────────────────────────── */
+  /* --- MobileProfile ---------------------------- */
   .mpr-root { display: flex; flex-direction: column; gap: 20px; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); }
   .mpr-hero {
     align-items: center;
@@ -535,7 +535,7 @@
   .mpr-input:focus { border-color: var(--accent); outline: none; }
   select.mpr-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%23888' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E"); background-position: right 12px center; background-repeat: no-repeat; padding-right: 30px; }
   .mpr-color-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
-  .mpr-color-dot { border: 3px solid transparent; border-radius: 50%; cursor: pointer; height: 34px; transition: transform .1s; width: 34px; }
+  .mpr-color-dot { border: 3px solid transparent; border-radius: 50%; cursor: pointer; height: 40px; transition: transform .1s; width: 40px; }
   .mpr-color-dot.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg); transform: scale(1.15); }
   .mpr-del-btn {
     align-items: center;
@@ -595,7 +595,7 @@
 
 
 
-/* ── MobileSubscriptions ────────────────────────────────── */
+/* -- MobileSubscriptions ---------------------------------- */
   .msub-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 24px; }
 
   .msub-hero {
@@ -677,7 +677,7 @@
   .msub-confirm-row button { border-radius: 10px; flex: 1; font-size: 14px; font-weight: 600; padding: 12px; }
   .msub-confirm-row button.danger { background: #ff6b8a; color: #fff; }
 
-/* ── MobileBiometricGate ─────────────────────────────────── */
+/* -- MobileBiometricGate ----------------------------------- */
   .mbio-root {
     align-items: center; background: var(--m-bg);
     display: flex; inset: 0; justify-content: center;
@@ -701,14 +701,14 @@
     gap: 8px; margin-top: 8px; padding: 14px 24px;
   }
 
-/* ── Smart Insights (MobileHome) ─────────────────────────── */
+/* -- Smart Insights (MobileHome) --------------------------- */
   .mhome-smart-insights { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
   .mhome-insight-chip { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-muted); display: flex; font-size: 13px; gap: 8px; padding: 10px 14px; }
   .mhome-insight-chip svg { flex-shrink: 0; }
   .mhome-insight-chip.ok   { border-color: #35d0a244; color: #35d0a2; }
   .mhome-insight-chip.warn { border-color: #f59e0b44; color: #f59e0b; }
 
-/* ── Avisos (MobileHome) ──────────────────────────────────── */
+/* -- Avisos (MobileHome) ------------------------------------ */
   .mhome-alerts { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
   .mhome-alert { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 14px; display: flex; gap: 10px; padding: 12px 14px; }
   .mhome-alert.warn   { border-color: #f59e0b44; }
@@ -718,10 +718,10 @@
   .mhome-alert.danger .mhome-alert-ico { background: #ff6b8a29; color: #ff6b8a; }
   .mhome-alert p { color: var(--m-muted); flex: 1; font-size: 12.5px; line-height: 1.4; margin: 0; min-width: 0; }
   .mhome-alert p strong { color: var(--m-text); display: block; font-size: 13px; font-weight: 700; margin-bottom: 1px; }
-  .mhome-alert > button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--m-muted); display: grid; flex-shrink: 0; height: 28px; place-items: center; width: 28px; }
+  .mhome-alert > button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--m-muted); display: grid; flex-shrink: 0; height: 44px; margin: -7px -8px -7px 0; place-items: center; width: 44px; }
   .mhome-alert > button:active { background: color-mix(in oklab, var(--m-text) 8%, transparent); }
 
-/* ── MobileDebt ──────────────────────────────────────────── */
+/* -- MobileDebt -------------------------------------------- */
   .mdebt-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 32px; }
   .mdebt-empty { align-items: center; display: flex; flex-direction: column; gap: 12px; padding: 60px 32px; text-align: center; }
   .mdebt-empty p { color: var(--m-text); font-size: 17px; font-weight: 700; margin: 0; }
@@ -775,7 +775,7 @@
   .mdebt-field-row { display: flex; gap: 12px; }
   .mdebt-input { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-text); font-size: 15px; padding: 12px 14px; width: 100%; }
   .mdebt-color-row { display: flex; gap: 10px; }
-  .mdebt-color-dot { border-radius: 50%; height: 30px; opacity: .55; width: 30px; }
+  .mdebt-color-dot { border-radius: 50%; height: 40px; opacity: .55; width: 40px; }
   .mdebt-color-dot.on { opacity: 1; outline: 3px solid var(--m-text); outline-offset: 2px; }
   .mdebt-del-btn { align-items: center; border: 1px solid #ff6b8a44; border-radius: 10px; color: #ff6b8a; display: flex; font-size: 14px; font-weight: 600; gap: 6px; padding: 12px; }
   .mdebt-confirm-del { background: #ff6b8a15; border-radius: 10px; padding: 14px; }
@@ -787,7 +787,7 @@
   .mdebt-btn-cancel { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 12px; color: var(--m-text); flex: 1; font-size: 15px; font-weight: 600; padding: 14px; }
   .mdebt-btn-save { border-radius: 12px; color: #000; flex: 2; font-size: 15px; font-weight: 700; padding: 14px; }
 
-/* ── MobileReports tools ─────────────────────────────────── */
+/* -- MobileReports tools ----------------------------------- */
   .mrep-tools { border-radius: 14px; box-shadow: var(--m-elevation-sm); margin-top: 20px; overflow: hidden; }
   .mrep-tool-row { align-items: center; background: var(--m-surface); border-bottom: 1px solid var(--m-border); display: flex; gap: 14px; padding: 16px; transition: background-color .12s ease; width: 100%; }
   .mrep-tool-row:active { background: color-mix(in oklab, var(--m-surface) 80%, var(--m-text) 6%); }
@@ -797,7 +797,7 @@
   .mrep-tool-row b    { color: var(--m-text); display: block; font-size: 15px; }
   .mrep-tool-row small{ color: var(--m-muted); display: block; font-size: 12px; }
 
-/* ── MobileCSVImport ─────────────────────────────────────── */
+/* -- MobileCSVImport --------------------------------------- */
   .mcsv-root { background: var(--m-bg); bottom: 0; display: flex; flex-direction: column; left: 0; overflow: hidden; position: fixed; right: 0; top: 0; z-index: 300; }
   .mcsv-header { align-items: center; border-bottom: 1px solid var(--m-border); display: flex; justify-content: space-between; padding: 16px 20px; }
   .mcsv-back { color: var(--m-text); }

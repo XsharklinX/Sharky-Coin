@@ -264,6 +264,8 @@ function AccountEditorSheet({
                 <button
                   key={c}
                   className={`mpr-color-dot${fields.color === c ? ' on' : ''}`}
+                  aria-label={`Color ${c}`}
+                  aria-pressed={fields.color === c}
                   style={{ background: c }}
                   onClick={() => patch('color', c)}
                 />

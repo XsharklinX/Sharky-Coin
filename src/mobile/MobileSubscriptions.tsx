@@ -83,11 +83,11 @@ export function MobileSubscriptions() {
 
       {/* Action sheet */}
       {sheet && (
-        <div className="mobile-detail-sheet" onClick={() => setSheet(null)}>
+        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={sheet.tx.note} onClick={() => setSheet(null)}>
           <section className="msub-sheet" onClick={e => e.stopPropagation()}>
             <header>
               <span>{sheet.tx.note}</span>
-              <button onClick={() => setSheet(null)}><Icon name="close" size={18} /></button>
+              <button aria-label="Cerrar" onClick={() => setSheet(null)}><Icon name="close" size={18} /></button>
             </header>
             <div className="msub-sheet-body">
               <div className="msub-sheet-amount">

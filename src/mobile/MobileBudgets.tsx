@@ -205,11 +205,11 @@ function BudgetEditor({
   useMobileBackDismiss(true, onClose)
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={category ? 'Edit category' : 'New category'} onClick={onClose}>
       <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <span>{category ? 'Edit category' : 'New category'}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label="Close" onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mbud-editor-body">
@@ -245,6 +245,8 @@ function BudgetEditor({
                 <button
                   key={c}
                   className={`mbud-color-dot${color === c ? ' on' : ''}`}
+                  aria-label={`Color ${c}`}
+                  aria-pressed={color === c}
                   style={{ background: c }}
                   onClick={() => setColor(c)}
                 />
@@ -259,6 +261,8 @@ function BudgetEditor({
                 <button
                   key={ic}
                   className={`mbud-icon-btn-sheet${icon === ic ? ' on' : ''}`}
+                  aria-label={`Icon ${ic}`}
+                  aria-pressed={icon === ic}
                   style={icon === ic ? { color, background: `color-mix(in oklab, ${color} 18%, transparent)` } : {}}
                   onClick={() => setIcon(ic)}
                 >

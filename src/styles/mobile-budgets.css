@@ -264,8 +264,8 @@
     border: 3px solid transparent;
     border-radius: 50%;
     flex-shrink: 0;
-    height: 32px;
-    width: 32px;
+    height: 40px;
+    width: 40px;
   }
   .mbud-color-dot.on { outline: 2px solid var(--text); outline-offset: 2px; }
   .mbud-icon-grid-sheet {

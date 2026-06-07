@@ -73,11 +73,11 @@ function GoalForm({
   }
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" onClick={onClose}>
+    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? 'Editar meta' : 'Nueva meta'} onClick={onClose}>
       <section className="mgl-form" onClick={e => e.stopPropagation()}>
         <header>
           <span>{initial ? 'Editar meta' : 'Nueva meta'}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mgl-form-body">
@@ -121,6 +121,8 @@ function GoalForm({
                 <button
                   key={c}
                   className={`mgl-color-dot${color === c ? ' on' : ''}`}
+                  aria-label={`Color ${c}`}
+                  aria-pressed={color === c}
                   style={{ background: c }}
                   onClick={() => setColor(c)}
                 />
@@ -135,6 +137,8 @@ function GoalForm({
                 <button
                   key={ic}
                   className={`mgl-icon-btn${icon === ic ? ' on' : ''}`}
+                  aria-label={`Icono ${ic}`}
+                  aria-pressed={icon === ic}
                   style={icon === ic ? { background: color + '33', color } : {}}
                   onClick={() => setIcon(ic)}
                 >
@@ -178,11 +182,11 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
   }
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" onClick={onClose}>
+    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={`Aportar a ${goal.name}`} onClick={onClose}>
       <section className="mgl-form" onClick={e => e.stopPropagation()}>
         <header>
           <span>Aportar a {goal.name}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mgl-form-body">
@@ -279,10 +283,10 @@ export function MobileGoals(_props: ViewProps) {
                 <button className="mgl-action-btn" onClick={() => setContributeGoal(g)}>
                   <Icon name="plus" size={15} /> Aportar
                 </button>
-                <button className="mgl-action-btn" onClick={() => setSheet({ type: 'edit', goal: g })}>
+                <button className="mgl-action-btn" aria-label={`Editar meta ${g.name}`} onClick={() => setSheet({ type: 'edit', goal: g })}>
                   <Icon name="edit" size={15} />
                 </button>
-                <button className="mgl-action-btn mgl-action-del" onClick={() => {
+                <button className="mgl-action-btn mgl-action-del" aria-label={`Eliminar meta ${g.name}`} onClick={() => {
                   void confirm({ title: `¿Eliminar "${g.name}"?`, description: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', icon: 'trash' }).then(ok => { if (ok) deleteGoal(g.id) })
                 }}>
                   <Icon name="trash" size={15} />
@@ -293,7 +297,7 @@ export function MobileGoals(_props: ViewProps) {
         </div>
       )}
 
-      <button className="mgl-fab" onClick={() => setSheet({ type: 'add' })}>
+      <button className="mgl-fab" aria-label="Nueva meta" onClick={() => setSheet({ type: 'add' })}>
         <Icon name="plus" size={24} />
       </button>
 
