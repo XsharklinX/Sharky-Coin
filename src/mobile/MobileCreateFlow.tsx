@@ -57,6 +57,7 @@ export function MobileCreateFlow({
   const [fromAccount, setFromAccount] = useState(accounts[0]?.id ?? '')
   const [toAccount, setToAccount] = useState(accounts[1]?.id ?? accounts[0]?.id ?? '')
   const [note, setNote] = useState('')
+  const [noteFocused, setNoteFocused] = useState(false)
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
   const [transferPicker, setTransferPicker] = useState<'from' | 'to' | null>(null)
   const [accountPicker, setAccountPicker] = useState(false)
@@ -259,6 +260,8 @@ export function MobileCreateFlow({
                 autoCapitalize="sentences"
                 autoCorrect="on"
                 onChange={e => setNote(e.target.value)}
+                onFocus={() => setNoteFocused(true)}
+                onBlur={() => setNoteFocused(false)}
               />
             </div>
 
@@ -336,6 +339,8 @@ export function MobileCreateFlow({
                 autoCapitalize="sentences"
                 autoCorrect="on"
                 onChange={e => setNote(e.target.value)}
+                onFocus={() => setNoteFocused(true)}
+                onBlur={() => setNoteFocused(false)}
               />
             </div>
           </>
@@ -362,14 +367,16 @@ export function MobileCreateFlow({
           </div>
         )}
 
-        {/* Numpad */}
-        <div className="mobile-keypad-compact">
-          {keypad.map(key => (
-            <button key={key} onClick={() => pressKey(key)}>
-              {key === 'back' ? <Icon name="close" size={18} /> : key}
-            </button>
-          ))}
-        </div>
+        {/* Numpad — escondido mientras se escribe la nota, para no competir con el teclado del SO */}
+        {!noteFocused && (
+          <div className="mobile-keypad-compact">
+            {keypad.map(key => (
+              <button key={key} onClick={() => pressKey(key)}>
+                {key === 'back' ? <Icon name="close" size={18} /> : key}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Save */}
         <button className="mobile-save-button" disabled={!canSave} onClick={save}>
