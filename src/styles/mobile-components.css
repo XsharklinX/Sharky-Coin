@@ -701,3 +701,126 @@
     color: var(--m-text); display: flex; font-size: 15px; font-weight: 600;
     gap: 8px; margin-top: 8px; padding: 14px 24px;
   }
+
+/* ── Smart Insights (MobileHome) ─────────────────────────── */
+  .mhome-smart-insights { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+  .mhome-insight-chip { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-muted); display: flex; font-size: 13px; gap: 8px; padding: 10px 14px; }
+  .mhome-insight-chip svg { flex-shrink: 0; }
+  .mhome-insight-chip.ok   { border-color: #35d0a244; color: #35d0a2; }
+  .mhome-insight-chip.warn { border-color: #f59e0b44; color: #f59e0b; }
+
+/* ── MobileDebt ──────────────────────────────────────────── */
+  .mdebt-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 32px; }
+  .mdebt-empty { align-items: center; display: flex; flex-direction: column; gap: 12px; padding: 60px 32px; text-align: center; }
+  .mdebt-empty p { color: var(--m-text); font-size: 17px; font-weight: 700; margin: 0; }
+  .mdebt-empty small { color: var(--m-muted); font-size: 14px; line-height: 1.5; }
+  .mdebt-add-btn { align-items: center; background: var(--m-primary); border-radius: 12px; color: #000; display: flex; font-size: 15px; font-weight: 700; gap: 6px; margin-top: 8px; padding: 14px 24px; }
+  .mdebt-hero { background: linear-gradient(160deg,#1a0520,#0a1525); border-radius: 0 0 20px 20px; margin-bottom: 4px; padding: 24px 20px 20px; text-align: center; }
+  .mdebt-hero-label { color: var(--m-muted); font-size: 13px; }
+  .mdebt-hero-amount { color: var(--m-text); font-size: 34px; font-weight: 800; letter-spacing: -1px; margin: 4px 0; }
+  .mdebt-hero-sub { color: var(--m-muted); font-size: 13px; }
+  .mdebt-toggle { background: var(--m-surface); border-radius: 12px; display: flex; gap: 4px; margin: 12px 16px 0; padding: 4px; }
+  .mdebt-toggle button { border-radius: 9px; color: var(--m-muted); flex: 1; font-size: 14px; font-weight: 600; padding: 10px; }
+  .mdebt-toggle button.on { background: var(--m-bg); color: var(--m-text); }
+  .mdebt-hint { color: var(--m-muted); font-size: 13px; line-height: 1.5; margin: 8px 16px 0; text-align: center; }
+  .mdebt-result-card { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 12px 16px 0; padding: 20px; }
+  .mdebt-result-row { display: flex; }
+  .mdebt-result-item { flex: 1; text-align: center; }
+  .mdebt-result-val { color: var(--m-text); font-size: 22px; font-weight: 800; }
+  .mdebt-result-lbl { color: var(--m-muted); font-size: 12px; margin-top: 2px; }
+  .mdebt-result-sep { background: var(--m-border); width: 1px; }
+  .mdebt-badge { border-radius: 8px; font-size: 13px; font-weight: 600; margin-top: 14px; padding: 8px 12px; text-align: center; }
+  .mdebt-badge.ok   { background: #35d0a222; color: #35d0a2; }
+  .mdebt-badge.warn { background: #f59e0b22; color: #f59e0b; }
+  .mdebt-extra-card { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 12px 16px 0; padding: 16px 20px; }
+  .mdebt-extra-label { color: var(--m-muted); font-size: 13px; }
+  .mdebt-extra-row { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
+  .mdebt-extra-input { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-text); flex: 1; font-size: 18px; font-weight: 700; padding: 10px 14px; }
+  .mdebt-extra-cur { color: var(--m-muted); font-size: 14px; font-weight: 600; }
+  .mdebt-extra-note { color: #35d0a2; display: block; font-size: 12px; margin-top: 6px; }
+  .mdebt-section-title { align-items: center; color: var(--m-muted); display: flex; font-size: 12px; font-weight: 700; gap: 8px; letter-spacing: .06em; margin: 20px 16px 8px; text-transform: uppercase; }
+  .mdebt-add-inline { align-items: center; background: color-mix(in oklab, var(--m-primary) 15%, transparent); border-radius: 8px; color: var(--m-primary); display: flex; font-size: 12px; font-weight: 700; gap: 4px; margin-left: auto; padding: 4px 10px; }
+  .mdebt-order-list { display: flex; flex-direction: column; gap: 2px; margin: 0 16px; }
+  .mdebt-order-row { align-items: center; background: var(--m-surface); border-radius: 10px; display: flex; gap: 10px; padding: 12px 14px; }
+  .mdebt-order-num { align-items: center; background: var(--m-border); border-radius: 50%; color: var(--m-muted); display: flex; font-size: 12px; font-weight: 700; height: 22px; justify-content: center; width: 22px; }
+  .mdebt-order-dot { border-radius: 50%; flex-shrink: 0; height: 10px; width: 10px; }
+  .mdebt-order-name { color: var(--m-text); flex: 1; font-size: 14px; font-weight: 600; }
+  .mdebt-order-rate { color: var(--m-muted); font-size: 12px; }
+  .mdebt-list { display: flex; flex-direction: column; gap: 2px; margin: 0 16px; }
+  .mdebt-row { align-items: center; background: var(--m-surface); border-radius: 12px; display: flex; gap: 12px; padding: 14px 16px; }
+  .mdebt-row-dot { border-radius: 50%; flex-shrink: 0; height: 12px; width: 12px; }
+  .mdebt-row-info { flex: 1; text-align: left; }
+  .mdebt-row-info b { color: var(--m-text); display: block; font-size: 15px; }
+  .mdebt-row-info small { color: var(--m-muted); font-size: 12px; }
+  .mdebt-row strong { color: var(--m-text); font-size: 15px; font-weight: 700; }
+  .mdebt-sheet { background: var(--m-surface); border-radius: 24px 24px 0 0; overflow: hidden; }
+  .mdebt-sheet header { align-items: center; border-bottom: 1px solid var(--m-border); display: flex; justify-content: space-between; padding: 18px 20px; }
+  .mdebt-sheet header span { color: var(--m-text); font-size: 16px; font-weight: 700; }
+  .mdebt-sheet header button { color: var(--m-muted); }
+  .mdebt-sheet-body { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding: 20px; }
+  .mdebt-field { display: flex; flex-direction: column; gap: 6px; }
+  .mdebt-field > span { color: var(--m-muted); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+  .mdebt-field-row { display: flex; gap: 12px; }
+  .mdebt-input { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-text); font-size: 15px; padding: 12px 14px; width: 100%; }
+  .mdebt-color-row { display: flex; gap: 10px; }
+  .mdebt-color-dot { border-radius: 50%; height: 30px; opacity: .55; width: 30px; }
+  .mdebt-color-dot.on { opacity: 1; outline: 3px solid var(--m-text); outline-offset: 2px; }
+  .mdebt-del-btn { align-items: center; border: 1px solid #ff6b8a44; border-radius: 10px; color: #ff6b8a; display: flex; font-size: 14px; font-weight: 600; gap: 6px; padding: 12px; }
+  .mdebt-confirm-del { background: #ff6b8a15; border-radius: 10px; padding: 14px; }
+  .mdebt-confirm-del p { color: var(--m-text); font-size: 14px; margin: 0 0 12px; }
+  .mdebt-confirm-del div { display: flex; gap: 8px; }
+  .mdebt-confirm-del button { border-radius: 10px; flex: 1; font-size: 14px; font-weight: 600; padding: 11px; }
+  .mdebt-confirm-del button.danger { background: #ff6b8a; color: #fff; }
+  .mdebt-sheet-actions { border-top: 1px solid var(--m-border); display: flex; gap: 10px; padding: 16px 20px; }
+  .mdebt-btn-cancel { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 12px; color: var(--m-text); flex: 1; font-size: 15px; font-weight: 600; padding: 14px; }
+  .mdebt-btn-save { border-radius: 12px; color: #000; flex: 2; font-size: 15px; font-weight: 700; padding: 14px; }
+
+/* ── MobileReports tools ─────────────────────────────────── */
+  .mrep-tools { margin-top: 20px; }
+  .mrep-tool-row { align-items: center; background: var(--m-surface); border-bottom: 1px solid var(--m-border); display: flex; gap: 14px; padding: 16px; width: 100%; }
+  .mrep-tool-row:first-of-type { border-radius: 14px 14px 0 0; }
+  .mrep-tool-row:last-of-type  { border-bottom: none; border-radius: 0 0 14px 14px; }
+  .mrep-tool-icon { align-items: center; border-radius: 10px; display: flex; flex-shrink: 0; height: 40px; justify-content: center; width: 40px; }
+  .mrep-tool-row b    { color: var(--m-text); display: block; font-size: 15px; }
+  .mrep-tool-row small{ color: var(--m-muted); display: block; font-size: 12px; }
+
+/* ── MobileCSVImport ─────────────────────────────────────── */
+  .mcsv-root { background: var(--m-bg); bottom: 0; display: flex; flex-direction: column; left: 0; overflow: hidden; position: fixed; right: 0; top: 0; z-index: 300; }
+  .mcsv-header { align-items: center; border-bottom: 1px solid var(--m-border); display: flex; justify-content: space-between; padding: 16px 20px; }
+  .mcsv-back { color: var(--m-text); }
+  .mcsv-header strong { color: var(--m-text); font-size: 16px; font-weight: 700; }
+  .mcsv-body { flex: 1; overflow-y: auto; padding: 20px 16px; }
+  .mcsv-upload { display: flex; flex-direction: column; gap: 20px; }
+  .mcsv-drop-area { align-items: center; background: var(--m-surface); border: 2px dashed var(--m-border); border-radius: 16px; display: flex; flex-direction: column; gap: 8px; padding: 40px 20px; text-align: center; }
+  .mcsv-drop-area p { color: var(--m-text); font-size: 16px; font-weight: 700; margin: 0; }
+  .mcsv-drop-area small { color: var(--m-muted); font-size: 13px; }
+  .mcsv-pick-btn { background: var(--m-primary); border-radius: 10px; color: #000; font-size: 14px; font-weight: 700; margin-top: 8px; padding: 12px 24px; }
+  .mcsv-bank-hints { display: flex; flex-direction: column; gap: 2px; }
+  .mcsv-bank-label { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .06em; margin-bottom: 6px; text-transform: uppercase; }
+  .mcsv-bank-row { background: var(--m-surface); border-radius: 10px; display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .mcsv-bank-row b { color: var(--m-text); font-size: 14px; }
+  .mcsv-bank-row small { color: var(--m-muted); font-size: 12px; }
+  .mcsv-map { display: flex; flex-direction: column; }
+  .mcsv-step-label { color: var(--m-muted); font-size: 13px; margin-bottom: 10px; }
+  .mcsv-map-grid { display: flex; flex-direction: column; gap: 2px; }
+  .mcsv-map-row { align-items: center; background: var(--m-surface); border-radius: 10px; display: flex; gap: 12px; justify-content: space-between; padding: 12px 14px; }
+  .mcsv-map-row span { color: var(--m-text); flex-shrink: 0; font-size: 14px; }
+  .mcsv-map-row select { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 8px; color: var(--m-text); font-size: 13px; max-width: 55%; padding: 6px 10px; }
+  .mcsv-preview { background: var(--m-surface); border-radius: 12px; display: flex; flex-direction: column; max-height: 180px; overflow-y: auto; }
+  .mcsv-preview-row { align-items: center; border-bottom: 1px solid var(--m-border); display: flex; font-size: 13px; gap: 8px; padding: 10px 14px; }
+  .mcsv-preview-row:last-child { border-bottom: none; }
+  .mcsv-preview-row.invalid { opacity: .45; }
+  .mcsv-income  { color: #35d0a2; font-weight: 700; white-space: nowrap; }
+  .mcsv-expense { color: #ff6b8a; font-weight: 700; white-space: nowrap; }
+  .mcsv-note { color: var(--m-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcsv-date { color: var(--m-muted); white-space: nowrap; }
+  .mcsv-next-btn { background: var(--m-primary); border-radius: 12px; color: #000; font-size: 15px; font-weight: 700; margin-top: 16px; padding: 16px; width: 100%; }
+  .mcsv-next-btn:disabled { opacity: .4; }
+  .mcsv-confirm { display: flex; flex-direction: column; gap: 16px; }
+  .mcsv-confirm-hero { background: var(--m-surface); border-radius: 14px; padding: 24px; text-align: center; }
+  .mcsv-confirm-hero strong { color: var(--m-text); display: block; font-size: 40px; font-weight: 800; }
+  .mcsv-confirm-hero span { color: var(--m-muted); font-size: 14px; }
+  .mcsv-confirm-actions { display: flex; gap: 10px; }
+  .mcsv-back-btn { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 12px; color: var(--m-text); flex: 1; font-size: 15px; font-weight: 600; padding: 14px; }
+  .mcsv-import-btn { background: var(--m-primary); border-radius: 12px; color: #000; flex: 2; font-size: 15px; font-weight: 700; padding: 14px; }
+  .mcsv-import-btn:disabled { opacity: .4; }

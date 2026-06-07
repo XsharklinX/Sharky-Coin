@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
-import type { Account, AccountType } from '@/types'
+import type { Account, AccountType, ViewId } from '@/types'
 
 const TYPE_META: Record<AccountType, { label: string; group: string; icon: Parameters<typeof Icon>[0]['name'] }> = {
   cash:    { label: 'Cash',    group: 'Cash',         icon: 'wallet' },
@@ -15,7 +15,7 @@ function accountKind(a: Account): 'asset' | 'debt' {
   return a.type === 'credit' || a.balance < 0 ? 'debt' : 'asset'
 }
 
-export function MobileReports() {
+export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; onImport?: () => void }) {
   const { accounts, currency } = useFinance()
 
   const summary = useMemo(() => {
@@ -141,6 +141,48 @@ export function MobileReports() {
             </div>
           ))}
         </>
+      )}
+      {/* Tools */}
+      {(goto || onImport) && (
+        <div className="mrep-tools">
+          <span className="mrep-section-title">Herramientas</span>
+          {goto && (
+            <button className="mrep-tool-row" onClick={() => goto('debt')}>
+              <span className="mrep-tool-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
+                <Icon name="dollar" size={20} />
+              </span>
+              <div>
+                <b>Calculadora de deudas</b>
+                <small>Snowball · Avalanche · Plan de pago</small>
+              </div>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+            </button>
+          )}
+          {goto && (
+            <button className="mrep-tool-row" onClick={() => goto('subscriptions')}>
+              <span className="mrep-tool-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
+                <Icon name="repeat" size={20} />
+              </span>
+              <div>
+                <b>Suscripciones</b>
+                <small>Gastos recurrentes</small>
+              </div>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+            </button>
+          )}
+          {onImport && (
+            <button className="mrep-tool-row" onClick={onImport}>
+              <span className="mrep-tool-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+                <Icon name="upload" size={20} />
+              </span>
+              <div>
+                <b>Importar extracto</b>
+                <small>CSV · OFX desde bancos dominicanos</small>
+              </div>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

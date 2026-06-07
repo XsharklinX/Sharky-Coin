@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Empty, MiniStat } from '@/views/shared'
 import { totals, txForMonth } from '@/data/helpers'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
@@ -11,7 +11,9 @@ import { MobileCurrencySheet } from './MobileCurrencySheet'
 import { MobileHome } from './MobileHome'
 import { MobileProfile } from './MobileProfile'
 import { MobileReports } from './MobileReports'
+import { MobileDebt } from './MobileDebt'
 import { MobileSubscriptions } from './MobileSubscriptions'
+const MobileCSVImport = lazy(() => import('./MobileCSVImport').then(m => ({ default: m.MobileCSVImport })))
 import { MobileTopBar } from './MobileTopBar'
 import { MobileTransactionList } from './MobileTransactionList'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -21,7 +23,7 @@ type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'movements'
   if (view === 'stats') return 'analytics'
-  if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports' || view === 'subscriptions') return 'reports'
+  if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports' || view === 'subscriptions' || view === 'debt') return 'reports'
   return 'home'
 }
 
@@ -39,6 +41,7 @@ const INTERNAL_TITLES: Partial<Record<ViewId, string>> = {
   goals:         'Goals',
   reports:       'Reports',
   subscriptions: 'Subscriptions',
+  debt:          'Calculadora de deudas',
 }
 
 export function MobileShell({
@@ -68,6 +71,7 @@ export function MobileShell({
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [csvOpen, setCsvOpen] = useState(false)
   const monthTx = useMemo(() => txForMonth(viewProps.txns, mkey), [viewProps.txns, mkey])
   const monthTotals = totals(monthTx)
   const mIdx = keys.indexOf(mkey)
@@ -134,6 +138,7 @@ export function MobileShell({
     if (route === 'reports') {
       if (view === 'annual') return <MobileAnnual mkey={mkey} />
       if (view === 'subscriptions') return <MobileSubscriptions />
+      if (view === 'debt') return <MobileDebt />
       const renderer = mobileViews[view]
       if (renderer) {
         return (
@@ -142,7 +147,7 @@ export function MobileShell({
           </ViewErrorBoundary>
         )
       }
-      return <MobileReports />
+      return <MobileReports goto={v => setView(v)} onImport={() => setCsvOpen(true)} />
     }
 
     if (route === 'profile') {
@@ -161,6 +166,11 @@ export function MobileShell({
 
   return (
     <main className="mobile-shell">
+      {csvOpen && (
+        <Suspense fallback={null}>
+          <MobileCSVImport onClose={() => setCsvOpen(false)} />
+        </Suspense>
+      )}
       {currencyOpen && <MobileCurrencySheet onClose={() => setCurrencyOpen(false)} />}
       <MobileTopBar
         route={route}

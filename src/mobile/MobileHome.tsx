@@ -1,7 +1,7 @@
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
-import { byCategory, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
+import { byCategory, currentMonthKey, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
@@ -40,6 +40,24 @@ export function MobileHome({
   const recent = monthTx.slice(0, 5)
   const topExpense = byCategory(monthTx, 'expense', categories)[0]
   const isPositive = summary.net >= 0
+
+  // Smart insights (current month only)
+  const isCurrent = mkey === currentMonthKey()
+  const today = new Date()
+  const dayOfMonth = today.getDate()
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+  const projectedExpense = dayOfMonth > 0 ? summary.expense / dayOfMonth * daysInMonth : 0
+  const savingsRate = summary.income > 0 ? Math.round((summary.income - summary.expense) / summary.income * 100) : null
+  const prevMkey = (() => {
+    const [y, m] = mkey.split('-').map(Number)
+    const d = new Date(y, m - 2, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })()
+  const prevTx = txForMonth(transactions, prevMkey)
+  const prevSum = totals(prevTx)
+  const prevPace = prevSum.expense > 0 && dayOfMonth > 0 ? prevSum.expense / daysInMonth * dayOfMonth : 0
+  const spendTrend = prevPace > 0 ? Math.round((summary.expense / prevPace - 1) * 100) : null
+  const showInsights = isCurrent && monthTx.length > 0 && dayOfMonth >= 3
 
   return (
     <div className="mobile-home">
@@ -137,6 +155,34 @@ export function MobileHome({
           <p>
             {t('topExpense')}: <strong>{topExpense.category.name}</strong> (<AnimatedMoney value={topExpense.amount} compact />)
           </p>
+        </div>
+      )}
+
+      {/* ─── Smart Insights ─── */}
+      {showInsights && (
+        <div className="mhome-smart-insights mhome-stagger-4">
+          {spendTrend !== null && (
+            <div className={`mhome-insight-chip ${spendTrend > 10 ? 'warn' : spendTrend < -10 ? 'ok' : ''}`}>
+              <Icon name={spendTrend >= 0 ? 'arrowUp' : 'arrowDn'} size={13} />
+              <span>
+                Gastos {Math.abs(spendTrend)}% {spendTrend >= 0 ? 'más' : 'menos'} que el mes pasado
+              </span>
+            </div>
+          )}
+          {projectedExpense > 0 && (
+            <div className={`mhome-insight-chip ${projectedExpense > totalBudget && totalBudget > 0 ? 'warn' : ''}`}>
+              <Icon name="trend" size={13} />
+              <span>Proyección: {fmtCompact(projectedExpense, currency)} al cierre</span>
+            </div>
+          )}
+          {savingsRate !== null && (
+            <div className={`mhome-insight-chip ${savingsRate >= 20 ? 'ok' : savingsRate < 0 ? 'warn' : ''}`}>
+              <Icon name="piggy" size={13} />
+              <span>
+                {savingsRate >= 0 ? `Ahorrando ${savingsRate}% del ingreso` : `Déficit: ${Math.abs(savingsRate)}% sobre ingresos`}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
