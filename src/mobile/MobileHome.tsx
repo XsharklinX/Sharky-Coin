@@ -125,7 +125,7 @@ export function MobileHome({
           <div className="mhome-bar-track">
             <span className="mhome-bar-fill" style={{
               width: `${Math.min(100, budgetPct)}%`,
-              background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : '#ffdd3d',
+              background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : 'var(--accent, #ffdd3d)',
             }} />
           </div>
           <div className="mhome-budget-meta">

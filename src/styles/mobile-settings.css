@@ -406,4 +406,84 @@
     padding: 14px 16px;
   }
   .mset-reset-warning strong { color: #ff6b8a; }
+  /* Comments */
+  .mset-legal-intro {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .mset-textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 140px;
+    outline: none;
+    padding: 12px 14px;
+    resize: vertical;
+    width: 100%;
+  }
+  .mset-textarea:focus { border-color: color-mix(in oklab, var(--accent) 50%, transparent); }
+  .mset-textarea::placeholder { color: var(--text-dim); }
+  .mset-sheet-confirm:disabled {
+    background: var(--surface-2);
+    color: var(--text-dim);
+  }
+  .mset-sheet-confirm:disabled :is(svg) { opacity: .5; }
+  /* About */
+  .mset-about {
+    align-items: center;
+    padding: 6px 0 10px;
+    text-align: center;
+  }
+  .mset-about-name {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -.02em;
+    margin-top: 12px;
+  }
+  .mset-about-version {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 750;
+  }
+  .mset-about-dev {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    margin: 14px 0 0;
+  }
+  .mset-about-dev strong { color: var(--accent); }
+  .mset-about-desc {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 8px 0 0;
+  }
+  /* Legal documents */
+  .mset-legal-updated {
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .mset-legal h3 {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 850;
+    margin: 14px 0 4px;
+  }
+  .mset-legal p {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.65;
+    margin: 0 0 8px;
+  }
+  .mset-legal strong { color: var(--text); }
 

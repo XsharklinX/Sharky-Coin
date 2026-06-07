@@ -252,10 +252,10 @@
   }
   .mhome-empty p { color: var(--m-muted); font-size: 14px; font-weight: 700; margin: 4px 0 0; }
   .mhome-empty button {
-    background: rgba(255,221,61,.1);
-    border: 1px solid rgba(255,221,61,.18);
+    background: color-mix(in oklab, var(--m-primary) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-primary) 18%, transparent);
     border-radius: 999px;
-    color: #ffdd3d;
+    color: var(--m-primary);
     font-size: 13px;
     font-weight: 800;
     margin-top: 6px;
@@ -284,7 +284,7 @@
   }
   .mobile-section-card header button {
     align-items: center;
-    background: #ffdd3d;
+    background: var(--m-primary);
     border: 0;
     border-radius: 999px;
     color: #151515;
@@ -303,7 +303,7 @@
     overflow: hidden;
   }
   .mobile-progress-track span {
-    background: #ffdd3d;
+    background: var(--m-primary);
     border-radius: inherit;
     display: block;
     height: 100%;
@@ -326,9 +326,9 @@
     margin: 4px 0 0;
   }
   .mobile-section-card header button {
-    background: rgba(255,221,61,.12);
-    border: 1px solid rgba(255,221,61,.16);
-    color: #ffdd3d;
+    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-primary) 16%, transparent);
+    color: var(--m-primary);
     min-height: 36px;
   }
   .mobile-chart-card {
@@ -442,7 +442,7 @@
     overflow: hidden;
   }
   .mobile-comparison-bars i {
-    background: #ffdd3d;
+    background: var(--m-primary);
     border-radius: inherit;
     display: block;
     height: 100%;
@@ -553,7 +553,7 @@
     width: 100%;
   }
   .mobile-account-row > span {
-    background: rgba(255,221,61,.12);
+    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
     border-radius: 16px;
     display: grid;
     height: 52px;
@@ -812,7 +812,7 @@
     text-align: center;
     width: 100%;
   }
-  .mobile-name-editor input:focus { border-color: #ffdd3d; }
+  .mobile-name-editor input:focus { border-color: var(--m-primary); }
   .mobile-name-editor-actions {
     display: grid;
     gap: 8px;
@@ -827,8 +827,8 @@
     min-height: 44px;
   }
   .mobile-name-editor-actions button.primary {
-    background: #ffdd3d;
-    border-color: #ffdd3d;
+    background: var(--m-primary);
+    border-color: var(--m-primary);
     color: #151515;
   }
 
@@ -849,7 +849,7 @@
     text-align: center;
   }
   .mobile-annual-hero::after {
-    background: radial-gradient(circle, rgba(255,221,61,.18) 0%, transparent 65%);
+    background: radial-gradient(circle, color-mix(in oklab, var(--m-primary) 18%, transparent) 0%, transparent 65%);
     content: '';
     height: 180px;
     left: 50%;
@@ -860,10 +860,10 @@
   }
   .mobile-annual-hero > * { position: relative; z-index: 1; }
   .mobile-annual-year {
-    background: rgba(255,221,61,.14);
-    border: 1px solid rgba(255,221,61,.22);
+    background: color-mix(in oklab, var(--m-primary) 14%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-primary) 22%, transparent);
     border-radius: 999px;
-    color: #ffdd3d;
+    color: var(--m-primary);
     display: inline-block;
     font-size: 12px;
     font-weight: 850;
@@ -931,7 +931,7 @@
     background: var(--m-surface);
     border: 1px solid var(--m-border);
     border-radius: 18px;
-    color: #ffdd3d;
+    color: var(--m-primary);
     display: flex;
     gap: 14px;
     padding: 14px 16px;
@@ -1036,7 +1036,7 @@
   }
   .mobile-annual-export {
     align-items: center;
-    background: #ffdd3d;
+    background: var(--m-primary);
     border: 0;
     border-radius: 18px;
     color: #151515;
@@ -1054,8 +1054,8 @@
   }
 
   .mobile-category-grid .mobile-category-add span {
-    background: rgba(255,221,61,.12);
-    border: 1px dashed rgba(255,221,61,.4);
+    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
+    border: 1px dashed color-mix(in oklab, var(--m-primary) 40%, transparent);
     color: var(--m-primary);
     height: 46px;
     width: 46px;
@@ -1077,7 +1077,7 @@
     text-align: center;
   }
   .mobile-welcome-glow {
-    background: radial-gradient(ellipse 320px 200px at 50% -40px, rgba(255,221,61,.18), transparent);
+    background: radial-gradient(ellipse 320px 200px at 50% -40px, color-mix(in oklab, var(--m-primary) 18%, transparent), transparent);
     height: 200px;
     left: 50%;
     pointer-events: none;
@@ -1148,7 +1148,7 @@
   }
   .mobile-welcome-primary {
     align-items: center;
-    background: #ffdd3d;
+    background: var(--m-primary);
     border: 0;
     border-radius: 18px;
     color: #151515;

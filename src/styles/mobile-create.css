@@ -30,10 +30,10 @@
   }
   .mobile-create-new-btn {
     align-items: center;
-    background: rgba(255,221,61,.1);
-    border: 1px solid rgba(255,221,61,.2);
+    background: color-mix(in oklab, var(--m-primary) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-primary) 20%, transparent);
     border-radius: 999px;
-    color: #ffdd3d;
+    color: var(--m-primary);
     display: inline-flex;
     font-size: 11px;
     font-weight: 850;
@@ -235,7 +235,7 @@
     text-align: left;
   }
   .mobile-picker-row:active { background: var(--m-surface-2); }
-  .mobile-picker-row.active { border-color: rgba(255,221,61,.25); background: rgba(255,221,61,.04); }
+  .mobile-picker-row.active { border-color: color-mix(in oklab, var(--m-primary) 25%, transparent); background: color-mix(in oklab, var(--m-primary) 4%, transparent); }
   .mobile-picker-row b { flex: 1; font-size: 15px; font-weight: 800; }
   .mobile-picker-row small { color: var(--m-muted); font-size: 13px; font-weight: 750; }
   .mobile-create-account-name {
@@ -313,10 +313,10 @@
   }
   .mobile-section-title button,
   .mobile-empty-action {
-    background: rgba(255,221,61,.12);
-    border: 1px solid rgba(255,221,61,.2);
+    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-primary) 20%, transparent);
     border-radius: 999px;
-    color: #ffdd3d;
+    color: var(--m-primary);
     font-size: 12px;
     font-weight: 850;
     padding: 8px 12px;
@@ -414,7 +414,7 @@
   }
   .mobile-save-button {
     align-items: center;
-    background: #ffdd3d;
+    background: var(--m-primary);
     border: 0;
     border-radius: 18px;
     color: #151515;

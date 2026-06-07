@@ -401,7 +401,7 @@ export function MobileCreateFlow({
                     </span>
                     <b>{account.name}</b>
                     <small>{fmtCompact(account.balance, currency)}</small>
-                    {account.id === activeAccountId && <Icon name="check" size={16} style={{ color: '#ffdd3d', marginLeft: 4 }} />}
+                    {account.id === activeAccountId && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 4 }} />}
                   </button>
                 ))}
               </div>
