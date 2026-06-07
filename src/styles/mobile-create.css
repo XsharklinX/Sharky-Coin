@@ -162,12 +162,28 @@
     letter-spacing: .07em;
     text-transform: uppercase;
   }
+  .mobile-create-amount-stack {
+    display: grid;
+    justify-items: end;
+    max-width: 76%;
+    overflow: hidden;
+  }
+  .mobile-create-amount-expr {
+    color: var(--m-muted);
+    font-size: 12px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .mobile-create-amount-value {
     font-size: clamp(24px, 7vw, 36px);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
     letter-spacing: -.04em;
-    max-width: 76%;
+    max-width: 100%;
     overflow: hidden;
     text-align: right;
     text-overflow: ellipsis;
@@ -215,6 +231,10 @@
   .mobile-keypad-compact button:active {
     background: var(--m-surface-2);
     transform: scale(.96);
+  }
+  .mobile-keypad-compact button.op {
+    background: color-mix(in oklab, var(--m-primary) 14%, #222);
+    color: var(--m-primary);
   }
   /* Account picker sheet */
   .mobile-picker-list {
@@ -327,8 +347,8 @@
   }
   .mobile-category-grid {
     display: grid;
-    gap: 10px 8px;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .mobile-category-grid button {
     align-items: center;
@@ -349,14 +369,14 @@
   .mobile-category-grid span {
     border-radius: 999px;
     display: grid;
-    height: 46px;
+    height: 54px;
     place-items: center;
-    width: 46px;
+    width: 54px;
   }
   .mobile-category-grid small {
-    font-size: 10px;
-    font-weight: 700;
-    max-width: 62px;
+    font-size: 11px;
+    font-weight: 750;
+    max-width: 76px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

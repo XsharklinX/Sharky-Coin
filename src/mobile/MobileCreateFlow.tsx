@@ -12,7 +12,8 @@ import { useMobileBackDismiss } from './useMobileBackDismiss'
 type MobileTxMode = Transaction['type']
 
 const today = () => new Date().toISOString().slice(0, 10)
-const keypad = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'back'] as const
+const keypad = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'back', '−', '+', 'C'] as const
+const OPERATORS = ['+', '−'] as const
 const CATEGORY_COLORS = ['#ffdd3d', '#35d0a2', '#5bc0ff', '#a78bfa', '#ff6b8a', '#f59e0b']
 const CATEGORY_ICONS: IconName[] = [
   'cart', 'food', 'car', 'bolt', 'heart', 'home',
@@ -35,6 +36,20 @@ function cleanAmount(value: string): string {
   const decimal = rest.join('').slice(0, 2)
   const safeInteger = integer.replace(/^0+(?=\d)/, '')
   return rest.length ? `${safeInteger || '0'}.${decimal}` : safeInteger
+}
+
+function lastSegment(expr: string): string {
+  const cut = Math.max(expr.lastIndexOf('+'), expr.lastIndexOf('−'))
+  return cut === -1 ? expr : expr.slice(cut + 1)
+}
+
+function evaluateExpression(expr: string): number {
+  const tokens = expr.match(/[+−]?[\d.]+/g)
+  if (!tokens) return 0
+  return tokens.reduce((sum, token) => {
+    const sign = token.startsWith('−') ? -1 : 1
+    return sum + sign * Number(token.replace(/[+−]/, ''))
+  }, 0)
 }
 
 function formatDateShort(date: string): string {
@@ -73,7 +88,8 @@ export function MobileCreateFlow({
   const [recurEnd,  setRecurEnd]  = useState('')
   const [recurEndPicker, setRecurEndPicker] = useState(false)
 
-  const amount = Number(amountText || 0)
+  const amount = evaluateExpression(amountText)
+  const hasOperator = OPERATORS.some(op => amountText.includes(op))
   const categoryType = mode === 'income' ? 'income' : 'expense'
   const visibleCategories = useMemo(
     () => categories.filter(c => c.type === categoryType).slice(0, 24),
@@ -104,9 +120,26 @@ export function MobileCreateFlow({
 
   const pressKey = (key: (typeof keypad)[number]) => {
     setFormError(null)
+    if (key === 'C') { setAmountText(''); return }
     if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
-    if (key === '.' && amountText.includes('.')) return
-    setAmountText(v => cleanAmount(v + key))
+    if (key === '+' || key === '−') {
+      setAmountText(v => (!v || /[+−]$/.test(v) ? v : v + key))
+      return
+    }
+    if (key === '.') {
+      setAmountText(v => {
+        const segment = lastSegment(v)
+        if (segment.includes('.')) return v
+        return v + (segment ? '.' : '0.')
+      })
+      return
+    }
+    setAmountText(v => {
+      const cut = Math.max(v.lastIndexOf('+'), v.lastIndexOf('−'))
+      const head = cut === -1 ? '' : v.slice(0, cut + 1)
+      const segment = cut === -1 ? v : v.slice(cut + 1)
+      return head + cleanAmount(segment + key)
+    })
   }
 
   const triggerShake = () => {
@@ -255,7 +288,7 @@ export function MobileCreateFlow({
               <input
                 type="text"
                 value={note}
-                placeholder={activeCategory ? `e.g. ${activeCategory.name}` : mode === 'income' ? 'e.g. Payment received' : 'e.g. Purchase'}
+                placeholder="Nota: Introduce una nota..."
                 enterKeyHint="done"
                 autoCapitalize="sentences"
                 autoCorrect="on"
@@ -334,7 +367,7 @@ export function MobileCreateFlow({
               <input
                 type="text"
                 value={note}
-                placeholder="e.g. Transfer to savings"
+                placeholder="Nota: Introduce una nota..."
                 enterKeyHint="done"
                 autoCapitalize="sentences"
                 autoCorrect="on"
@@ -354,11 +387,16 @@ export function MobileCreateFlow({
           <span className="mobile-create-amount-label">
             {mode === 'expense' ? t('expense') : mode === 'income' ? t('income') : t('amount')}
           </span>
-          <strong className="mobile-create-amount-value" style={{ color: amountText ? amountColor : '#3a3a3a' }}>
-            {amountText
-              ? fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 })
-              : `${currencyPrefix} 0`}
-          </strong>
+          <span className="mobile-create-amount-stack">
+            {hasOperator && (
+              <small className="mobile-create-amount-expr">{currencyPrefix} {amountText}</small>
+            )}
+            <strong className="mobile-create-amount-value" style={{ color: amountText ? amountColor : '#3a3a3a' }}>
+              {amountText
+                ? fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 })
+                : `${currencyPrefix} 0`}
+            </strong>
+          </span>
         </div>
         {formError && (
           <div className="mobile-create-error">
@@ -371,7 +409,10 @@ export function MobileCreateFlow({
         {!noteFocused && (
           <div className="mobile-keypad-compact">
             {keypad.map(key => (
-              <button key={key} onClick={() => pressKey(key)}>
+              <button
+                key={key}
+                className={(OPERATORS as readonly string[]).includes(key) || key === 'C' ? 'op' : ''}
+                onClick={() => pressKey(key)}>
                 {key === 'back' ? <Icon name="close" size={18} /> : key}
               </button>
             ))}

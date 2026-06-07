@@ -874,8 +874,8 @@
     background: color-mix(in oklab, var(--m-primary) 12%, transparent);
     border: 1px dashed color-mix(in oklab, var(--m-primary) 40%, transparent);
     color: var(--m-primary);
-    height: 46px;
-    width: 46px;
+    height: 54px;
+    width: 54px;
   }
 
   /* --- Mobile Welcome Hub --- */
