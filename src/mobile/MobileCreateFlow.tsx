@@ -147,7 +147,6 @@ export function MobileCreateFlow({
 
   const pressKey = (key: (typeof keypad)[number]) => {
     setFormError(null)
-    if (key === 'C') { setAmountText(''); return }
     if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
     if ((OPERATORS as readonly string[]).includes(key)) {
       setAmountText(v => (!v || (OPERATORS as readonly string[]).includes(v.slice(-1)) ? v : v + key))
@@ -412,7 +411,7 @@ export function MobileCreateFlow({
               {keypad.map(key => (
                 <button
                   key={key}
-                  className={(OPERATORS as readonly string[]).includes(key) || key === 'C' ? 'op' : ''}
+                  className={(OPERATORS as readonly string[]).includes(key) ? 'op' : ''}
                   onClick={() => pressKey(key)}>
                   {key === 'back' ? <Icon name="close" size={18} /> : key}
                 </button>
