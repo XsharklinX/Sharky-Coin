@@ -473,12 +473,12 @@
     background: var(--m-surface);
     border-bottom: 1px solid var(--m-border);
     display: grid;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 10px 16px;
   }
   .mobile-filter-chips {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -490,10 +490,10 @@
     border-radius: 999px;
     color: var(--m-muted);
     flex: 0 0 auto;
-    font-size: 13px;
-    font-weight: 850;
-    min-height: 44px;
-    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 800;
+    min-height: 36px;
+    padding: 0 12px;
   }
   .mobile-filter-chips button.on {
     background: var(--m-primary);
@@ -502,8 +502,7 @@
   .mobile-search-chip {
     align-items: center;
     display: inline-flex;
-    gap: 8px;
-    justify-self: start;
+    gap: 6px;
   }
   .mobile-day-header {
     align-items: center;
@@ -511,14 +510,14 @@
     border-bottom: 1px solid rgba(255,255,255,.04);
     color: var(--m-muted);
     display: flex;
-    font-size: 13px;
+    font-size: 12px;
     justify-content: space-between;
-    padding: 13px 26px 8px;
+    padding: 9px 16px 5px;
     text-transform: capitalize;
   }
   .mobile-day-header strong {
     color: var(--m-muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
   }
   .mobile-tx-row {
@@ -528,10 +527,10 @@
     border-bottom: 1px solid var(--m-border);
     color: var(--m-text);
     display: grid;
-    gap: 15px;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
-    min-height: 78px;
-    padding: 12px 26px;
+    gap: 12px;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    min-height: 60px;
+    padding: 9px 16px;
     text-align: left;
     width: 100%;
   }
@@ -581,9 +580,9 @@
   }
   .mobile-tx-row b {
     display: block;
-    font-size: 19px;
+    font-size: 15px;
     font-weight: 700;
-    letter-spacing: -.02em;
+    letter-spacing: -.01em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -591,15 +590,15 @@
   .mobile-tx-row small {
     color: var(--m-muted);
     display: block;
-    font-size: 12px;
-    margin-top: 5px;
+    font-size: 11px;
+    margin-top: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .mobile-tx-row > strong {
     color: var(--m-text);
-    font-size: 17px;
+    font-size: 15px;
     font-variant-numeric: tabular-nums;
     font-weight: 750;
   }
@@ -614,10 +613,10 @@
     border-radius: 999px;
     color: #ffdd3d;
     display: grid;
-    font-size: 22px;
-    height: 48px;
+    font-size: 18px;
+    height: 40px;
     place-items: center;
-    width: 48px;
+    width: 40px;
   }
   .mobile-empty-list {
     align-items: center;

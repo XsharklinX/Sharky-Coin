@@ -50,8 +50,8 @@ export function MobileTopBar({
 
   return (
     <header className="mobile-topbar">
-      <button className="mobile-icon-btn" aria-label={t('search')} onClick={onSearch}>
-        <Icon name="search" size={22} />
+      <button className="mobile-icon-btn" aria-label={t('menu')} onClick={onSearch}>
+        <Icon name="menu" size={22} />
       </button>
 
       <div className="mobile-topbar-mid">

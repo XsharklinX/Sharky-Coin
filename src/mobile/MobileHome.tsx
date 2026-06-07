@@ -48,32 +48,22 @@ export function MobileHome({
   return (
     <div className="mobile-home">
 
-      {/* ─── Hero ─── */}
-      <section className="mhome-hero">
-        <div className="mhome-hero-main">
-          <span className="mhome-hero-sub">{t('monthBalance')}</span>
-          <h2 className={`mhome-hero-amount ${isPositive ? '' : 'neg'}`}>
+      {/* ─── Resumen del mes ─── */}
+      <section className="mhome-summary">
+        <div className="mhome-summary-col">
+          <small>{t('expenses')}</small>
+          <strong className="expense"><AnimatedMoney value={summary.expense} compact /></strong>
+        </div>
+        <div className="mhome-summary-col">
+          <small>{t('incomes')}</small>
+          <strong className="income"><AnimatedMoney value={summary.income} compact /></strong>
+        </div>
+        <div className="mhome-summary-col">
+          <small>{t('balance')}</small>
+          <strong className={isPositive ? 'income' : 'expense'}>
             {isPositive ? '+' : '–'}
             <AnimatedMoney value={Math.abs(summary.net)} compact />
-          </h2>
-        </div>
-
-        <div className="mhome-hero-pills">
-          <div className="mhome-pill income">
-            <span className="mhome-pill-icon"><Icon name="arrowDn" size={13} /></span>
-            <div>
-              <strong><AnimatedMoney value={summary.income} compact /></strong>
-              <small>{t('incomes')}</small>
-            </div>
-          </div>
-          <div className="mhome-pill-sep" />
-          <div className="mhome-pill expense">
-            <span className="mhome-pill-icon"><Icon name="arrowUp" size={13} /></span>
-            <div>
-              <strong><AnimatedMoney value={summary.expense} compact /></strong>
-              <small>{t('expenses')}</small>
-            </div>
-          </div>
+          </strong>
         </div>
       </section>
 

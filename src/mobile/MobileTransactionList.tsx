@@ -94,13 +94,13 @@ export function MobileTransactionList({
                 {item.label}
               </button>
             ))}
+            {showSearch && (
+              <button className="mobile-search-chip" onClick={() => setSearchOpen(true)}>
+                <Icon name="search" size={16} />
+                Buscar
+              </button>
+            )}
           </div>
-          {showSearch && (
-            <button className="mobile-search-chip" onClick={() => setSearchOpen(true)}>
-              <Icon name="search" size={16} />
-              Buscar
-            </button>
-          )}
         </div>
       )}
 
@@ -133,7 +133,7 @@ export function MobileTransactionList({
                   <button className="mobile-tx-row" onClick={() => setSelected(tx)}>
                     {tx.type === 'transfer'
                       ? <span className="mobile-transfer-icon"><Icon name="repeat" size={24} /></span>
-                      : <CatBadge category={category} size={52} />}
+                      : <CatBadge category={category} size={40} />}
                     <span>
                       <b>
                         {tx.type === 'transfer' ? 'Transferencia' : tx.note}
