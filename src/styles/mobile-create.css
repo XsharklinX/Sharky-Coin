@@ -127,8 +127,8 @@
     background: var(--m-bg);
     border-top: 1px solid rgba(255,255,255,.06);
     display: grid;
-    gap: 6px;
-    padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+    gap: 8px;
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
     position: relative;
   }
   .mobile-create-amount-row {
@@ -244,18 +244,18 @@
   .mobile-keypad-compact {
     display: grid;
     flex: 1;
-    gap: 5px;
+    gap: 6px;
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .mobile-keypad-compact button {
     background: #222;
     border: 1px solid rgba(255,255,255,.05);
-    border-radius: 11px;
+    border-radius: 12px;
     color: var(--m-text);
     display: grid;
-    font-size: 18px;
+    font-size: 21px;
     font-weight: 780;
-    min-height: 40px;
+    min-height: 60px;
     place-items: center;
     transition: background .07s;
   }
@@ -469,9 +469,9 @@
     color: #151515;
     display: grid;
     flex-shrink: 0;
-    height: 46px;
+    height: 60px;
     place-items: center;
-    width: 46px;
+    width: 60px;
   }
   .mobile-done-button:disabled {
     background: #333;
