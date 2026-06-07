@@ -220,15 +220,6 @@
     padding: 2px 6px;
     text-transform: uppercase;
   }
-  /* Account pill in create flow — unset state */
-  .mobile-create-account-pill.unset {
-    background: color-mix(in oklab, var(--m-primary) 8%, var(--m-surface-2));
-    border-color: color-mix(in oklab, var(--m-primary) 30%, transparent);
-  }
-  .mobile-create-account-pill.unset .mobile-create-account-name {
-    color: var(--m-primary);
-    font-weight: 700;
-  }
   /* Version row */
   .mset-info-row {
     align-items: center;

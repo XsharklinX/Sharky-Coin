@@ -12,8 +12,14 @@ import { useMobileBackDismiss } from './useMobileBackDismiss'
 type MobileTxMode = Transaction['type']
 
 const today = () => new Date().toISOString().slice(0, 10)
-const keypad = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'back', '−', '+', 'C'] as const
-const OPERATORS = ['+', '−'] as const
+const keypad = [
+  '7', '8', '9', '÷',
+  '4', '5', '6', '×',
+  '1', '2', '3', '−',
+  'back', '0', '.', '+',
+] as const
+const OPERATORS = ['+', '−', '×', '÷'] as const
+type Operator = (typeof OPERATORS)[number]
 const CATEGORY_COLORS = ['#ffdd3d', '#35d0a2', '#5bc0ff', '#a78bfa', '#ff6b8a', '#f59e0b']
 const CATEGORY_ICONS: IconName[] = [
   'cart', 'food', 'car', 'bolt', 'heart', 'home',
@@ -38,18 +44,39 @@ function cleanAmount(value: string): string {
   return rest.length ? `${safeInteger || '0'}.${decimal}` : safeInteger
 }
 
+function lastOperatorIndex(expr: string): number {
+  return Math.max(...OPERATORS.map(op => expr.lastIndexOf(op)))
+}
+
 function lastSegment(expr: string): string {
-  const cut = Math.max(expr.lastIndexOf('+'), expr.lastIndexOf('−'))
+  const cut = lastOperatorIndex(expr)
   return cut === -1 ? expr : expr.slice(cut + 1)
 }
 
+// Evaluates a left-to-right expression with standard ×/÷ precedence over +/−.
 function evaluateExpression(expr: string): number {
-  const tokens = expr.match(/[+−]?[\d.]+/g)
-  if (!tokens) return 0
-  return tokens.reduce((sum, token) => {
-    const sign = token.startsWith('−') ? -1 : 1
-    return sum + sign * Number(token.replace(/[+−]/, ''))
-  }, 0)
+  const raw = expr.match(/[+−×÷]|[\d.]+/g)
+  if (!raw?.length) return 0
+  const tokens = (OPERATORS as readonly string[]).includes(raw[raw.length - 1]) ? raw.slice(0, -1) : raw
+  if (!tokens.length) return 0
+
+  const terms: number[] = []
+  const signs: ('+' | '−')[] = []
+  let acc = Number(tokens[0]) || 0
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i] as Operator
+    const val = Number(tokens[i + 1]) || 0
+    if (op === '×') acc *= val
+    else if (op === '÷') acc = val !== 0 ? acc / val : acc
+    else {
+      terms.push(acc)
+      signs.push(op)
+      acc = val
+    }
+  }
+  terms.push(acc)
+
+  return terms.reduce((sum, term, idx) => idx === 0 ? term : sum + (signs[idx - 1] === '−' ? -term : term), 0)
 }
 
 function formatDateShort(date: string): string {
@@ -122,8 +149,8 @@ export function MobileCreateFlow({
     setFormError(null)
     if (key === 'C') { setAmountText(''); return }
     if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
-    if (key === '+' || key === '−') {
-      setAmountText(v => (!v || /[+−]$/.test(v) ? v : v + key))
+    if ((OPERATORS as readonly string[]).includes(key)) {
+      setAmountText(v => (!v || (OPERATORS as readonly string[]).includes(v.slice(-1)) ? v : v + key))
       return
     }
     if (key === '.') {
@@ -135,7 +162,7 @@ export function MobileCreateFlow({
       return
     }
     setAmountText(v => {
-      const cut = Math.max(v.lastIndexOf('+'), v.lastIndexOf('−'))
+      const cut = lastOperatorIndex(v)
       const head = cut === -1 ? '' : v.slice(0, cut + 1)
       const segment = cut === -1 ? v : v.slice(cut + 1)
       return head + cleanAmount(segment + key)
@@ -262,42 +289,6 @@ export function MobileCreateFlow({
               </button>
             )}
 
-            {/* Account picker card + Date */}
-            <div className="mobile-create-meta-row">
-              <button
-                className={`mobile-create-account-pill${!activeAccount ? ' unset' : ''}`}
-                onClick={() => setAccountPicker(true)}
-              >
-                <span style={{ color: activeAccount?.color ?? 'var(--m-muted)' }}>
-                  <Icon name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'cards'} size={15} />
-                </span>
-                <span className="mobile-create-account-name">
-                  {activeAccount ? activeAccount.name : t('account')}
-                </span>
-                <Icon name="arrowDn" size={12} style={{ color: 'var(--m-muted)', marginLeft: 'auto' }} />
-              </button>
-              <button className="mobile-create-date-pill" onClick={() => setDatePicker(true)}>
-                <Icon name="calendar" size={13} />
-                <span>{isToday ? t('today') : formatDateShort(date)}</span>
-              </button>
-            </div>
-
-            {/* Note */}
-            <div className="mobile-create-note-input">
-              <Icon name="edit" size={14} />
-              <input
-                type="text"
-                value={note}
-                placeholder={t('notePlaceholder')}
-                enterKeyHint="done"
-                autoCapitalize="sentences"
-                autoCorrect="on"
-                onChange={e => setNote(e.target.value)}
-                onFocus={() => setNoteFocused(true)}
-                onBlur={() => setNoteFocused(false)}
-              />
-            </div>
-
             {/* Recurring toggle */}
             <button
               className={`mobile-create-recurring-toggle${recurring ? ' active' : ''}`}
@@ -354,33 +345,11 @@ export function MobileCreateFlow({
                 <em>{t('to')}</em>
               </button>
             </div>
-
-            <div className="mobile-create-meta-row">
-              <button className="mobile-create-date-pill" style={{ flex: 1 }} onClick={() => setDatePicker(true)}>
-                <Icon name="calendar" size={13} />
-                <span>{isToday ? t('today') : formatDateShort(date)}</span>
-              </button>
-            </div>
-
-            <div className="mobile-create-note-input">
-              <Icon name="edit" size={14} />
-              <input
-                type="text"
-                value={note}
-                placeholder={t('notePlaceholder')}
-                enterKeyHint="done"
-                autoCapitalize="sentences"
-                autoCorrect="on"
-                onChange={e => setNote(e.target.value)}
-                onFocus={() => setNoteFocused(true)}
-                onBlur={() => setNoteFocused(false)}
-              />
-            </div>
           </>
         )}
       </div>
 
-      {/* ─── Fixed bottom: amount + keypad + save ─── */}
+      {/* ─── Fixed bottom: amount + quick row + keypad + done ─── */}
       <div className="mobile-create-bottom">
         {/* Amount display */}
         <div className={`mobile-create-amount-row${shaking ? ' shake' : ''}`}>
@@ -405,25 +374,56 @@ export function MobileCreateFlow({
           </div>
         )}
 
-        {/* Numpad — escondido mientras se escribe la nota, para no competir con el teclado del SO */}
+        {/* Quick row: account · note · date — kept inside this same compact panel */}
+        <div className="mobile-create-quick-row">
+          {mode !== 'transfer' && (
+            <button
+              className={`mobile-quick-icon-btn${!activeAccount ? ' unset' : ''}`}
+              onClick={() => setAccountPicker(true)}
+              aria-label={t('account')}
+            >
+              <Icon name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'cards'} size={17} style={{ color: activeAccount?.color ?? 'var(--m-muted)' }} />
+            </button>
+          )}
+          <div className="mobile-quick-note-input">
+            <Icon name="edit" size={13} />
+            <input
+              type="text"
+              value={note}
+              placeholder={t('notePlaceholder')}
+              enterKeyHint="done"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              onChange={e => setNote(e.target.value)}
+              onFocus={() => setNoteFocused(true)}
+              onBlur={() => setNoteFocused(false)}
+            />
+          </div>
+          <button className="mobile-quick-date-btn" onClick={() => setDatePicker(true)}>
+            <Icon name="calendar" size={13} />
+            <span>{isToday ? t('today') : formatDateShort(date)}</span>
+          </button>
+        </div>
+
+        {/* Numpad + Done — escondidos mientras se escribe la nota, para no competir con el teclado del SO */}
         {!noteFocused && (
-          <div className="mobile-keypad-compact">
-            {keypad.map(key => (
-              <button
-                key={key}
-                className={(OPERATORS as readonly string[]).includes(key) || key === 'C' ? 'op' : ''}
-                onClick={() => pressKey(key)}>
-                {key === 'back' ? <Icon name="close" size={18} /> : key}
-              </button>
-            ))}
+          <div className="mobile-keypad-row">
+            <div className="mobile-keypad-compact">
+              {keypad.map(key => (
+                <button
+                  key={key}
+                  className={(OPERATORS as readonly string[]).includes(key) || key === 'C' ? 'op' : ''}
+                  onClick={() => pressKey(key)}>
+                  {key === 'back' ? <Icon name="close" size={18} /> : key}
+                </button>
+              ))}
+            </div>
+            {/* Listo — pequeño botón de icono en la esquina inferior del panel */}
+            <button className="mobile-done-button" disabled={!canSave} onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
+              <Icon name="check" size={20} />
+            </button>
           </div>
         )}
-
-        {/* Save */}
-        <button className="mobile-save-button" disabled={!canSave} onClick={save}>
-          <Icon name="check" size={20} />
-          {mode === 'transfer' ? t('transfer') : t('save')}
-        </button>
       </div>
 
       {/* Single account picker */}

@@ -40,25 +40,6 @@
     gap: 4px;
     padding: 5px 10px;
   }
-  .mobile-create-meta-row {
-    display: flex;
-    gap: 8px;
-  }
-  .mobile-create-account-pill {
-    align-items: center;
-    background: var(--m-surface);
-    border: 1px solid var(--m-border);
-    border-radius: 14px;
-    color: var(--m-text);
-    cursor: pointer;
-    display: flex;
-    flex: 1;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 12px;
-    transition: background .08s;
-  }
-  .mobile-create-account-pill:active { background: var(--m-surface-2); }
   .mobile-create-date-pill {
     align-items: center;
     background: var(--m-surface);
@@ -146,8 +127,9 @@
     background: var(--m-bg);
     border-top: 1px solid rgba(255,255,255,.06);
     display: grid;
-    gap: 7px;
-    padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+    gap: 6px;
+    padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+    position: relative;
   }
   .mobile-create-amount-row {
     align-items: center;
@@ -190,41 +172,90 @@
     transition: color .15s;
     white-space: nowrap;
   }
-  .mobile-create-note-input {
+  /* Quick row above the keypad: account icon · note · date — all part of the bottom panel */
+  .mobile-create-quick-row {
+    align-items: center;
+    display: flex;
+    gap: 7px;
+  }
+  .mobile-quick-icon-btn {
     align-items: center;
     background: var(--m-surface);
     border: 1px solid var(--m-border);
-    border-radius: 13px;
+    border-radius: 12px;
+    color: var(--m-text);
+    display: grid;
+    flex-shrink: 0;
+    height: 38px;
+    place-items: center;
+    width: 38px;
+  }
+  .mobile-quick-icon-btn:active { background: var(--m-surface-2); }
+  .mobile-quick-icon-btn.unset {
+    background: color-mix(in oklab, var(--m-primary) 8%, var(--m-surface-2));
+    border-color: color-mix(in oklab, var(--m-primary) 30%, transparent);
+  }
+  .mobile-quick-note-input {
+    align-items: center;
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 12px;
     color: #666;
     display: flex;
-    gap: 9px;
-    padding: 0 12px;
+    flex: 1;
+    gap: 7px;
+    min-width: 0;
+    padding: 0 11px;
   }
-  .mobile-create-note-input input {
+  .mobile-quick-note-input input {
     background: transparent;
     border: 0;
     color: var(--m-text);
     flex: 1;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 750;
-    min-height: 42px;
+    min-height: 38px;
+    min-width: 0;
     outline: none;
   }
-  .mobile-create-note-input input::placeholder { color: #444; }
+  .mobile-quick-note-input input::placeholder { color: #444; }
+  .mobile-quick-date-btn {
+    align-items: center;
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 12px;
+    color: var(--m-muted);
+    display: flex;
+    flex-shrink: 0;
+    gap: 5px;
+    height: 38px;
+    padding: 0 11px;
+    white-space: nowrap;
+  }
+  .mobile-quick-date-btn span {
+    color: var(--m-text);
+    font-size: 12px;
+    font-weight: 850;
+  }
+  .mobile-keypad-row {
+    display: flex;
+    gap: 8px;
+  }
   .mobile-keypad-compact {
     display: grid;
+    flex: 1;
     gap: 5px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .mobile-keypad-compact button {
     background: #222;
     border: 1px solid rgba(255,255,255,.05);
-    border-radius: 12px;
+    border-radius: 11px;
     color: var(--m-text);
     display: grid;
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 780;
-    min-height: 48px;
+    min-height: 40px;
     place-items: center;
     transition: background .07s;
   }
@@ -258,15 +289,6 @@
   .mobile-picker-row.active { border-color: color-mix(in oklab, var(--m-primary) 25%, transparent); background: color-mix(in oklab, var(--m-primary) 4%, transparent); }
   .mobile-picker-row b { flex: 1; font-size: 15px; font-weight: 800; }
   .mobile-picker-row small { color: var(--m-muted); font-size: 13px; font-weight: 750; }
-  .mobile-create-account-name {
-    flex: 1;
-    font-size: 13px;
-    font-weight: 800;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-  }
 
   .mobile-segment {
     background: var(--m-surface);
@@ -433,25 +455,27 @@
     place-items: center;
   }
   .mobile-keypad button:active,
-  .mobile-save-button:active {
+  .mobile-done-button:active {
     transform: translateY(1px) scale(.99);
   }
-  .mobile-save-button {
+  /* "Listo" — small icon-only button in the bottom corner of the keypad row */
+  .mobile-done-button {
     align-items: center;
+    align-self: flex-end;
     background: var(--m-primary);
     border: 0;
-    border-radius: 18px;
+    border-radius: 50%;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
     color: #151515;
-    display: flex;
-    font-size: 17px;
-    font-weight: 900;
-    gap: 9px;
-    justify-content: center;
-    min-height: 58px;
-    width: 100%;
+    display: grid;
+    flex-shrink: 0;
+    height: 46px;
+    place-items: center;
+    width: 46px;
   }
-  .mobile-save-button:disabled {
+  .mobile-done-button:disabled {
     background: #333;
+    box-shadow: none;
     color: #777;
   }
   .mobile-secondary-actions {
