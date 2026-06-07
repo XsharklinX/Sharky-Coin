@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { APP_VERSION } from '@/data/release'
@@ -73,29 +73,19 @@ function SettingsSheet({ title, onClose, children }: SheetProps) {
 
 type GisStatus = 'loading' | 'ready' | 'error'
 
-function GoogleGIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-  )
-}
-
 function GoogleButton({ onSignIn }: { onSignIn: (credential: string) => void }) {
+  const ref    = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<GisStatus>('loading')
 
+  // Step 1: load the GIS script, initialize with the credential callback
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return
     loadGIS(
       () => {
         window.google!.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: (r) => onSignIn(r.credential),
+          client_id:  GOOGLE_CLIENT_ID,
+          callback:   (r) => onSignIn(r.credential),
           auto_select: false,
-          cancel_on_tap_outside: true,
         })
         setStatus('ready')
       },
@@ -103,35 +93,40 @@ function GoogleButton({ onSignIn }: { onSignIn: (credential: string) => void }) 
     )
   }, [onSignIn])
 
-  const handleClick = () => {
-    if (status === 'error') {
-      toast('No se pudo conectar con Google. Verifica tu conexión a internet.', { icon: 'alert' })
-      return
-    }
-    if (status === 'loading') {
-      toast('Cargando servicios de Google, espera un momento...', { icon: 'refresh' })
-      return
-    }
-    window.google?.accounts.id.prompt((n) => {
-      if (n.isNotDisplayed()) {
-        toast('Google bloqueó el diálogo. Intenta desde Chrome o verifica tu conexión.', { icon: 'alert' })
-      }
+  // Step 2: once status is ready AND the div is in the DOM, inject the Google button.
+  // renderButton() requires a real DOM element with a numeric pixel width (not '100%').
+  useEffect(() => {
+    if (status !== 'ready' || !ref.current || !window.google?.accounts?.id) return
+    window.google.accounts.id.renderButton(ref.current, {
+      theme: 'filled_black',
+      size:  'large',
+      text:  'signin_with',
+      shape: 'pill',
+      width: 280,
     })
-  }
-
-  const label =
-    status === 'loading' ? 'Cargando...' :
-    status === 'error'   ? 'Sin conexión a Google' :
-                           'Iniciar sesión con Google'
+  }, [status])
 
   return (
-    <button
-      className={`mset-google-native-btn${status === 'error' ? ' gis-error' : ''}`}
-      onClick={handleClick}
-    >
-      <GoogleGIcon />
-      {label}
-    </button>
+    <div className="mset-google-btn-container">
+      {/* Visible while GIS loads or if it failed */}
+      {status !== 'ready' && (
+        <div className={`mset-google-placeholder${status === 'error' ? ' error' : ''}`}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          {status === 'error' ? 'Sin conexión a Google' : 'Cargando...'}
+        </div>
+      )}
+      {/* Container where GIS injects its iframe button */}
+      <div
+        ref={ref}
+        className="mset-google-btn-wrap"
+        style={{ display: status === 'ready' ? 'flex' : 'none', justifyContent: 'center' }}
+      />
+    </div>
   )
 }
 
