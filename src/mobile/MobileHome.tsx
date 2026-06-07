@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { getMobileAlerts } from '@/data/alerts'
 import { byCategory, currentMonthKey, fmtCompact, totals, txForMonth } from '@/data/helpers'
+import { sendNativeNotification } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
@@ -31,6 +32,8 @@ export function MobileHome({
   const { transactions, categories, accounts, currency } = useFinance()
   const dismissedAlerts = useSettings(state => state.dismissedAlerts)
   const dismissAlert = useSettings(state => state.dismissAlert)
+  const notifiedAlerts = useSettings(state => state.notifiedAlerts)
+  const markAlertNotified = useSettings(state => state.markAlertNotified)
   const t = useT()
   const monthTx = txForMonth(transactions, mkey)
   const summary = totals(monthTx)
@@ -62,6 +65,16 @@ export function MobileHome({
 
   const alerts = useMemo(() => getMobileAlerts(transactions, categories, currency), [transactions, categories, currency])
   const visibleAlerts = isCurrent ? alerts.filter(a => !dismissedAlerts.includes(a.id)) : []
+
+  // Notificación nativa del SO para avisos nuevos (una sola vez por id)
+  useEffect(() => {
+    if (!isCurrent) return
+    const fresh = alerts.filter(a => !notifiedAlerts.includes(a.id))
+    fresh.forEach(alert => {
+      sendNativeNotification(alert.title, alert.text)
+      markAlertNotified(alert.id)
+    })
+  }, [isCurrent, alerts, notifiedAlerts, markAlertNotified])
 
   return (
     <div className="mobile-home">

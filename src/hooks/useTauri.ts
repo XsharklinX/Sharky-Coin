@@ -76,6 +76,20 @@ export async function saveBackup(json: string): Promise<void> {
 }
 
 /**
+ * Envía una notificación nativa del sistema operativo (Android/desktop).
+ * Pide permiso la primera vez si hace falta. No hace nada en web/PWA
+ * (ahí los avisos viven como tarjetas in-app en Inicio).
+ */
+export async function sendNativeNotification(title: string, body: string): Promise<void> {
+  if (!isTauri()) return
+  const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification')
+  let granted = await isPermissionGranted()
+  if (!granted) granted = (await requestPermission()) === 'granted'
+  if (!granted) return
+  sendNotification({ title, body })
+}
+
+/**
  * Carga un backup JSON.
  * - En Tauri: abre diálogo de archivo nativo → lee el contenido
  * - En browser: usa input[type=file]

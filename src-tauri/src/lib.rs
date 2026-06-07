@@ -105,6 +105,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_biometric::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| register_desktop_deep_links(app))
         .on_page_load(|webview, _| {
             let _ = webview.eval(DESKTOP_PWA_CACHE_RESET_SCRIPT);
