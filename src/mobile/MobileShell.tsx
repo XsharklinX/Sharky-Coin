@@ -35,12 +35,12 @@ function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
 }
 
 const INTERNAL_TITLES: Partial<Record<ViewId, string>> = {
-  annual:        'Annual report',
-  calendar:      'Calendar',
-  budgets:       'Budgets',
-  goals:         'Goals',
-  reports:       'Reports',
-  subscriptions: 'Subscriptions',
+  annual:        'Informe anual',
+  calendar:      'Calendario',
+  budgets:       'Presupuestos',
+  goals:         'Metas',
+  reports:       'Reportes',
+  subscriptions: 'Suscripciones',
   debt:          'Calculadora de deudas',
 }
 

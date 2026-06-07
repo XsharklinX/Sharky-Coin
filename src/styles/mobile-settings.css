@@ -166,9 +166,27 @@
     padding: 10px 14px;
   }
   /* Google Sign-In profile */
-  .mset-google-signin-wrap { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+  .mset-google-signin-wrap { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }
   .mset-google-desc { color: var(--text-dim); font-size: 13px; line-height: 1.5; margin: 0; }
   .mset-google-btn-wrap { display: flex; justify-content: center; min-height: 44px; }
+  .mset-google-native-btn {
+    align-items: center;
+    background: #fff;
+    border: none;
+    border-radius: 24px;
+    color: #3c3c3c;
+    cursor: pointer;
+    display: flex;
+    font-size: 14px;
+    font-weight: 600;
+    gap: 10px;
+    justify-content: center;
+    padding: 12px 20px;
+    transition: opacity .15s;
+    width: 100%;
+  }
+  .mset-google-native-btn:disabled { cursor: not-allowed; opacity: .55; }
+  .mset-google-native-btn:not(:disabled):active { opacity: .8; }
   .mset-google-no-config {
     align-items: flex-start;
     background: color-mix(in oklab, #f59e0b 8%, transparent);

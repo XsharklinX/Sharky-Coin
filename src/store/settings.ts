@@ -49,7 +49,7 @@ export const useSettings = create<SettingsState>()(
       releaseChannel: 'stable',
       errorTelemetryEnabled: false,
       displayName: '',
-      language: 'en',
+      language: 'es',
       requireBiometric: false,
 
       setTheme:             (theme)             => set({ theme }),

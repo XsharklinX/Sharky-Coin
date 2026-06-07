@@ -5,10 +5,10 @@ import { useFinance } from '@/store/finance'
 import type { Account, AccountType, ViewId } from '@/types'
 
 const TYPE_META: Record<AccountType, { label: string; group: string; icon: Parameters<typeof Icon>[0]['name'] }> = {
-  cash:    { label: 'Cash',    group: 'Cash',         icon: 'wallet' },
-  debit:   { label: 'Debit',  group: 'Bank accounts', icon: 'cards'  },
-  savings: { label: 'Savings',group: 'Bank accounts', icon: 'piggy'  },
-  credit:  { label: 'Credit', group: 'Credit cards',  icon: 'cards'  },
+  cash:    { label: 'Efectivo', group: 'Efectivo',           icon: 'wallet' },
+  debit:   { label: 'Débito',  group: 'Cuentas bancarias',   icon: 'cards'  },
+  savings: { label: 'Ahorros', group: 'Cuentas bancarias',   icon: 'piggy'  },
+  credit:  { label: 'Crédito', group: 'Tarjetas de crédito', icon: 'cards'  },
 }
 
 function accountKind(a: Account): 'asset' | 'debt' {
@@ -24,7 +24,7 @@ export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; 
     return { assets, liabilities, net: assets - liabilities }
   }, [accounts])
 
-  const groups = ['Cash', 'Bank accounts', 'Credit cards'].map(group => ({
+  const groups = ['Efectivo', 'Cuentas bancarias', 'Tarjetas de crédito'].map(group => ({
     group,
     accounts: accounts.filter(a => TYPE_META[a.type].group === group),
   })).filter(g => g.accounts.length)
@@ -36,7 +36,7 @@ export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; 
 
       {/* Net worth hero */}
       <div className="mrep-hero">
-        <span className="mrep-hero-label">Net worth</span>
+        <span className="mrep-hero-label">Patrimonio neto</span>
         <strong className="mrep-hero-value">{fmtCompact(summary.net, currency)}</strong>
         <div className="mrep-hero-bar">
           {summary.assets + summary.liabilities > 0 && (
@@ -50,14 +50,14 @@ export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; 
           <div className="mrep-hero-stat">
             <span className="mrep-hero-dot asset" />
             <div>
-              <small>Assets</small>
+              <small>Activos</small>
               <strong>{fmtCompact(summary.assets, currency)}</strong>
             </div>
           </div>
           <div className="mrep-hero-stat">
             <span className="mrep-hero-dot debt" />
             <div>
-              <small>Liabilities</small>
+              <small>Pasivos</small>
               <strong>{fmtCompact(summary.liabilities, currency)}</strong>
             </div>
           </div>
@@ -68,14 +68,14 @@ export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; 
       {accounts.length === 0 ? (
         <div className="mrep-empty">
           <Icon name="cards" size={40} style={{ opacity: .25 }} />
-          <p>No accounts yet. Add them from your Profile.</p>
+          <p>Sin cuentas aún. Agrégalas desde tu Perfil.</p>
         </div>
       ) : (
         <>
           {/* Allocation bar */}
           {accounts.length > 1 && (
             <div className="mrep-allocation">
-              <span className="mrep-section-title">Allocation</span>
+              <span className="mrep-section-title">Distribución</span>
               <div className="mrep-alloc-bar">
                 {accounts.map(a => (
                   <div
@@ -127,7 +127,7 @@ export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; 
                             }} />
                           </div>
                           <span className={utilPct >= 90 ? 'text-expense' : utilPct >= 70 ? 'text-warn' : ''}>
-                            {Math.round(utilPct)}% used · {fmtCompact(a.limit - used!, currency)} free
+                            {Math.round(utilPct)}% usado · {fmtCompact(a.limit - used!, currency)} disponible
                           </span>
                         </div>
                       )}

@@ -66,7 +66,7 @@ const es: Record<LangKey, string> = {
 const DICTS: Record<Language, Record<LangKey, string>> = { en, es }
 
 export function useT() {
-  const lang = (useSettings(s => s.language) ?? 'en') as Language
-  const dict = DICTS[lang] ?? en
-  return (key: LangKey): string => dict[key] ?? en[key]
+  const lang = (useSettings(s => s.language) ?? 'es') as Language
+  const dict = DICTS[lang] ?? es
+  return (key: LangKey): string => dict[key] ?? es[key]
 }
