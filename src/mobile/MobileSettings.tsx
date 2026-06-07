@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
@@ -7,7 +7,7 @@ import { createBackup, parseBackup } from '@/data/backup'
 import { getDataHealthStatus } from '@/data/dataHealth'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useGoogleAuth, loadGIS } from '@/lib/googleAuth'
+import { useAuth } from '@/store/auth'
 import { isTauri, openBackup, saveBackup } from '@/hooks/useTauri'
 import { checkBiometric } from '@/lib/biometric'
 import type { DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
@@ -26,8 +26,6 @@ const ACCENTS = [
 const THEME_LABELS: Record<ThemeName, string>     = { dark: 'Oscuro', light: 'Claro' }
 const DENSITY_LABELS: Record<DensityName, string> = { compact: 'Compacto', regular: 'Regular', comfy: 'Cómodo' }
 const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = { block: 'Bloquear', warn: 'Advertir', allow: 'Permitir' }
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
 type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
   | 'comments' | 'about' | 'privacy' | 'terms'
@@ -225,75 +223,31 @@ function SettingsSheet({ title, onClose, children }: SheetProps) {
   )
 }
 
-type GisStatus = 'loading' | 'ready' | 'error'
-
-function GoogleButton({ onSignIn }: { onSignIn: (credential: string) => void }) {
-  const ref    = useRef<HTMLDivElement>(null)
-  const [status, setStatus] = useState<GisStatus>('loading')
-
-  // Step 1: load the GIS script, initialize with the credential callback
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) return
-    loadGIS(
-      () => {
-        window.google!.accounts.id.initialize({
-          client_id:  GOOGLE_CLIENT_ID,
-          callback:   (r) => onSignIn(r.credential),
-          auto_select: false,
-        })
-        setStatus('ready')
-      },
-      () => setStatus('error'),
-    )
-  }, [onSignIn])
-
-  // Step 2: once status is ready AND the div is in the DOM, inject the Google button.
-  // renderButton() requires a real DOM element with a numeric pixel width (not '100%').
-  useEffect(() => {
-    if (status !== 'ready' || !ref.current || !window.google?.accounts?.id) return
-    window.google.accounts.id.renderButton(ref.current, {
-      theme: 'filled_black',
-      size:  'large',
-      text:  'signin_with',
-      shape: 'pill',
-      width: 280,
-    })
-  }, [status])
-
+function GoogleButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
   return (
-    <div className="mset-google-btn-container">
-      {/* Visible while GIS loads or if it failed */}
-      {status !== 'ready' && (
-        <div className={`mset-google-placeholder${status === 'error' ? ' error' : ''}`}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-            <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-          </svg>
-          {status === 'error' ? 'Sin conexión a Google' : 'Cargando...'}
-        </div>
-      )}
-      {/* Container where GIS injects its iframe button */}
-      <div
-        ref={ref}
-        className="mset-google-btn-wrap"
-        style={{ display: status === 'ready' ? 'flex' : 'none', justifyContent: 'center' }}
-      />
-    </div>
+    <button className="mset-google-btn-wrap" disabled={busy} onClick={onClick}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      {busy ? 'Conectando...' : 'Continuar con Google'}
+    </button>
   )
 }
 
 export function MobileSettings({ onClose }: { onClose: () => void }) {
   const settings = useSettings()
   const finance  = useFinance()
-  const { user: gUser, signIn, signOut } = useGoogleAuth()
+  const auth = useAuth()
   const t = useT()
   const [activeSheet, setActiveSheet] = useState<Sheet | null>(null)
   const [nameInput, setNameInput] = useState(settings.displayName)
   const [commentText, setCommentText] = useState('')
   const [pendingReset, setPendingReset] = useState(false)
   const [bioAvailable, setBioAvailable] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
   const health = getDataHealthStatus(finance)
 
   useEffect(() => {
@@ -363,31 +317,43 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
 
       <div className="mset-body">
 
-        {/* ── Google Account (only when client ID is configured) ── */}
-        {GOOGLE_CLIENT_ID && (
+        {/* ── Cloud account (only when Supabase is configured) ── */}
+        {auth.cloudAvailable && (
           <div className="mset-section">
             <span className="mset-section-title">Cuenta</span>
-            {gUser ? (
+            {auth.user?.mode === 'cloud' ? (
               <div className="mset-card">
                 <div className="mset-google-profile">
-                  {gUser.picture
-                    ? <img className="mset-google-avatar" src={gUser.picture} alt={gUser.name} referrerPolicy="no-referrer" />
-                    : <div className="mset-google-avatar initials">{gUser.name.slice(0, 1).toUpperCase()}</div>
-                  }
+                  <div className="mset-google-avatar initials">{auth.user.name.slice(0, 1).toUpperCase()}</div>
                   <div className="mset-google-info">
-                    <strong>{gUser.name}</strong>
-                    <small>{gUser.email}</small>
-                    <small className="mset-uid">ID: {gUser.id.slice(0, 12)}…</small>
+                    <strong>{auth.user.name}</strong>
+                    <small>{auth.user.email}</small>
                   </div>
                 </div>
-                <SettingsRow icon="logout" iconColor="#ff6b8a" label="Cerrar sesión de Google" danger
-                  onClick={() => { signOut(); toast('Sesión cerrada', { icon: 'check' }) }} />
+                <SettingsRow icon="logout" iconColor="#ff6b8a" label="Cerrar sesión" danger
+                  onClick={async () => {
+                    try {
+                      await auth.logout()
+                      toast('Sesión cerrada', { icon: 'check' })
+                    } catch (error) {
+                      toast(error instanceof Error ? error.message : 'No se pudo cerrar la sesión.', { icon: 'alert' })
+                    }
+                  }} />
               </div>
             ) : (
               <div className="mset-card">
                 <div className="mset-google-signin-wrap">
-                  <p className="mset-google-desc">Inicia sesión para sincronizar tus datos en todos tus dispositivos.</p>
-                  <GoogleButton onSignIn={(cred) => { signIn(cred); toast('Sesión iniciada con Google', { icon: 'check', type: 'ok' }) }} />
+                  <p className="mset-google-desc">Conecta una cuenta de Google para sincronizar tus datos en todos tus dispositivos.</p>
+                  <GoogleButton busy={googleBusy} onClick={async () => {
+                    setGoogleBusy(true)
+                    try {
+                      await auth.loginWithGoogle()
+                    } catch (error) {
+                      toast(error instanceof Error ? error.message : 'No se pudo conectar con Google.', { icon: 'alert' })
+                    } finally {
+                      setGoogleBusy(false)
+                    }
+                  }} />
                 </div>
               </div>
             )}

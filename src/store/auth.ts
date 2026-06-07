@@ -31,6 +31,7 @@ interface AuthState {
   initialize: () => Promise<void>
   registerCloud: (fields: { name: string; email: string; password: string }) => Promise<'authenticated' | 'confirm-email'>
   loginCloud: (fields: { email: string; password: string }) => Promise<void>
+  loginWithGoogle: () => Promise<void>
   requestPasswordReset: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
   registerLocal: (fields: { name: string; email: string; password: string }) => Promise<void>
@@ -193,6 +194,20 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (error) throw new Error('Correo o contraseña incorrectos, o correo aún no confirmado.')
     set({ user: mapCloudUser(data.user) })
     recordAuditEvent('account', 'Inicio de sesión cloud', normalizedEmail)
+  },
+
+  loginWithGoogle: async () => {
+    const client = requireSupabase()
+    const redirectTo = getAuthRedirectUrl()
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: isTauri() },
+    })
+    if (error) throw new Error(error.message)
+    if (isTauri() && data.url) {
+      const { openUrl } = await import('@tauri-apps/plugin-opener')
+      await openUrl(data.url)
+    }
   },
 
   requestPasswordReset: async (email) => {
