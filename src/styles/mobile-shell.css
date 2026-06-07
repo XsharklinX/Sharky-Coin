@@ -4,7 +4,7 @@
     --m-bg:      var(--bg,      #121212);
     --m-surface: var(--surface, #1b1b1b);
     --m-surface-2: var(--surface-2, #242424);
-    --m-border:  var(--border,  rgba(255,255,255,.08));
+    --m-border:  color-mix(in oklab, var(--text, #f5f5f5) 13%, transparent);
     --m-text:    var(--text,    #f5f5f5);
     --m-muted:   var(--text-dim, #a7a7a7);
     --m-primary: var(--accent,  #ffdd3d);
@@ -16,6 +16,7 @@
     --m-radius-lg: 26px;
     --m-touch: 44px;
     --m-elevation: 0 18px 44px rgba(0,0,0,.26);
+    --m-elevation-sm: 0 10px 28px rgba(0,0,0,.18);
     background: var(--m-bg);
     display: block;
     min-width: 0;

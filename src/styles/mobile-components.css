@@ -347,7 +347,7 @@
   .mrep-legend-item { align-items: center; display: flex; gap: 5px; }
   .mrep-legend-item span { border-radius: 3px; display: block; height: 8px; width: 8px; }
   .mrep-legend-item small { color: var(--m-muted); font-size: 12px; }
-  .mrep-group { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 18px; display: flex; flex-direction: column; overflow: hidden; }
+  .mrep-group { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 18px; box-shadow: var(--m-elevation-sm); display: flex; flex-direction: column; overflow: hidden; }
   .mrep-group-header { align-items: center; display: flex; justify-content: space-between; padding: 14px 16px 10px; }
   .mrep-group-header > span { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
   .mrep-group-header > strong { color: var(--m-text); font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 700; }
@@ -434,7 +434,7 @@
   }
   .mpr-balance-badge span { color: var(--m-muted); }
   .mpr-balance-badge strong { color: var(--m-text); font-variant-numeric: tabular-nums; font-weight: 800; }
-  .mpr-section { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; }
+  .mpr-section { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 20px; box-shadow: var(--m-elevation-sm); display: flex; flex-direction: column; overflow: hidden; }
   .mpr-section-header { align-items: center; display: flex; justify-content: space-between; padding: 14px 16px 10px; }
   .mpr-section-header > span { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
   .mpr-add-btn {
@@ -776,7 +776,7 @@
   .mdebt-btn-save { border-radius: 12px; color: #000; flex: 2; font-size: 15px; font-weight: 700; padding: 14px; }
 
 /* ── MobileReports tools ─────────────────────────────────── */
-  .mrep-tools { margin-top: 20px; }
+  .mrep-tools { border-radius: 14px; box-shadow: var(--m-elevation-sm); margin-top: 20px; overflow: hidden; }
   .mrep-tool-row { align-items: center; background: var(--m-surface); border-bottom: 1px solid var(--m-border); display: flex; gap: 14px; padding: 16px; width: 100%; }
   .mrep-tool-row:first-of-type { border-radius: 14px 14px 0 0; }
   .mrep-tool-row:last-of-type  { border-bottom: none; border-radius: 0 0 14px 14px; }
