@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useFinance } from '@/store/finance'
+import { useAuth } from '@/store/auth'
 import { useSettings } from '@/store/settings'
 import { currentMonthKey, monthKeys } from '@/data/helpers'
 import { ToastHost, toast } from '@/components/ui/Toast'
@@ -34,6 +35,9 @@ export default function App() {
   const [mkey,         setMkey]         = useState(currentMonthKey())
   const [txForm,       setTxForm]       = useState<Transaction | 'new' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const initializeAuth = useAuth(state => state.initialize)
+  useEffect(() => { initializeAuth() }, [initializeAuth])
 
   useRecurring()
   useNotifications()
