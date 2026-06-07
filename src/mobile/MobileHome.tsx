@@ -1,9 +1,8 @@
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
-import { byCategory, currentMonthKey, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
+import { byCategory, currentMonthKey, fmtCompact, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
-import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { MobileTransactionList } from './MobileTransactionList'
 import type { IconName, Transaction } from '@/types'
@@ -28,8 +27,6 @@ export function MobileHome({
   onDeleteTx?: (id: string) => void
 }) {
   const { transactions, categories, accounts, currency } = useFinance()
-  const lang = useSettings(s => s.language)
-  const locale = lang === 'es' ? 'es-DO' : 'en-US'
   const t = useT()
   const monthTx = txForMonth(transactions, mkey)
   const summary = totals(monthTx)
@@ -64,13 +61,6 @@ export function MobileHome({
 
       {/* ─── Hero ─── */}
       <section className="mhome-hero">
-        <div className="mhome-hero-top">
-          <span className="mhome-label-tiny">{t('thisMonth')} · {monthLabel(mkey, locale)}</span>
-          <button className="mhome-add-fab" onClick={onAdd} aria-label="Agregar movimiento">
-            <Icon name="plus" size={18} />
-          </button>
-        </div>
-
         <div className="mhome-hero-main">
           <span className="mhome-hero-sub">{t('monthBalance')}</span>
           <h2 className={`mhome-hero-amount ${isPositive ? '' : 'neg'}`}>

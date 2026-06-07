@@ -46,19 +46,29 @@
     background: var(--m-bg);
     border-bottom: 1px solid var(--m-border);
     display: grid;
-    gap: 8px;
-    grid-template-columns: 48px 1fr auto;
-    padding: calc(12px + env(safe-area-inset-top)) 12px 12px;
+    gap: 10px;
+    grid-template-columns: 44px 1fr auto;
+    padding: calc(10px + env(safe-area-inset-top)) 10px 10px 12px;
     position: sticky;
     top: 0;
     z-index: 30;
   }
+  .mobile-topbar-mid {
+    align-items: baseline;
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
   .mobile-topbar h1 {
-    font-size: 22px;
+    flex: none;
+    font-size: 19px;
     font-weight: 850;
     letter-spacing: -.03em;
     margin: 0;
-    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .mobile-icon-btn {
     align-items: center;
@@ -76,22 +86,23 @@
   .mobile-topbar-right {
     align-items: center;
     display: flex;
+    flex: none;
     gap: 2px;
   }
   .mobile-currency-btn {
     align-items: center;
-    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    background: transparent;
     border: 0;
-    border-radius: 20px;
-    color: var(--m-text);
+    border-radius: 999px;
+    color: var(--m-muted);
     display: flex;
-    gap: 4px;
-    height: 34px;
-    padding: 0 10px 0 8px;
+    gap: 5px;
+    height: 44px;
+    padding: 0 10px;
   }
-  .mobile-currency-btn:active { background: color-mix(in oklab, var(--m-text) 14%, transparent); }
-  .mobile-currency-flag { font-size: 16px; line-height: 1; }
-  .mobile-currency-code { font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+  .mobile-currency-btn:active { background: color-mix(in oklab, var(--m-text) 10%, transparent); }
+  .mobile-currency-flag { font-size: 15px; line-height: 1; }
+  .mobile-currency-code { color: var(--m-text); font-size: 12px; font-weight: 700; letter-spacing: .04em; }
   /* ── Currency sheet ── */
   .mcur-sheet {
     background: var(--surface);
@@ -377,30 +388,36 @@
   .mgl-contrib-display small { color: var(--text-dim); font-size: 14px; }
   .mobile-month {
     align-items: center;
-    color: var(--m-muted);
+    background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    border-radius: 999px;
     display: flex;
-    gap: 6px;
-    justify-content: center;
-    margin-top: 7px;
-    text-transform: capitalize;
+    flex: none;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px;
   }
   .mobile-month span {
-    color: var(--m-text);
-    font-size: 13px;
-    font-weight: 750;
-    min-width: 128px;
-    text-align: center;
+    color: var(--m-muted);
+    font-size: 12px;
+    font-weight: 700;
+    overflow: hidden;
+    padding: 0 2px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+  .mobile-month span::first-letter { text-transform: uppercase; }
   .mobile-month button {
-    background: var(--m-surface-2);
+    align-items: center;
+    background: transparent;
     border: 0;
     border-radius: 999px;
     color: var(--m-muted);
     display: grid;
-    height: var(--m-touch);
+    height: 26px;
     place-items: center;
-    width: var(--m-touch);
+    width: 26px;
   }
+  .mobile-month button:active:not(:disabled) { background: color-mix(in oklab, var(--m-text) 12%, transparent); color: var(--m-text); }
   .mobile-month button:disabled { opacity: .28; }
   .mobile-content {
     flex: 1;

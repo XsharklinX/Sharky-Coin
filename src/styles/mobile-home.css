@@ -23,29 +23,6 @@
     position: absolute;
   }
   .mhome-hero > * { position: relative; z-index: 1; }
-  .mhome-hero-top {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-  }
-  .mhome-label-tiny {
-    color: #6b7280;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-  }
-  .mhome-add-fab {
-    align-items: center;
-    background: rgba(255,255,255,.07);
-    border: 0;
-    border-radius: 999px;
-    color: #e0e0e0;
-    display: flex;
-    height: 34px;
-    justify-content: center;
-    width: 34px;
-  }
   .mhome-hero-main {
     display: grid;
     gap: 2px;

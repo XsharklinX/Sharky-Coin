@@ -44,25 +44,29 @@ export function MobileTopBar({
     profile:   t('profile'),
   }
 
+  const showMonth = route !== 'add' && route !== 'profile'
+
   return (
     <header className="mobile-topbar">
       <button className="mobile-icon-btn" aria-label={t('search')} onClick={onSearch}>
         <Icon name="search" size={22} />
       </button>
-      <div>
+
+      <div className="mobile-topbar-mid">
         <h1>{title ?? TITLES[route]}</h1>
-        {route !== 'add' && route !== 'profile' && (
+        {showMonth && (
           <div className="mobile-month">
-            <button aria-label="Previous month" disabled={!canGoBack} onClick={onPrevMonth}>
-              <Icon name="arrowUp" size={15} style={{ transform: 'rotate(-90deg)' }} />
+            <button aria-label="Mes anterior" disabled={!canGoBack} onClick={onPrevMonth}>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(-90deg)' }} />
             </button>
             <span>{monthLabel(mkey, locale)}</span>
-            <button aria-label="Next month" disabled={!canGoForward} onClick={onNextMonth}>
-              <Icon name="arrowUp" size={15} style={{ transform: 'rotate(90deg)' }} />
+            <button aria-label="Mes siguiente" disabled={!canGoForward} onClick={onNextMonth}>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)' }} />
             </button>
           </div>
         )}
       </div>
+
       <div className="mobile-topbar-right">
         <button className="mobile-currency-btn" aria-label={t('currency')} onClick={onCurrency}>
           <span className="mobile-currency-flag">{meta.flag}</span>
