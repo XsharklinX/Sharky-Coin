@@ -20,7 +20,7 @@ fn read_backup(path: String) -> Result<String, String> {
 /// Devuelve la ruta donde se guardó el archivo.
 #[tauri::command]
 fn save_backup_auto(app: tauri::AppHandle, json: String) -> Result<String, String> {
-    let doc_dir = app.path().app_document_dir().map_err(|e| e.to_string())?;
+    let doc_dir = app.path().document_dir().map_err(|e: tauri::Error| e.to_string())?;
     let backup_dir = doc_dir.join("backups");
     std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
