@@ -36,152 +36,152 @@ const SUPPORT_EMAIL = 'contactosharklin@gmail.com'
 
 const PRIVACY_SECTIONS: { title: string; body: string[] }[] = [
   {
-    title: '1. Responsable del tratamiento',
+    title: '1. Who is responsible for your data',
     body: [
-      '$harky es desarrollada y mantenida por David Bonilla ("el Desarrollador", "nosotros"). Para cualquier consulta relacionada con esta Política de Privacidad o con tus datos, puedes escribirnos a contactosharklin@gmail.com.',
+      '$harky is developed and maintained by David Bonilla ("the Developer", "we", "us"). For any question about this Privacy Policy or your data, write to us at contactosharklin@gmail.com.',
     ],
   },
   {
-    title: '2. Qué datos recopilamos',
+    title: '2. What data we collect',
     body: [
-      'Datos financieros que registras (cuentas, transacciones, categorías, presupuestos y metas): se guardan únicamente en tu dispositivo, de forma local, salvo que actives voluntariamente la sincronización con tu cuenta de Google descrita abajo.',
-      'Datos de tu cuenta de Google (opcional): si decides iniciar sesión con Google, recibimos tu nombre, correo electrónico, foto de perfil e identificador de cuenta proporcionados por Google, únicamente para identificarte dentro de la app y habilitar la sincronización entre tus dispositivos.',
-      'Datos sincronizados en la nube (opcional): si activas la sincronización, tus cuentas, transacciones, categorías, metas y contribuciones se almacenan en nuestra infraestructura de base de datos (Supabase), asociados a tu identificador de usuario, para que puedas acceder a ellos desde distintos dispositivos.',
-      'Comentarios y sugerencias: si usas la sección "Comentarios" de Ajustes, el texto que escribas se envía a través de tu propia aplicación de correo a contactosharklin@gmail.com, junto con los datos que tu cliente de correo agregue automáticamente (por ejemplo, tu dirección de remitente).',
-      'No incluimos publicidad ni rastreadores comerciales de terceros, y no recopilamos datos de navegación con fines de marketing.',
+      'Financial data you enter (accounts, transactions, categories, budgets and goals): stored only on your device, locally, unless you voluntarily turn on sync with your Google account as described below.',
+      'Google account data (optional): if you choose to sign in with Google, we receive the name, email address, profile photo and account identifier that Google provides, used solely to identify you inside the app and enable sync across your devices.',
+      'Cloud-synced data (optional): if you turn on sync, your accounts, transactions, categories, goals and contributions are stored on our database infrastructure (Supabase), linked to your user identifier, so you can access them from different devices.',
+      'Comments and suggestions: if you use the "Comments" section in Settings, the text you write is sent directly to us from within the app and may include basic context such as the app version and platform, so we can read and respond to it.',
+      'We do not include advertising or third-party commercial trackers, and we do not collect browsing data for marketing purposes.',
     ],
   },
   {
-    title: '3. Cómo usamos tus datos',
+    title: '3. How we use your data',
     body: [
-      'Para que la aplicación funcione: cálculos, reportes, presupuestos, proyecciones y metas se generan localmente a partir de la información que ingresas.',
-      'Para sincronizar tus datos entre tus propios dispositivos cuando inicias sesión y activas esa función.',
-      'Para responder tus comentarios, dudas o solicitudes de soporte que nos envíes.',
-      'Nunca vendemos, alquilamos ni compartimos tus datos financieros con fines publicitarios o comerciales.',
+      'To make the app work: calculations, reports, budgets, projections and goals are generated locally from the information you enter.',
+      'To sync your data across your own devices when you sign in and turn that feature on.',
+      'To read and respond to the comments, questions or support requests you send us.',
+      'We never sell, rent or share your financial data for advertising or commercial purposes.',
     ],
   },
   {
-    title: '4. Con quién compartimos información',
+    title: '4. Who we share information with',
     body: [
-      'Google LLC, como proveedor del inicio de sesión, únicamente si eliges usar esa función. El tratamiento que Google haga de tus datos se rige por su propia política de privacidad.',
-      'Supabase Inc., como proveedor de infraestructura de base de datos en la nube, exclusivamente para almacenar de forma seguro los datos que decidas sincronizar. Supabase actúa como encargado del tratamiento y no usa tu información para fines propios.',
-      'No compartimos tu información con anunciantes, intermediarios de datos ("data brokers") ni terceros con fines de mercadeo.',
+      'Google LLC, as the sign-in provider, only if you choose to use that feature. How Google handles your data is governed by its own privacy policy.',
+      'Supabase Inc., as our cloud database infrastructure provider, solely to securely store the data you choose to sync. Supabase acts as a data processor and does not use your information for its own purposes.',
+      'We do not share your information with advertisers, data brokers, or third parties for marketing purposes.',
     ],
   },
   {
-    title: '5. Seguridad de la información',
+    title: '5. Data security',
     body: [
-      'Aplicamos medidas técnicas razonables para proteger tus datos: cifrado en tránsito (HTTPS/TLS), almacenamiento seguro de credenciales y autenticación mediante el flujo PKCE de OAuth. Ningún sistema es perfectamente seguro, por lo que no podemos garantizar una protección absoluta.',
+      'We apply reasonable technical measures to protect your data: encryption in transit (HTTPS/TLS), secure credential storage, and authentication via the OAuth PKCE flow. No system is perfectly secure, so we cannot guarantee absolute protection.',
     ],
   },
   {
-    title: '6. Tus derechos y control sobre tus datos',
+    title: '6. Your rights and control over your data',
     body: [
-      'Puedes usar $harky por completo sin conexión y sin crear ninguna cuenta; en ese caso tus datos nunca salen de tu dispositivo.',
-      'Puedes exportar una copia de tus datos cuando quieras desde Ajustes → Datos → Exportar backup, y restaurarla más adelante.',
-      'Puedes eliminar de forma permanente todos tus datos locales desde Ajustes → Datos → Eliminar todos los datos.',
-      'Puedes cerrar sesión de Google y desactivar la sincronización en cualquier momento desde Ajustes → Cuenta.',
-      'Si quieres que eliminemos los datos sincronizados en nuestros servidores, escríbenos a contactosharklin@gmail.com y atenderemos tu solicitud en un plazo razonable.',
+      'You can use $harky entirely offline and without creating an account; in that case your data never leaves your device.',
+      'You can export a copy of your data at any time from Settings → Data → Export backup, and restore it later.',
+      'You can permanently delete all your local data from Settings → Data → Delete all data.',
+      'You can sign out of Google and turn off sync at any time from Settings → Account.',
+      'If you want us to delete the data synced on our servers, write to us at contactosharklin@gmail.com and we will handle your request within a reasonable time.',
     ],
   },
   {
-    title: '7. Conservación de los datos',
+    title: '7. Data retention',
     body: [
-      'Los datos almacenados localmente permanecen en tu dispositivo hasta que tú los borres o desinstales la aplicación. Los datos sincronizados en la nube se conservan mientras tu cuenta esté activa o hasta que solicites su eliminación.',
+      'Locally stored data stays on your device until you delete it or uninstall the app. Cloud-synced data is kept while your account is active or until you request its deletion.',
     ],
   },
   {
-    title: '8. Menores de edad',
+    title: '8. Children',
     body: [
-      '$harky no está dirigida a menores de 13 años y no recopilamos conscientemente información de menores de edad. Si consideras que un menor nos ha proporcionado datos personales, contáctanos para eliminarlos.',
+      '$harky is not directed at children under 13, and we do not knowingly collect information from minors. If you believe a minor has provided us with personal data, please contact us so we can remove it.',
     ],
   },
   {
-    title: '9. Cambios a esta política',
+    title: '9. Changes to this policy',
     body: [
-      'Podemos actualizar esta Política de Privacidad ocasionalmente. Si los cambios son significativos, te lo notificaremos dentro de la aplicación. La fecha de la última actualización siempre aparece al inicio de este documento.',
+      'We may update this Privacy Policy from time to time. If the changes are significant, we will notify you inside the app. The date of the latest update always appears at the top of this document.',
     ],
   },
   {
-    title: '10. Contacto',
+    title: '10. Contact',
     body: [
-      'Para preguntas, solicitudes sobre tus datos o cualquier inquietud relacionada con tu privacidad, escríbenos a contactosharklin@gmail.com.',
+      'For questions, data requests, or any privacy concern, write to us at contactosharklin@gmail.com.',
     ],
   },
 ]
 
 const TERMS_SECTIONS: { title: string; body: string[] }[] = [
   {
-    title: '1. Aceptación de los términos',
+    title: '1. Acceptance of these terms',
     body: [
-      'Al descargar, instalar o usar $harky ("la aplicación"), aceptas estos Términos de Uso. Si no estás de acuerdo con ellos, te pedimos no usar la aplicación.',
+      'By downloading, installing or using $harky ("the app"), you agree to these Terms of Use. If you do not agree with them, please do not use the app.',
     ],
   },
   {
-    title: '2. Descripción del servicio',
+    title: '2. Description of the service',
     body: [
-      '$harky es una herramienta de gestión de finanzas personales que te permite registrar ingresos, gastos, presupuestos y metas de ahorro. Es una herramienta informativa y organizativa: no es una entidad financiera, un banco ni un asesor de inversiones, y no sustituye la asesoría profesional.',
+      '$harky is a personal finance management tool that lets you track income, expenses, budgets and savings goals. It is an informational and organizational tool: it is not a financial institution, a bank, or an investment advisor, and it does not replace professional advice.',
     ],
   },
   {
-    title: '3. No es asesoría financiera',
+    title: '3. Not financial advice',
     body: [
-      'La información, los cálculos, las proyecciones y los reportes que genera la aplicación se basan exclusivamente en los datos que tú ingresas y tienen fines orientativos. No constituyen asesoría financiera, legal, contable ni fiscal. Te recomendamos consultar a un profesional calificado antes de tomar decisiones financieras importantes.',
+      'The information, calculations, projections and reports the app generates are based solely on the data you enter and are for guidance only. They do not constitute financial, legal, accounting or tax advice. We recommend consulting a qualified professional before making important financial decisions.',
     ],
   },
   {
-    title: '4. Tu responsabilidad sobre tus datos',
+    title: '4. Your responsibility for your data',
     body: [
-      'Eres el único responsable de la exactitud de la información que registras, así como de mantener copias de seguridad de tus datos (la app incluye una función de exportación e importación de respaldos para esto).',
-      'Si decides usar el inicio de sesión con Google y la sincronización en la nube, eres responsable de mantener segura tu cuenta de Google y de cualquier actividad que ocurra a través de ella.',
+      'You are solely responsible for the accuracy of the information you enter, and for keeping backups of your data (the app includes a backup export/import feature for this purpose).',
+      'If you choose to use Google sign-in and cloud sync, you are responsible for keeping your Google account secure and for any activity that happens through it.',
     ],
   },
   {
-    title: '5. Uso aceptable',
+    title: '5. Acceptable use',
     body: [
-      'Te comprometes a usar $harky de forma lícita y a no intentar vulnerar, realizar ingeniería inversa, sobrecargar o comprometer la seguridad de la aplicación o de los servicios que la soportan.',
+      'You agree to use $harky lawfully, and not to attempt to breach, reverse-engineer, overload, or otherwise compromise the security of the app or the services that support it.',
     ],
   },
   {
-    title: '6. Propiedad intelectual',
+    title: '6. Intellectual property',
     body: [
-      'El nombre "$harky", su logotipo, diseño visual, código fuente y contenidos son propiedad de David Bonilla, salvo las bibliotecas de terceros utilizadas bajo sus respectivas licencias de código abierto.',
+      'The "$harky" name, its logo, visual design, source code and content are the property of David Bonilla, except for third-party libraries used under their respective open-source licenses.',
     ],
   },
   {
-    title: '7. Disponibilidad del servicio',
+    title: '7. Service availability',
     body: [
-      'Hacemos un esfuerzo razonable por mantener la aplicación funcionando correctamente, pero no garantizamos que esté libre de errores, interrupciones o disponible de forma ininterrumpida, en especial en las funciones que dependen de servicios externos (Google, Supabase).',
+      'We make a reasonable effort to keep the app running correctly, but we do not guarantee it will be error-free, uninterrupted, or always available — particularly for features that depend on external services (Google, Supabase).',
     ],
   },
   {
-    title: '8. Limitación de responsabilidad',
+    title: '8. Limitation of liability',
     body: [
-      'En la máxima medida permitida por la ley aplicable, David Bonilla no será responsable por daños indirectos, incidentales o consecuentes derivados del uso o la imposibilidad de uso de la aplicación —incluyendo, entre otros, pérdida de datos o decisiones financieras tomadas con base en su información—. La aplicación se ofrece "tal cual" y "según disponibilidad", sin garantías de ningún tipo, expresas o implícitas.',
+      'To the maximum extent permitted by applicable law, David Bonilla will not be liable for indirect, incidental or consequential damages arising from the use or inability to use the app — including, among others, data loss or financial decisions made based on its information. The app is provided "as is" and "as available", without warranties of any kind, express or implied.',
     ],
   },
   {
-    title: '9. Cambios al servicio y a estos términos',
+    title: '9. Changes to the service and these terms',
     body: [
-      'Podemos actualizar, modificar o discontinuar funciones de la aplicación, así como estos Términos de Uso, en cualquier momento. Te avisaremos de los cambios relevantes dentro de la app. Si continúas usando $harky después de un cambio, se entiende que aceptas los nuevos términos.',
+      'We may update, modify or discontinue features of the app, as well as these Terms of Use, at any time. We will notify you of relevant changes inside the app. If you keep using $harky after a change, you are considered to have accepted the new terms.',
     ],
   },
   {
-    title: '10. Terminación',
+    title: '10. Termination',
     body: [
-      'Puedes dejar de usar la aplicación y eliminar tus datos cuando quieras. Podemos suspender o limitar funciones que dependan de servicios de terceros si dichos servicios cambian sus condiciones o dejan de estar disponibles.',
+      'You can stop using the app and delete your data whenever you want. We may suspend or limit features that depend on third-party services if those services change their terms or become unavailable.',
     ],
   },
   {
-    title: '11. Ley aplicable',
+    title: '11. Governing law',
     body: [
-      'Estos Términos se rigen por las leyes de la República Dominicana, sin perjuicio de las normas de protección al consumidor que puedan aplicarte según tu lugar de residencia.',
+      'These Terms are governed by the laws of the Dominican Republic, without prejudice to any consumer-protection rules that may apply to you based on your place of residence.',
     ],
   },
   {
-    title: '12. Contacto',
+    title: '12. Contact',
     body: [
-      'Para preguntas sobre estos Términos de Uso, escríbenos a contactosharklin@gmail.com.',
+      'For questions about these Terms of Use, write to us at contactosharklin@gmail.com.',
     ],
   },
 ]
@@ -697,9 +697,9 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'privacy' && (
-        <SettingsSheet title="Política de privacidad" onClose={close}>
+        <SettingsSheet title="Privacy Policy" onClose={close}>
           <div className="mset-sheet-body mset-legal">
-            <p className="mset-legal-updated">Última actualización: 7 de junio de 2026</p>
+            <p className="mset-legal-updated">Last updated: June 7, 2026</p>
             {PRIVACY_SECTIONS.map(section => (
               <div key={section.title}>
                 <h3>{section.title}</h3>
@@ -711,9 +711,9 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       )}
 
       {activeSheet === 'terms' && (
-        <SettingsSheet title="Términos de uso" onClose={close}>
+        <SettingsSheet title="Terms of Use" onClose={close}>
           <div className="mset-sheet-body mset-legal">
-            <p className="mset-legal-updated">Última actualización: 7 de junio de 2026</p>
+            <p className="mset-legal-updated">Last updated: June 7, 2026</p>
             {TERMS_SECTIONS.map(section => (
               <div key={section.title}>
                 <h3>{section.title}</h3>

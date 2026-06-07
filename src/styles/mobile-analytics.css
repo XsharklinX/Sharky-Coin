@@ -109,6 +109,29 @@
   .man-budget-chip.warn { background: rgba(245,158,11,.12); color: #f59e0b; }
   .man-budget-chip.over { background: rgba(255,107,138,.12); color: #ff6b8a; }
   .man-empty { color: var(--text-dim); font-size: 13px; margin: 0; }
+  /* Tendencia y proyección */
+  .man-trend-rows { display: grid; gap: 12px; }
+  .man-trend-row {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+  }
+  .man-trend-icon {
+    align-items: center;
+    background: color-mix(in oklab, var(--text-dim) 16%, transparent);
+    border-radius: 11px;
+    color: var(--text-dim);
+    display: flex;
+    flex-shrink: 0;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+  }
+  .man-trend-icon.warn { background: rgba(245,158,11,.14); color: #f59e0b; }
+  .man-trend-icon.ok   { background: rgba(53,208,162,.14); color: #35d0a2; }
+  .man-trend-row > div { display: grid; gap: 1px; }
+  .man-trend-row strong { font-size: 13px; font-weight: 800; line-height: 1.3; }
+  .man-trend-row small { color: var(--text-dim); font-size: 11px; font-weight: 650; }
   /* Savings ring */
   .man-savings-section {}
   .man-savings-body {

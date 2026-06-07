@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
-import { byCategory, fmtCompact, monthlySeries, totals, txForMonth, weeklySeries } from '@/data/helpers'
+import { byCategory, currentMonthKey, fmtCompact, monthlySeries, totals, txForMonth, weeklySeries } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 
 type AnalyticsPeriod = 'week' | 'month' | 'year'
@@ -86,6 +86,23 @@ export function MobileAnalytics({ mkey }: { mkey: string }) {
 
   const maxBar = Math.max(1, ...barData.flatMap(d => [d.income, d.expense]))
 
+  // Tendencia y proyección del mes en curso
+  const isCurrentMonth = mkey === currentMonthKey()
+  const today = new Date()
+  const dayOfMonth = today.getDate()
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+  const projectedExpense = isCurrentMonth && dayOfMonth > 0 ? summary.expense / dayOfMonth * daysInMonth : 0
+  const prevMkey = (() => {
+    const [y, m] = mkey.split('-').map(Number)
+    const d = new Date(y, m - 2, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })()
+  const prevSum = totals(txForMonth(transactions, prevMkey))
+  const prevPace = prevSum.expense > 0 && dayOfMonth > 0 ? prevSum.expense / daysInMonth * dayOfMonth : 0
+  const spendTrend = prevPace > 0 ? Math.round((summary.expense / prevPace - 1) * 100) : null
+  const showTrend = period === 'month' && isCurrentMonth && monthTx.length > 0 && dayOfMonth >= 3
+  const totalBudget = categories.filter(c => c.type === 'expense').reduce((s, c) => s + c.budget, 0)
+
   // Donut
   const donut = categoryRows.length
     ? `conic-gradient(${categoryRows.map((row, i) => {
@@ -163,6 +180,40 @@ export function MobileAnalytics({ mkey }: { mkey: string }) {
           </div>
         </div>
       </section>
+
+      {/* Tendencia y proyección */}
+      {showTrend && (spendTrend !== null || projectedExpense > 0) && (
+        <section className="man-card man-trend-section">
+          <div className="man-card-header">
+            <h2>Tendencia del mes</h2>
+            <p>Comparado con tu ritmo habitual</p>
+          </div>
+          <div className="man-trend-rows">
+            {spendTrend !== null && (
+              <div className="man-trend-row">
+                <span className={`man-trend-icon ${spendTrend > 10 ? 'warn' : spendTrend < -10 ? 'ok' : ''}`}>
+                  <Icon name={spendTrend >= 0 ? 'arrowUp' : 'arrowDn'} size={15} />
+                </span>
+                <div>
+                  <strong>Gastos {Math.abs(spendTrend)}% {spendTrend >= 0 ? 'más' : 'menos'} que el mes pasado</strong>
+                  <small>Al mismo ritmo de días transcurridos</small>
+                </div>
+              </div>
+            )}
+            {projectedExpense > 0 && (
+              <div className="man-trend-row">
+                <span className={`man-trend-icon ${projectedExpense > totalBudget && totalBudget > 0 ? 'warn' : ''}`}>
+                  <Icon name="trend" size={15} />
+                </span>
+                <div>
+                  <strong>Proyección al cierre: {fmtCompact(projectedExpense, currency)}</strong>
+                  <small>Si mantienes el ritmo actual de gasto</small>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Tasa de ahorro */}
       {period !== 'week' && summary.income > 0 && (
