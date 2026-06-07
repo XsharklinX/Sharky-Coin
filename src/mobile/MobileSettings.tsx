@@ -335,14 +335,24 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const sendComment = () => {
+  const sendComment = async () => {
     const body = commentText.trim()
     if (!body) return
     const subject = encodeURIComponent('Comentario desde $harky')
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${encodeURIComponent(body)}`
-    toast('Abriendo tu app de correo…', { icon: 'check', type: 'ok' })
-    setCommentText('')
-    close()
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${encodeURIComponent(body)}`
+    try {
+      if (isTauri()) {
+        const { openUrl } = await import('@tauri-apps/plugin-opener')
+        await openUrl(mailto)
+      } else {
+        window.location.href = mailto
+      }
+      toast('¡Gracias por tu comentario! Se abrió tu app de correo para enviarlo.', { icon: 'check', type: 'ok' })
+      setCommentText('')
+      close()
+    } catch {
+      toast(`No pudimos abrir tu app de correo. Escríbenos directamente a ${SUPPORT_EMAIL}.`, { icon: 'alert', type: 'warn' })
+    }
   }
 
   const confirmReset = () => {
@@ -665,7 +675,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
               value={commentText} placeholder="Escribe tu comentario aquí…"
               onChange={e => setCommentText(e.target.value)}
             />
-            <button className="mset-sheet-confirm" disabled={!commentText.trim()} onClick={sendComment}>
+            <button className="mset-sheet-confirm" disabled={!commentText.trim()} onClick={() => void sendComment()}>
               <Icon name="edit" size={16} style={{ marginRight: 8 }} /> Enviar comentario
             </button>
           </div>
