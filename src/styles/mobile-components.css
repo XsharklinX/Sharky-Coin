@@ -289,11 +289,6 @@
   .mhome-stagger-4 { animation: mhome-rise 0.32s ease both; animation-delay: 220ms; }
 
   /* ── BrandMark empty state ───────────────────────── */
-  .mhome-empty-brand {
-    border-radius: 20px;
-    filter: grayscale(0.3) brightness(0.8);
-    opacity: 0.5;
-  }
 
   /* ── Dark mode refinements (CSS variables en mobile) */
   .mobile-app .mhome-hero         { background: linear-gradient(160deg, var(--surface, #181c25) 0%, color-mix(in oklab, var(--bg, #12151c) 80%, #000) 100%); }
@@ -461,8 +456,10 @@
     gap: 12px;
     padding: 14px 16px;
     text-align: left;
+    transition: background-color .12s ease;
     width: 100%;
   }
+  .mpr-account-row:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
   .mpr-account-icon { align-items: center; border-radius: 12px; display: flex; flex-shrink: 0; height: 40px; justify-content: center; width: 40px; }
   .mpr-account-info { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
   .mpr-account-info b { color: var(--m-text); font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -486,8 +483,10 @@
     min-height: 52px;
     padding: 12px 16px;
     text-align: left;
+    transition: background-color .12s ease;
     width: 100%;
   }
+  .mpr-link-list button:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
   /* Profile account editor sheet */
   .mpr-editor-sheet {
     background: var(--surface);
@@ -777,7 +776,8 @@
 
 /* ── MobileReports tools ─────────────────────────────────── */
   .mrep-tools { border-radius: 14px; box-shadow: var(--m-elevation-sm); margin-top: 20px; overflow: hidden; }
-  .mrep-tool-row { align-items: center; background: var(--m-surface); border-bottom: 1px solid var(--m-border); display: flex; gap: 14px; padding: 16px; width: 100%; }
+  .mrep-tool-row { align-items: center; background: var(--m-surface); border-bottom: 1px solid var(--m-border); display: flex; gap: 14px; padding: 16px; transition: background-color .12s ease; width: 100%; }
+  .mrep-tool-row:active { background: color-mix(in oklab, var(--m-surface) 80%, var(--m-text) 6%); }
   .mrep-tool-row:first-of-type { border-radius: 14px 14px 0 0; }
   .mrep-tool-row:last-of-type  { border-bottom: none; border-radius: 0 0 14px 14px; }
   .mrep-tool-icon { align-items: center; border-radius: 10px; display: flex; flex-shrink: 0; height: 40px; justify-content: center; width: 40px; }

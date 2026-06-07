@@ -107,7 +107,9 @@
     font-size: 13px;
     font-weight: 800;
     padding: 4px 0;
+    transition: opacity .12s ease;
   }
+  .mhome-section-hdr > button:active { opacity: .55; }
   .mhome-accounts-row {
     display: flex;
     gap: 10px;
@@ -238,8 +240,17 @@
     padding: 32px 16px;
     text-align: center;
   }
-  .mhome-empty > span { color: #3a3a3a; }
-  .mhome-empty p { color: #6b7280; font-size: 14px; font-weight: 700; margin: 4px 0 0; }
+  .mhome-empty-ico {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-primary) 14%, transparent);
+    border-radius: 16px;
+    color: var(--m-primary);
+    display: grid;
+    height: 52px;
+    place-items: center;
+    width: 52px;
+  }
+  .mhome-empty p { color: var(--m-muted); font-size: 14px; font-weight: 700; margin: 4px 0 0; }
   .mhome-empty button {
     background: rgba(255,221,61,.1);
     border: 1px solid rgba(255,221,61,.18);

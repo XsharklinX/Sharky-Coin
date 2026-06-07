@@ -1,5 +1,4 @@
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
-import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { byCategory, currentMonthKey, fmtCompact, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
@@ -193,7 +192,7 @@ export function MobileHome({
           </div>
         ) : (
           <div className="mhome-empty">
-            <BrandMark size={52} className="mhome-empty-brand" />
+            <span className="mhome-empty-ico"><Icon name="list" size={22} /></span>
             <p>{t('noMovementsMonth')}</p>
             <button onClick={onAdd}>{t('registerFirst')}</button>
           </div>
