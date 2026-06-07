@@ -33,7 +33,7 @@ export const useGoogleAuth = create<GoogleAuthState>()(
         set({
           user: {
             id:      p.sub as string,
-            name:    (p.name as string) || (p.email as string) || 'User',
+            name:    (p.name as string) || (p.email as string) || 'Usuario',
             email:   (p.email as string) || '',
             picture: p.picture as string | undefined,
           },
@@ -45,6 +45,14 @@ export const useGoogleAuth = create<GoogleAuthState>()(
   ),
 )
 
+export type GisPromptNotification = {
+  isNotDisplayed:   () => boolean
+  isSkippedMoment:  () => boolean
+  isDismissedMoment:() => boolean
+  getNotDisplayedReason: () => string
+  getSkippedReason: () => string
+}
+
 declare global {
   interface Window {
     google?: {
@@ -54,27 +62,54 @@ declare global {
             client_id: string
             callback: (r: { credential: string }) => void
             auto_select?: boolean
+            cancel_on_tap_outside?: boolean
           }) => void
           renderButton: (el: HTMLElement, opts: object) => void
-          prompt: () => void
+          prompt: (callback?: (n: GisPromptNotification) => void) => void
         }
       }
     }
   }
 }
 
-let gisLoaded = false
-let gisLoading = false
-const callbacks: Array<() => void> = []
+// ── GIS loader con manejo de error y timeout ──────────────────────────────────
 
-export function loadGIS(onReady: () => void) {
-  if (gisLoaded) { onReady(); return }
-  callbacks.push(onReady)
-  if (gisLoading) return
-  gisLoading = true
+let gisState: 'idle' | 'loading' | 'ready' | 'error' = 'idle'
+const readyCbs: Array<() => void> = []
+const errorCbs: Array<() => void> = []
+
+export function loadGIS(onReady: () => void, onError?: () => void) {
+  if (gisState === 'ready')  { onReady(); return }
+  if (gisState === 'error')  { onError?.(); return }
+
+  readyCbs.push(onReady)
+  if (onError) errorCbs.push(onError)
+
+  if (gisState === 'loading') return
+  gisState = 'loading'
+
   const s = document.createElement('script')
-  s.src = 'https://accounts.google.com/gsi/client'
-  s.async = true; s.defer = true
-  s.onload = () => { gisLoaded = true; callbacks.forEach(cb => cb()); callbacks.length = 0 }
+  s.src   = 'https://accounts.google.com/gsi/client'
+  s.async = true
+
+  const fail = () => {
+    gisState = 'error'
+    errorCbs.forEach(cb => cb())
+    errorCbs.length = 0
+    readyCbs.length = 0
+  }
+
+  s.onload = () => {
+    if (!window.google?.accounts?.id) { fail(); return }
+    gisState = 'ready'
+    readyCbs.forEach(cb => cb())
+    readyCbs.length = 0
+    errorCbs.length = 0
+  }
+  s.onerror = fail
+
+  // Timeout de 12 s — si Google no responde, marcamos error
+  setTimeout(() => { if (gisState === 'loading') fail() }, 12_000)
+
   document.head.appendChild(s)
 }
