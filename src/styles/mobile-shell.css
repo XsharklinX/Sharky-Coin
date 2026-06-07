@@ -104,6 +104,15 @@
   .mobile-currency-btn:active { background: color-mix(in oklab, var(--m-text) 10%, transparent); }
   .mobile-currency-flag { font-size: 15px; line-height: 1; }
   .mobile-currency-code { color: var(--m-text); font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+
+  @media (max-width: 360px) {
+    .mobile-topbar { gap: 6px; }
+    .mobile-currency-btn { gap: 0; padding: 0 6px; }
+    .mobile-currency-code { display: none; }
+    .mobile-month { gap: 0; padding: 2px; }
+    .mobile-month button { height: 20px; width: 20px; }
+    .mobile-topbar h1 { font-size: 17px; }
+  }
   /* ── Currency sheet ── */
   .mcur-sheet {
     background: var(--surface);
@@ -392,7 +401,7 @@
     background: color-mix(in oklab, var(--m-text) 6%, transparent);
     border-radius: 999px;
     display: flex;
-    flex: none;
+    flex: 0 1 auto;
     gap: 2px;
     min-width: 0;
     padding: 3px;
@@ -401,6 +410,7 @@
     color: var(--m-muted);
     font-size: 12px;
     font-weight: 700;
+    min-width: 0;
     overflow: hidden;
     padding: 0 2px;
     text-overflow: ellipsis;

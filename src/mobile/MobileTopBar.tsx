@@ -1,5 +1,4 @@
 import { Icon } from '@/components/ui/Icon'
-import { monthLabel } from '@/data/helpers'
 import { getCurrencyMeta } from '@/data/currencies'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -45,6 +44,10 @@ export function MobileTopBar({
   }
 
   const showMonth = route !== 'add' && route !== 'profile'
+  const compactMonthLabel = (() => {
+    const [y, m] = mkey.split('-').map(Number)
+    return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: 'numeric' })
+  })()
 
   return (
     <header className="mobile-topbar">
@@ -59,7 +62,7 @@ export function MobileTopBar({
             <button aria-label="Mes anterior" disabled={!canGoBack} onClick={onPrevMonth}>
               <Icon name="arrowUp" size={13} style={{ transform: 'rotate(-90deg)' }} />
             </button>
-            <span>{monthLabel(mkey, locale)}</span>
+            <span>{compactMonthLabel}</span>
             <button aria-label="Mes siguiente" disabled={!canGoForward} onClick={onNextMonth}>
               <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)' }} />
             </button>
