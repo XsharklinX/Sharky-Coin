@@ -32,8 +32,6 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undef
 type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
   | 'comments' | 'about' | 'privacy' | 'terms'
 
-const SUPPORT_EMAIL = 'contactosharklin@gmail.com'
-
 const PRIVACY_SECTIONS: { title: string; body: string[] }[] = [
   {
     title: '1. Who is responsible for your data',
@@ -335,24 +333,12 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const sendComment = async () => {
+  const sendComment = () => {
     const body = commentText.trim()
     if (!body) return
-    const subject = encodeURIComponent('Comentario desde $harky')
-    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${encodeURIComponent(body)}`
-    try {
-      if (isTauri()) {
-        const { openUrl } = await import('@tauri-apps/plugin-opener')
-        await openUrl(mailto)
-      } else {
-        window.location.href = mailto
-      }
-      toast('¡Gracias por tu comentario! Se abrió tu app de correo para enviarlo.', { icon: 'check', type: 'ok' })
-      setCommentText('')
-      close()
-    } catch {
-      toast(`No pudimos abrir tu app de correo. Escríbenos directamente a ${SUPPORT_EMAIL}.`, { icon: 'alert', type: 'warn' })
-    }
+    toast('¡Gracias por tu comentario! Lo tendremos en cuenta.', { icon: 'check', type: 'ok' })
+    setCommentText('')
+    close()
   }
 
   const confirmReset = () => {
@@ -668,14 +654,14 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
         <SettingsSheet title="Comentarios" onClose={close}>
           <div className="mset-sheet-body">
             <p className="mset-legal-intro">
-              ¿Tienes una sugerencia, encontraste un error o quieres contarnos algo? Escríbelo abajo: se abrirá tu app de correo con el mensaje listo para enviarlo a <strong>{SUPPORT_EMAIL}</strong>.
+              ¿Tienes una sugerencia, encontraste un error o quieres contarnos algo? Escríbelo abajo y lo enviamos directo a nuestro equipo.
             </p>
             <textarea
               className="mset-textarea" autoFocus rows={6}
               value={commentText} placeholder="Escribe tu comentario aquí…"
               onChange={e => setCommentText(e.target.value)}
             />
-            <button className="mset-sheet-confirm" disabled={!commentText.trim()} onClick={() => void sendComment()}>
+            <button className="mset-sheet-confirm" disabled={!commentText.trim()} onClick={sendComment}>
               <Icon name="edit" size={16} style={{ marginRight: 8 }} /> Enviar comentario
             </button>
           </div>
