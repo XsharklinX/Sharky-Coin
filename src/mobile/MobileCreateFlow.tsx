@@ -150,14 +150,14 @@ export function MobileCreateFlow({
   const save = () => {
     if (!canSave) {
       const msg = amount <= 0
-        ? 'Enter an amount greater than 0'
+        ? t('amountError')
         : mode !== 'transfer' && !activeCategory
-          ? 'Select a category'
+          ? t('categoryError')
           : mode !== 'transfer' && !activeAccountId
-            ? 'Select an account'
+            ? t('accountError')
             : mode === 'transfer' && fromAccount === toAccount
-              ? 'Choose two different accounts'
-              : 'Fill in all fields'
+              ? t('differentAccountsError')
+              : t('fillAllError')
       setFormError(msg)
       triggerShake()
       return
@@ -165,7 +165,7 @@ export function MobileCreateFlow({
     setFormError(null)
     try {
       if (mode === 'transfer') {
-        transfer({ fromAccount, toAccount, amount, date, note: note.trim() || 'Transfer' })
+        transfer({ fromAccount, toAccount, amount, date, note: note.trim() || t('transfer') })
       } else {
         addTx({
           type: mode, amount, date,
@@ -183,8 +183,8 @@ export function MobileCreateFlow({
       navigator.vibrate?.(18)
       toast(
         recurring
-          ? `${recurFreq === 'weekly' ? 'Weekly' : 'Monthly'} recurring movement scheduled`
-          : mode === 'transfer' ? 'Transfer recorded' : 'Movement saved',
+          ? t(recurFreq === 'weekly' ? 'weeklyRecurringScheduled' : 'monthlyRecurringScheduled')
+          : mode === 'transfer' ? t('transferRecorded') : t('movementSaved'),
         { icon: 'check', type: 'ok' },
       )
       setAmountText('')
@@ -195,15 +195,15 @@ export function MobileCreateFlow({
       setRecurEnd('')
       onSaved()
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Could not save.', { icon: 'alert' })
+      toast(error instanceof Error ? error.message : t('couldNotSave'), { icon: 'alert' })
     }
   }
 
   const createCategory = (fields: { name: string; icon: IconName; color: string; budget: number }) => {
     const name = fields.name.trim()
-    if (!name) { toast('Enter a category name.', { icon: 'alert' }); return }
+    if (!name) { toast(t('enterCategoryName'), { icon: 'alert' }); return }
     addCategory({ name, icon: fields.icon, color: fields.color, budget: fields.budget, type: categoryType })
-    toast(`Category "${name}" created`, { icon: 'check', type: 'ok' })
+    toast(t('categoryCreated').replace('{name}', name), { icon: 'check', type: 'ok' })
     setCategoryEditorOpen(false)
   }
 
@@ -211,13 +211,13 @@ export function MobileCreateFlow({
   const currencyPrefix = currency === 'DOP' ? 'RD$' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
 
   return (
-    <div className="mobile-create-flow" aria-label="Add movement">
+    <div className="mobile-create-flow" aria-label={t('addMovement')}>
 
       {/* ─── Scrollable top section ─── */}
       <div className="mobile-create-scroll">
 
         {/* Mode tabs */}
-        <div className="mobile-segment" role="tablist" aria-label="Movement type">
+        <div className="mobile-segment" role="tablist" aria-label={t('movementType')}>
           {([['expense', t('expense')], ['income', t('income')], ['transfer', t('transfer')]] as const).map(([value, label]) => (
             <button key={value} className={mode === value ? 'on' : ''} role="tab" aria-selected={mode === value}
               onClick={() => switchMode(value)}>
@@ -232,7 +232,7 @@ export function MobileCreateFlow({
             <div className="mobile-create-section-header">
               <span>{t('category')}</span>
               <button className="mobile-create-new-btn" onClick={() => setCategoryEditorOpen(true)}>
-                <Icon name="plus" size={12} /> New
+                <Icon name="plus" size={12} /> {t('new')}
               </button>
             </div>
 
@@ -253,12 +253,12 @@ export function MobileCreateFlow({
                 })}
                 <button className="mobile-category-add" onClick={() => setCategoryEditorOpen(true)}>
                   <span><Icon name="plus" size={20} /></span>
-                  <small>New</small>
+                  <small>{t('new')}</small>
                 </button>
               </div>
             ) : (
               <button className="mobile-empty-action" onClick={() => setCategoryEditorOpen(true)}>
-                Create a category to continue
+                {t('createCategoryToContinue')}
               </button>
             )}
 
@@ -288,7 +288,7 @@ export function MobileCreateFlow({
               <input
                 type="text"
                 value={note}
-                placeholder="Nota: Introduce una nota..."
+                placeholder={t('notePlaceholder')}
                 enterKeyHint="done"
                 autoCapitalize="sentences"
                 autoCorrect="on"
@@ -306,7 +306,7 @@ export function MobileCreateFlow({
               <span className="mobile-recur-icon">
                 <Icon name="repeat" size={15} />
               </span>
-              <span className="mobile-recur-label">Repeat movement</span>
+              <span className="mobile-recur-label">{t('repeatMovement')}</span>
               <span className={`mobile-recur-switch${recurring ? ' on' : ''}`} />
             </button>
 
@@ -322,7 +322,7 @@ export function MobileCreateFlow({
                 </div>
                 <button className="mobile-create-date-pill" onClick={() => setRecurEndPicker(true)}>
                   <Icon name="calendar" size={13} />
-                  <span>{recurEnd ? `Until ${formatDateShort(recurEnd)}` : 'No end date'}</span>
+                  <span>{recurEnd ? `${t('until')} ${formatDateShort(recurEnd)}` : t('noEndDate')}</span>
                   {recurEnd && (
                     <span style={{ marginLeft: 'auto' }} onClick={e => { e.stopPropagation(); setRecurEnd('') }}>
                       <Icon name="close" size={12} />
@@ -340,18 +340,18 @@ export function MobileCreateFlow({
                 <span style={{ color: fromAccountObj?.color ?? '#ffdd3d', background: `color-mix(in oklab, ${fromAccountObj?.color ?? '#ffdd3d'} 16%, transparent)` }}>
                   <Icon name={ACCT_ICONS[fromAccountObj?.type ?? 'cash']} size={26} />
                 </span>
-                <b>{fromAccountObj?.name ?? 'Origin'}</b>
+                <b>{fromAccountObj?.name ?? t('origin')}</b>
                 <small>{fromAccountObj ? fmtCompact(fromAccountObj.balance, currency) : '—'}</small>
-                <em>From</em>
+                <em>{t('from')}</em>
               </button>
               <div className="mobile-transfer-arrow">→</div>
               <button className="mobile-transfer-card" onClick={() => setTransferPicker('to')}>
                 <span style={{ color: toAccountObj?.color ?? '#35d0a2', background: `color-mix(in oklab, ${toAccountObj?.color ?? '#35d0a2'} 16%, transparent)` }}>
                   <Icon name={ACCT_ICONS[toAccountObj?.type ?? 'cash']} size={26} />
                 </span>
-                <b>{toAccountObj?.name ?? 'Destination'}</b>
+                <b>{toAccountObj?.name ?? t('destination')}</b>
                 <small>{toAccountObj ? fmtCompact(toAccountObj.balance, currency) : '—'}</small>
-                <em>To</em>
+                <em>{t('to')}</em>
               </button>
             </div>
 
@@ -367,7 +367,7 @@ export function MobileCreateFlow({
               <input
                 type="text"
                 value={note}
-                placeholder="Nota: Introduce una nota..."
+                placeholder={t('notePlaceholder')}
                 enterKeyHint="done"
                 autoCapitalize="sentences"
                 autoCorrect="on"
@@ -422,7 +422,7 @@ export function MobileCreateFlow({
         {/* Save */}
         <button className="mobile-save-button" disabled={!canSave} onClick={save}>
           <Icon name="check" size={20} />
-          {mode === 'transfer' ? 'Transfer' : t('save')}
+          {mode === 'transfer' ? t('transfer') : t('save')}
         </button>
       </div>
 
@@ -431,12 +431,12 @@ export function MobileCreateFlow({
         <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setAccountPicker(false)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
-              <span>Select account</span>
+              <span>{t('selectAccount')}</span>
               <button onClick={() => setAccountPicker(false)}><Icon name="close" size={18} /></button>
             </header>
             {accounts.length === 0 ? (
               <div className="mobile-picker-list" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                No accounts yet. Add one from your Profile.
+                {t('noAccountsYet')}
               </div>
             ) : (
               <div className="mobile-picker-list">
@@ -463,7 +463,7 @@ export function MobileCreateFlow({
         <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setTransferPicker(null)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
-              <span>{transferPicker === 'from' ? 'Source account' : 'Destination account'}</span>
+              <span>{transferPicker === 'from' ? t('sourceAccount') : t('destinationAccount')}</span>
               <button onClick={() => setTransferPicker(null)}><Icon name="close" size={18} /></button>
             </header>
             <div className="mobile-picker-list">
@@ -530,6 +530,7 @@ function MobileCategoryEditor({
   onClose: () => void
   onSave: (fields: { name: string; icon: IconName; color: string; budget: number }) => void
 }) {
+  const t = useT()
   const [name, setName] = useState('')
   const [icon, setIcon] = useState<IconName>(type === 'income' ? 'wallet' : 'cart')
   const [color, setColor] = useState(type === 'income' ? '#35d0a2' : '#ffdd3d')
@@ -540,22 +541,22 @@ function MobileCategoryEditor({
   return (
     <div className="mobile-editor-screen" role="dialog" aria-modal="true">
       <header>
-        <button onClick={onClose}>Cancel</button>
-        <strong>New category</strong>
-        <button onClick={() => onSave({ name, icon, color, budget: Number(budget) || 0 })}>Create</button>
+        <button onClick={onClose}>{t('cancel')}</button>
+        <strong>{t('newCategory')}</strong>
+        <button onClick={() => onSave({ name, icon, color, budget: Number(budget) || 0 })}>{t('create')}</button>
       </header>
       <div className="mobile-editor-body">
         <label>
-          <span>Type</span>
-          <input value={type === 'income' ? 'Income' : 'Expense'} readOnly />
+          <span>{t('type')}</span>
+          <input value={type === 'income' ? t('income') : t('expense')} readOnly />
         </label>
         <label>
-          <span>Name</span>
+          <span>{t('name')}</span>
           <input
             autoFocus
             type="text"
             value={name}
-            placeholder={type === 'income' ? 'e.g. Bonus' : 'e.g. Pets'}
+            placeholder={type === 'income' ? t('egIncomeCategory') : t('egExpenseCategory')}
             autoCapitalize="words"
             autoCorrect="on"
             enterKeyHint="done"
@@ -564,12 +565,12 @@ function MobileCategoryEditor({
         </label>
         {type === 'expense' && (
           <label>
-            <span>Monthly budget</span>
+            <span>{t('monthlyBudget')}</span>
             <input type="number" value={budget} placeholder="0" onChange={event => setBudget(event.target.value)} />
           </label>
         )}
         <div>
-          <span className="mobile-editor-label">Icon</span>
+          <span className="mobile-editor-label">{t('icon')}</span>
           <div className="mobile-icon-grid">
             {CATEGORY_ICONS.map(item => (
               <button key={item} className={icon === item ? 'on' : ''} onClick={() => setIcon(item)}>
@@ -579,7 +580,7 @@ function MobileCategoryEditor({
           </div>
         </div>
         <div>
-          <span className="mobile-editor-label">Color</span>
+          <span className="mobile-editor-label">{t('color')}</span>
           <div className="mobile-color-grid">
             {CATEGORY_COLORS.map(item => (
               <button key={item} className={color === item ? 'on' : ''} style={{ background: item }} onClick={() => setColor(item)} />
