@@ -4,7 +4,6 @@ import { useSettings } from '@/store/settings'
 import { currentMonthKey, monthKeys } from '@/data/helpers'
 import { ToastHost, toast } from '@/components/ui/Toast'
 import { DialogProvider } from '@/components/ui/DialogProvider'
-import { CommandPalette } from '@/components/CommandPalette'
 import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
 import { MobileOnboarding } from '@/mobile/MobileOnboarding'
 import { TransactionForm } from '@/modals/TransactionForm'
@@ -34,7 +33,6 @@ export default function App() {
   const [view,         setView]         = useState<ViewId>('dashboard')
   const [mkey,         setMkey]         = useState(currentMonthKey())
   const [txForm,       setTxForm]       = useState<Transaction | 'new' | null>(null)
-  const [cmdOpen,      setCmdOpen]      = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   useRecurring()
@@ -43,10 +41,9 @@ export default function App() {
   useCloudWorkspace()
   useAutoCloudSync()
 
-  const overlayOpen = !!txForm || cmdOpen || settingsOpen
+  const overlayOpen = !!txForm || settingsOpen
   useMobileBackDismiss(overlayOpen, () => {
     if (settingsOpen) setSettingsOpen(false)
-    else if (cmdOpen) setCmdOpen(false)
     else if (txForm) setTxForm(null)
   })
 
@@ -122,14 +119,13 @@ export default function App() {
           mkey={mkey}
           keys={keys}
           onMonth={setMkey}
-          onSearch={() => setCmdOpen(true)}
+          onMenu={() => toast('Próximamente: crear o unirse a libros de caja', { icon: 'info' })}
           onSettings={() => setSettingsOpen(true)}
           onEditTx={tx => setTxForm(tx)}
           userName={s.displayName || undefined}
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
-        {cmdOpen      && <CommandPalette onClose={() => setCmdOpen(false)} goto={v => { setView(v); setCmdOpen(false) }} onEditTx={tx => { setTxForm(tx); setCmdOpen(false) }} />}
         {settingsOpen && <MobileSettings onClose={() => setSettingsOpen(false)} />}
       </DialogProvider>
     </div>

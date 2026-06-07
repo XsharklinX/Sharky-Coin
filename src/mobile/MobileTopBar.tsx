@@ -13,7 +13,7 @@ export function MobileTopBar({
   canGoForward,
   onPrevMonth,
   onNextMonth,
-  onSearch,
+  onMenu,
   onSettings,
   onCurrency,
 }: {
@@ -24,7 +24,7 @@ export function MobileTopBar({
   canGoForward: boolean
   onPrevMonth:  () => void
   onNextMonth:  () => void
-  onSearch:     () => void
+  onMenu:     () => void
   onSettings:   () => void
   onCurrency:   () => void
 }) {
@@ -50,7 +50,7 @@ export function MobileTopBar({
 
   return (
     <header className="mobile-topbar">
-      <button className="mobile-icon-btn" aria-label={t('menu')} onClick={onSearch}>
+      <button className="mobile-icon-btn" aria-label={t('menu')} onClick={onMenu}>
         <Icon name="menu" size={22} />
       </button>
 
