@@ -17,6 +17,7 @@ interface SettingsState {
   displayName: string
   language: 'en' | 'es'
   requireBiometric: boolean
+  dismissedAlerts: string[]
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -32,6 +33,7 @@ interface SettingsState {
   setDisplayName: (v: string) => void
   setLanguage: (v: 'en' | 'es') => void
   setRequireBiometric: (v: boolean) => void
+  dismissAlert: (id: string) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -51,6 +53,7 @@ export const useSettings = create<SettingsState>()(
       displayName: '',
       language: 'es',
       requireBiometric: false,
+      dismissedAlerts: [],
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -66,6 +69,8 @@ export const useSettings = create<SettingsState>()(
       setDisplayName: (displayName) => set({ displayName }),
       setLanguage: (language) => set({ language }),
       setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
+      dismissAlert: (id) => set(state =>
+        state.dismissedAlerts.includes(id) ? state : { dismissedAlerts: [...state.dismissedAlerts, id] }),
     }),
     {
       name:    'sharky-settings-v2',

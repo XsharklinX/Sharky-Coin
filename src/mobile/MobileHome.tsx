@@ -1,7 +1,10 @@
+import { useMemo } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
+import { getMobileAlerts } from '@/data/alerts'
 import { byCategory, currentMonthKey, fmtCompact, totals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { MobileTransactionList } from './MobileTransactionList'
 import type { IconName, Transaction } from '@/types'
@@ -26,6 +29,8 @@ export function MobileHome({
   onDeleteTx?: (id: string) => void
 }) {
   const { transactions, categories, accounts, currency } = useFinance()
+  const dismissedAlerts = useSettings(state => state.dismissedAlerts)
+  const dismissAlert = useSettings(state => state.dismissAlert)
   const t = useT()
   const monthTx = txForMonth(transactions, mkey)
   const summary = totals(monthTx)
@@ -54,6 +59,9 @@ export function MobileHome({
   const prevPace = prevSum.expense > 0 && dayOfMonth > 0 ? prevSum.expense / daysInMonth * dayOfMonth : 0
   const spendTrend = prevPace > 0 ? Math.round((summary.expense / prevPace - 1) * 100) : null
   const showInsights = isCurrent && monthTx.length > 0 && dayOfMonth >= 3
+
+  const alerts = useMemo(() => getMobileAlerts(transactions, categories, currency), [transactions, categories, currency])
+  const visibleAlerts = isCurrent ? alerts.filter(a => !dismissedAlerts.includes(a.id)) : []
 
   return (
     <div className="mobile-home">
@@ -86,6 +94,21 @@ export function MobileHome({
           </div>
         </div>
       </section>
+
+      {/* ─── Avisos ─── */}
+      {visibleAlerts.length > 0 && (
+        <div className="mhome-alerts mhome-stagger-1">
+          {visibleAlerts.map(alert => (
+            <div key={alert.id} className={`mhome-alert ${alert.level}`}>
+              <span className="mhome-alert-ico"><Icon name={alert.icon} size={16} /></span>
+              <p><strong>{alert.title}</strong>{alert.text}</p>
+              <button aria-label="Descartar aviso" onClick={() => dismissAlert(alert.id)}>
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ─── Cuentas ─── */}
       {accounts.length > 0 && (
