@@ -2,34 +2,26 @@ import { useEffect, useMemo } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { getMobileAlerts } from '@/data/alerts'
-import { currentMonthKey, fmtCompact, totals, txForMonth } from '@/data/helpers'
+import { currentMonthKey, totals, txForMonth } from '@/data/helpers'
 import { sendNativeNotification } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { MobileTransactionList } from './MobileTransactionList'
-import type { IconName, Transaction } from '@/types'
-
-const ACCT_ICONS: Record<string, IconName> = {
-  cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
-}
+import type { Transaction } from '@/types'
 
 export function MobileHome({
   mkey,
   onAdd,
-  onMovements,
-  onBudgets,
   onEditTx,
   onDeleteTx,
 }: {
   mkey: string
   onAdd: () => void
-  onMovements: () => void
-  onBudgets: () => void
   onEditTx: (tx: Transaction) => void
   onDeleteTx?: (id: string) => void
 }) {
-  const { transactions, categories, accounts, currency } = useFinance()
+  const { transactions, categories, currency } = useFinance()
   const dismissedAlerts = useSettings(state => state.dismissedAlerts)
   const dismissAlert = useSettings(state => state.dismissAlert)
   const notifiedAlerts = useSettings(state => state.notifiedAlerts)
@@ -37,11 +29,6 @@ export function MobileHome({
   const t = useT()
   const monthTx = txForMonth(transactions, mkey)
   const summary = totals(monthTx)
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
-  const expCats = categories.filter(c => c.type === 'expense')
-  const totalBudget = expCats.reduce((s, c) => s + c.budget, 0)
-  const budgetPct = totalBudget > 0 ? Math.min(100, Math.round(summary.expense / totalBudget * 100)) : 0
-  const recent = monthTx.slice(0, 5)
   const isPositive = summary.net >= 0
   const isCurrent = mkey === currentMonthKey()
 
@@ -105,69 +92,14 @@ export function MobileHome({
         </div>
       )}
 
-      {/* ─── Cuentas ─── */}
-      {accounts.length > 0 && (
-        <div className="mhome-section mhome-stagger-1">
-          <div className="mhome-section-hdr">
-            <span>{t('accounts')}</span>
-            <strong><AnimatedMoney value={totalBalance} compact /></strong>
-          </div>
-          <div className="mhome-accounts-row">
-            {accounts.map(account => (
-              <div key={account.id} className="mhome-account-card">
-                <span className="mhome-account-icon" style={{
-                  color: account.color,
-                  background: `color-mix(in oklab, ${account.color} 15%, transparent)`,
-                }}>
-                  <Icon name={ACCT_ICONS[account.type] ?? 'wallet'} size={18} />
-                </span>
-                <small>{account.name}</small>
-                <b className={account.balance < 0 ? 'neg' : ''}>
-                  <AnimatedMoney value={account.balance} compact />
-                </b>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ─── Presupuesto ─── */}
-      {totalBudget > 0 && (
-        <button className="mhome-budget mhome-stagger-2" onClick={onBudgets}>
-          <div className="mhome-budget-row">
-            <span>{t('monthBudget')}</span>
-            <span className={budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warn' : 'ok'}>
-              {budgetPct}%
-            </span>
-          </div>
-          <div className="mhome-bar-track">
-            <span className="mhome-bar-fill" style={{
-              width: `${Math.min(100, budgetPct)}%`,
-              background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : 'var(--accent, #ffdd3d)',
-            }} />
-          </div>
-          <div className="mhome-budget-meta">
-            <span><AnimatedMoney value={summary.expense} compact /> {t('spent')}</span>
-            <span>{t('of')} {fmtCompact(totalBudget, currency)}</span>
-          </div>
-        </button>
-      )}
-
-      {/* ─── Movimientos recientes ─── */}
-      <div className="mhome-section mhome-stagger-4">
-        <div className="mhome-section-hdr">
-          <span>{t('movements')}</span>
-          <button onClick={onMovements}>{t('viewAll')}</button>
-        </div>
-        {recent.length ? (
-          <div className="mhome-tx-card">
-            <MobileTransactionList
-              transactions={recent}
-              onEdit={onEditTx}
-              onDelete={onDeleteTx}
-              compact
-            />
-          </div>
+      {/* ─── Movimientos del mes ─── */}
+      <div className="mhome-movements mhome-stagger-2">
+        {monthTx.length ? (
+          <MobileTransactionList
+            transactions={monthTx}
+            onEdit={onEditTx}
+            onDelete={onDeleteTx}
+          />
         ) : (
           <div className="mhome-empty">
             <span className="mhome-empty-ico"><Icon name="list" size={22} /></span>

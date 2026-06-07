@@ -1,9 +1,9 @@
 import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
 
-export type MobileRoute = 'home' | 'movements' | 'analytics' | 'add' | 'reports' | 'profile'
+export type MobileRoute = 'home' | 'analytics' | 'add' | 'reports' | 'profile'
 
-type NavItem = { route: Exclude<MobileRoute, 'add' | 'movements'>; icon: Parameters<typeof Icon>[0]['name'] }
+type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name'] }
 
 const ITEMS: NavItem[] = [
   { route: 'home',      icon: 'grid'  },

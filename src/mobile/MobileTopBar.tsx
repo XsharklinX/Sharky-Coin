@@ -36,7 +36,6 @@ export function MobileTopBar({
 
   const TITLES: Record<MobileRoute, string> = {
     home:      t('home'),
-    movements: t('movements'),
     analytics: t('analytics'),
     add:       t('add'),
     reports:   t('reports'),

@@ -1,6 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
-import { Empty, MiniStat } from '@/views/shared'
-import { totals, txForMonth } from '@/data/helpers'
+import { lazy, Suspense, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute } from './MobileBottomNav'
@@ -15,20 +13,17 @@ import { MobileDebt } from './MobileDebt'
 import { MobileSubscriptions } from './MobileSubscriptions'
 const MobileCSVImport = lazy(() => import('./MobileCSVImport').then(m => ({ default: m.MobileCSVImport })))
 import { MobileTopBar } from './MobileTopBar'
-import { MobileTransactionList } from './MobileTransactionList'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 
 function routeFromView(view: ViewId): MobileRoute {
-  if (view === 'transactions') return 'movements'
   if (view === 'stats') return 'analytics'
   if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports' || view === 'subscriptions' || view === 'debt') return 'reports'
   return 'home'
 }
 
 function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
-  if (route === 'movements') return 'transactions'
   if (route === 'analytics') return 'stats'
   if (route === 'reports') return 'reports'
   return 'dashboard'
@@ -72,8 +67,6 @@ export function MobileShell({
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
-  const monthTx = useMemo(() => txForMonth(viewProps.txns, mkey), [viewProps.txns, mkey])
-  const monthTotals = totals(monthTx)
   const mIdx = keys.indexOf(mkey)
 
   // Back navigation: add-flow → home
@@ -84,12 +77,6 @@ export function MobileShell({
   // Back navigation: sub-views inside reports → main reports
   const isInSubView = route === 'reports' && view !== 'reports'
   useMobileBackDismiss(isInSubView, () => setView('reports'))
-  // Back navigation: movements → home
-  useMobileBackDismiss(route === 'movements', () => {
-    setRoute('home')
-    setView('dashboard')
-  })
-
   const goRoute = (next: MobileRoute) => {
     setRoute(next)
     if (next !== 'add') setView(viewFromRoute(next))
@@ -110,30 +97,20 @@ export function MobileShell({
         <MobileHome
           mkey={mkey}
           onAdd={() => setRoute('add')}
-          onMovements={() => { setRoute('movements'); setView('transactions') }}
-          onBudgets={() => { setRoute('reports'); setView('budgets') }}
           onEditTx={onEditTx}
           onDeleteTx={viewProps.onDeleteTx}
         />
       )
     }
 
-    if (view === 'transactions') {
+    if (route === 'analytics') {
       return (
-        <div className="mobile-route">
-          <div className="mobile-summary-strip">
-            <MiniStat label="Gastos" amount={monthTotals.expense} color="var(--expense)" />
-            <MiniStat label="Ingresos" amount={monthTotals.income} color="var(--income)" />
-            <MiniStat label="Balance" amount={monthTotals.net} color="var(--accent)" />
-          </div>
-          {monthTx.length
-            ? <MobileTransactionList transactions={monthTx} onEdit={onEditTx} onDelete={viewProps.onDeleteTx} />
-            : <Empty icon="list" title="Sin movimientos" text="Agrega tu primer movimiento del mes." />}
-        </div>
+        <MobileAnalytics
+          mkey={mkey}
+          onBudgets={() => { setRoute('reports'); setView('budgets') }}
+        />
       )
     }
-
-    if (route === 'analytics') return <MobileAnalytics mkey={mkey} />
 
     if (route === 'reports') {
       if (view === 'annual') return <MobileAnnual mkey={mkey} />

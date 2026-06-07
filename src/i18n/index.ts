@@ -1,7 +1,7 @@
 import { useSettings } from '@/store/settings'
 
 const en = {
-  home: 'Home', movements: 'Movements', analytics: 'Analytics',
+  home: 'Home', analytics: 'Analytics',
   add: 'Add', reports: 'Reports', profile: 'Profile',
   income: 'Income', expense: 'Expense', transfer: 'Transfer',
   save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
@@ -26,7 +26,7 @@ const en = {
   thisMonth: 'This month', monthBalance: 'Monthly balance',
   incomes: 'Income', monthBudget: 'Monthly budget',
   spent: 'spent', of: 'of', topExpense: 'Top expense',
-  viewAll: 'View all', noMovementsMonth: 'No movements this month',
+  noMovementsMonth: 'No movements this month',
   registerFirst: 'Add the first one',
 } satisfies Record<string, string>
 
@@ -34,7 +34,7 @@ export type LangKey = keyof typeof en
 export type Language = 'en' | 'es'
 
 const es: Record<LangKey, string> = {
-  home: 'Inicio', movements: 'Movimientos', analytics: 'Gráficos',
+  home: 'Inicio', analytics: 'Gráficos',
   add: 'Agregar', reports: 'Informes', profile: 'Perfil',
   income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia',
   save: 'Guardar', cancel: 'Cancelar', delete: 'Eliminar', edit: 'Editar',
@@ -59,7 +59,7 @@ const es: Record<LangKey, string> = {
   thisMonth: 'Este mes', monthBalance: 'Balance del mes',
   incomes: 'Ingresos', monthBudget: 'Presupuesto del mes',
   spent: 'gastado', of: 'de', topExpense: 'Mayor gasto',
-  viewAll: 'Ver todo', noMovementsMonth: 'Sin movimientos este mes',
+  noMovementsMonth: 'Sin movimientos este mes',
   registerFirst: 'Registrar el primero',
 }
 

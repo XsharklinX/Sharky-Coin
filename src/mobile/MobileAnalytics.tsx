@@ -42,7 +42,7 @@ function SavingsRing({ rate }: { rate: number }) {
   )
 }
 
-export function MobileAnalytics({ mkey }: { mkey: string }) {
+export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?: () => void }) {
   const { transactions, categories, currency } = useFinance()
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
   const year = Number(mkey.slice(0, 4))
@@ -102,6 +102,7 @@ export function MobileAnalytics({ mkey }: { mkey: string }) {
   const spendTrend = prevPace > 0 ? Math.round((summary.expense / prevPace - 1) * 100) : null
   const showTrend = period === 'month' && isCurrentMonth && monthTx.length > 0 && dayOfMonth >= 3
   const totalBudget = categories.filter(c => c.type === 'expense').reduce((s, c) => s + c.budget, 0)
+  const budgetPct = totalBudget > 0 ? Math.min(100, Math.round(summary.expense / totalBudget * 100)) : 0
 
   // Donut
   const donut = categoryRows.length
@@ -180,6 +181,28 @@ export function MobileAnalytics({ mkey }: { mkey: string }) {
           </div>
         </div>
       </section>
+
+      {/* Presupuesto del mes (acceso rápido) */}
+      {onBudgets && period === 'month' && totalBudget > 0 && (
+        <button className="man-card man-budget-card" onClick={onBudgets}>
+          <div className="man-card-header">
+            <h2>Presupuesto del mes</h2>
+            <span className={`man-budget-pct ${budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warn' : 'ok'}`}>
+              {budgetPct}%
+            </span>
+          </div>
+          <div className="man-budget-track">
+            <span className="man-budget-fill" style={{
+              width: `${Math.min(100, budgetPct)}%`,
+              background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : 'var(--accent, #ffdd3d)',
+            }} />
+          </div>
+          <div className="man-budget-meta">
+            <span><AnimatedMoney value={summary.expense} compact /> gastado</span>
+            <span>de {fmtCompact(totalBudget, currency)}</span>
+          </div>
+        </button>
+      )}
 
       {/* Tendencia y proyección */}
       {showTrend && (spendTrend !== null || projectedExpense > 0) && (

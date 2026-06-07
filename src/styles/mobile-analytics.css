@@ -109,6 +109,17 @@
   .man-budget-chip.warn { background: rgba(245,158,11,.12); color: #f59e0b; }
   .man-budget-chip.over { background: rgba(255,107,138,.12); color: #ff6b8a; }
   .man-empty { color: var(--text-dim); font-size: 13px; margin: 0; }
+  /* Presupuesto del mes (acceso rápido) */
+  .man-budget-card { align-items: stretch; cursor: pointer; text-align: left; }
+  .man-budget-card .man-card-header { align-items: center; display: flex; flex-direction: row; justify-content: space-between; }
+  .man-budget-pct { font-size: 15px; font-weight: 900; }
+  .man-budget-pct.ok { color: #35d0a2; }
+  .man-budget-pct.warn { color: #f59e0b; }
+  .man-budget-pct.danger { color: #ff6b8a; }
+  .man-budget-track { background: rgba(255,255,255,.08); border-radius: 999px; height: 6px; overflow: hidden; }
+  .man-budget-fill { border-radius: inherit; display: block; height: 100%; transition: width .4s ease; }
+  .man-budget-meta { display: flex; justify-content: space-between; }
+  .man-budget-meta span { color: var(--text-dim); font-size: 11px; font-weight: 700; }
   /* Tendencia y proyección */
   .man-trend-rows { display: grid; gap: 12px; }
   .man-trend-row {
