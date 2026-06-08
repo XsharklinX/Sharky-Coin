@@ -35,7 +35,13 @@ const tauriCredentialStorage: AuthStorage = {
   removeItem: key => tauriInvoke<void>('secure_storage_remove', { key }),
 }
 
-export const usesNativeCredentialStorage = isTauri()
+// El crate `keyring` solo trae backend nativo para Windows (ver Cargo.toml,
+// feature "windows-native"). En Android no hay Keystore configurado:
+// secure_storage_get/set fallan en tiempo de ejecución, lo que rompe el
+// round-trip del code_verifier PKCE (Google login queda colgado en silencio).
+const isAndroid = isTauri() && /android/i.test(navigator.userAgent)
+
+export const usesNativeCredentialStorage = isTauri() && !isAndroid
 
 if (usesNativeCredentialStorage && hasBrowserStorage) {
   Object.keys(localStorage)
