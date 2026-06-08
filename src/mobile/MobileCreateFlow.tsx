@@ -13,10 +13,11 @@ type MobileTxMode = Transaction['type']
 
 const today = () => new Date().toISOString().slice(0, 10)
 const keypad = [
-  '7', '8', '9', '÷',
-  '4', '5', '6', '×',
-  '1', '2', '3', '−',
-  'back', '0', '.', '+',
+  '7', '8', '9',
+  '4', '5', '6',
+  '1', '2', '3',
+  '÷', '×', '−',
+  '0', '.', '+',
 ] as const
 const OPERATORS = ['+', '−', '×', '÷'] as const
 type Operator = (typeof OPERATORS)[number]
@@ -145,7 +146,7 @@ export function MobileCreateFlow({
 
   const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null) }
 
-  const pressKey = (key: (typeof keypad)[number]) => {
+  const pressKey = (key: (typeof keypad)[number] | 'back') => {
     setFormError(null)
     if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
     if ((OPERATORS as readonly string[]).includes(key)) {
@@ -413,14 +414,19 @@ export function MobileCreateFlow({
                   key={key}
                   className={(OPERATORS as readonly string[]).includes(key) ? 'op' : ''}
                   onClick={() => pressKey(key)}>
-                  {key === 'back' ? <Icon name="close" size={18} /> : key}
+                  {key}
                 </button>
               ))}
             </div>
-            {/* Listo — pequeño botón de icono en la esquina inferior del panel */}
-            <button className="mobile-done-button" disabled={!canSave} onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
-              <Icon name="check" size={20} />
-            </button>
+            {/* Columna de acciones: borrar arriba, Listo abajo — sin espacios sobrantes */}
+            <div className="mobile-keypad-actions">
+              <button className="mobile-back-button" onClick={() => pressKey('back')} aria-label={t('delete')}>
+                <Icon name="close" size={18} />
+              </button>
+              <button className="mobile-done-button" disabled={!canSave} onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
+                <Icon name="check" size={20} />
+              </button>
+            </div>
           </div>
         )}
       </div>
