@@ -524,6 +524,21 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
             <SettingsRow icon="map" iconColor="#64d2ff" label={t('language')}
               value={settings.language === 'en' ? 'English' : 'Español'}
               onClick={() => open('language')} />
+            <div className="mset-row">
+              <span className="mset-row-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+                <Icon name="bell" size={18} />
+              </span>
+              <div className="mset-row-text">
+                <b>Sonidos de interfaz</b>
+                <small>Tonos al escribir, guardar y abrir</small>
+              </div>
+              <label className="mset-toggle-wrap">
+                <input type="checkbox" className="mset-toggle-input"
+                  checked={settings.soundsEnabled}
+                  onChange={e => settings.setSoundsEnabled(e.target.checked)} />
+                <span className="mset-toggle" />
+              </label>
+            </div>
           </div>
         </div>
 

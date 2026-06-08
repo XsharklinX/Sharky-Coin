@@ -822,6 +822,9 @@
   .mobile-bottom-nav > button.on {
     color: var(--m-primary);
   }
+  .mobile-add-fab-wrap {
+    align-items: center; display: flex; justify-content: center; position: relative;
+  }
   .mobile-bottom-nav .mobile-add-fab {
     background: var(--m-primary);
     border-radius: 999px;
@@ -830,5 +833,34 @@
     height: 66px;
     margin: -26px auto 0;
     min-height: 66px;
+    touch-action: none;
     width: 66px;
+  }
+  .mobile-fab-menu-backdrop { inset: 0; position: fixed; z-index: 85; }
+  .mobile-fab-menu {
+    animation: mfab-pop .16s ease;
+    background: var(--m-surface);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    bottom: 88px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.4);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    left: 50%;
+    padding: 8px;
+    position: absolute;
+    transform: translateX(-50%);
+    z-index: 90;
+  }
+  .mobile-fab-menu button {
+    align-items: center; border: 0; border-radius: 12px;
+    display: flex; font-size: 14px; font-weight: 800;
+    gap: 8px; padding: 12px 20px; white-space: nowrap;
+  }
+  .mobile-fab-menu button.expense { background: color-mix(in oklab, #ff6b8a 16%, transparent); color: #ff6b8a; }
+  .mobile-fab-menu button.income  { background: color-mix(in oklab, #35d0a2 16%, transparent); color: #35d0a2; }
+  @keyframes mfab-pop {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(.92); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   }

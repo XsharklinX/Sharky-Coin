@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import type { Transaction, ViewId, ViewProps } from '@/types'
-import { MobileBottomNav, type MobileRoute } from './MobileBottomNav'
+import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
 import { MobileAnalytics } from './MobileAnalytics'
 import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
@@ -63,6 +63,7 @@ export function MobileShell({
   userName?: string
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
+  const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
   const mIdx = keys.indexOf(mkey)
@@ -76,6 +77,7 @@ export function MobileShell({
   const isInSubView = route === 'reports' && view !== 'reports'
   useMobileBackDismiss(isInSubView, () => setView('reports'))
   const goRoute = (next: MobileRoute) => {
+    if (next !== 'add') setQuickAddMode(null)
     setRoute(next)
     if (next !== 'add') setView(viewFromRoute(next))
   }
@@ -85,7 +87,8 @@ export function MobileShell({
       return (
         <MobileCreateFlow
           mkey={mkey}
-          onSaved={() => { setRoute('home'); setView('dashboard') }}
+          initialMode={quickAddMode ?? undefined}
+          onSaved={() => { setQuickAddMode(null); setRoute('home'); setView('dashboard') }}
         />
       )
     }
@@ -165,7 +168,8 @@ export function MobileShell({
           <div className="mobile-content">
             {renderMain()}
           </div>
-          <MobileBottomNav route={route} onRoute={goRoute} />
+          <MobileBottomNav route={route} onRoute={goRoute}
+            onQuickAdd={mode => { setQuickAddMode(mode); setRoute('add') }} />
         </>
       )}
     </main>

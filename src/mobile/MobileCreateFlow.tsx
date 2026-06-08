@@ -5,6 +5,7 @@ import { fmt, fmtCompact } from '@/data/helpers'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { useT } from '@/i18n'
+import { playBackspaceSound, playConfirmSound, playKeySound, playOperatorSound } from '@/lib/sound'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -85,14 +86,16 @@ function formatDateShort(date: string): string {
 
 export function MobileCreateFlow({
   mkey,
+  initialMode,
   onSaved,
 }: {
   mkey: string
+  initialMode?: MobileTxMode
   onSaved: () => void
 }) {
   const t = useT()
   const { accounts, categories, currency, addTx, transfer, addCategory } = useFinance()
-  const [mode, setMode] = useState<MobileTxMode>('expense')
+  const [mode, setMode] = useState<MobileTxMode>(initialMode ?? 'expense')
   const [amountText, setAmountText] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [accountId, setAccountId] = useState<string | null>(null)   // no default account
@@ -147,12 +150,14 @@ export function MobileCreateFlow({
 
   const pressKey = (key: (typeof keypad)[number] | 'back') => {
     setFormError(null)
-    if (key === 'back') { setAmountText(v => v.slice(0, -1)); return }
+    if (key === 'back') { playBackspaceSound(); setAmountText(v => v.slice(0, -1)); return }
     if ((OPERATORS as readonly string[]).includes(key)) {
+      playOperatorSound()
       setAmountText(v => (!v || (OPERATORS as readonly string[]).includes(v.slice(-1)) ? v : v + key))
       return
     }
     if (key === '.') {
+      playOperatorSound()
       setAmountText(v => {
         const segment = lastSegment(v)
         if (segment.includes('.')) return v
@@ -160,6 +165,7 @@ export function MobileCreateFlow({
       })
       return
     }
+    playKeySound()
     setAmountText(v => {
       const cut = lastOperatorIndex(v)
       const head = cut === -1 ? '' : v.slice(0, cut + 1)
@@ -207,6 +213,7 @@ export function MobileCreateFlow({
         })
       }
       navigator.vibrate?.(18)
+      playConfirmSound()
       toast(
         recurring
           ? t(recurFreq === 'weekly' ? 'weeklyRecurringScheduled' : 'monthlyRecurringScheduled')

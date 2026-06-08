@@ -18,6 +18,7 @@ interface SettingsState {
   language: 'en' | 'es'
   requireBiometric: boolean
   appPin: string | null
+  soundsEnabled: boolean
   dismissedAlerts: string[]
   notifiedAlerts: string[]
 
@@ -36,6 +37,7 @@ interface SettingsState {
   setLanguage: (v: 'en' | 'es') => void
   setRequireBiometric: (v: boolean) => void
   setAppPin: (v: string | null) => void
+  setSoundsEnabled: (v: boolean) => void
   dismissAlert: (id: string) => void
   markAlertNotified: (id: string) => void
 }
@@ -58,6 +60,7 @@ export const useSettings = create<SettingsState>()(
       language: 'es',
       requireBiometric: false,
       appPin: null,
+      soundsEnabled: true,
       dismissedAlerts: [],
       notifiedAlerts: [],
 
@@ -76,6 +79,7 @@ export const useSettings = create<SettingsState>()(
       setLanguage: (language) => set({ language }),
       setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
       setAppPin: (appPin) => set({ appPin }),
+      setSoundsEnabled: (soundsEnabled) => set({ soundsEnabled }),
       dismissAlert: (id) => set(state =>
         state.dismissedAlerts.includes(id) ? state : { dismissedAlerts: [...state.dismissedAlerts, id] }),
       markAlertNotified: (id) => set(state =>
