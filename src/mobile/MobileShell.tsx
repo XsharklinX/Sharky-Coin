@@ -122,7 +122,7 @@ export function MobileShell({
           </ViewErrorBoundary>
         )
       }
-      return <MobileReports goto={v => setView(v)} onImport={() => setCsvOpen(true)} />
+      return <MobileReports goto={v => setView(v)} onImport={() => setCsvOpen(true)} mkey={mkey} />
     }
 
     if (route === 'profile') {

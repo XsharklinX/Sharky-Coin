@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { useMemo } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { fmtCompact } from '@/data/helpers'
+import { toast } from '@/components/ui/Toast'
+import { fmtCompact, monthLabel } from '@/data/helpers'
+import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import type { Account, AccountType, ViewId } from '@/types'
 
 const TYPE_META: Record<AccountType, { label: string; group: string; icon: Parameters<typeof Icon>[0]['name'] }> = {
@@ -15,8 +19,36 @@ function accountKind(a: Account): 'asset' | 'debt' {
   return a.type === 'credit' || a.balance < 0 ? 'debt' : 'asset'
 }
 
-export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; onImport?: () => void }) {
-  const { accounts, currency } = useFinance()
+export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => void; onImport?: () => void; mkey: string }) {
+  const finance = useFinance()
+  const { accounts, currency } = finance
+  const ownerName = useSettings(s => s.displayName) || '$harky'
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true)
+    try {
+      await exportMonthlyPdf(finance, mkey, ownerName)
+      toast(`Estado de ${monthLabel(mkey)} exportado en PDF`, { icon: 'download', type: 'ok' })
+    } catch {
+      toast('No se pudo generar el PDF.', { icon: 'alert' })
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true)
+    try {
+      await exportExcel(finance)
+      toast('Reporte completo exportado en Excel', { icon: 'download', type: 'ok' })
+    } catch {
+      toast('No se pudo generar el Excel.', { icon: 'alert' })
+    } finally {
+      setExportingExcel(false)
+    }
+  }
 
   const summary = useMemo(() => {
     const assets      = accounts.filter(a => accountKind(a) === 'asset').reduce((s, a) => s + Math.max(0, a.balance), 0)
@@ -170,6 +202,26 @@ export function MobileReports({ goto, onImport }: { goto?: (v: ViewId) => void; 
               <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
             </button>
           )}
+          <button className="mrep-tool-row" disabled={exportingPdf} onClick={handleExportPdf}>
+            <span className="mrep-tool-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
+              <Icon name="download" size={20} />
+            </span>
+            <div>
+              <b>Estado del mes (PDF)</b>
+              <small>{exportingPdf ? 'Generando…' : `Resumen de ${monthLabel(mkey)} listo para compartir`}</small>
+            </div>
+            <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+          </button>
+          <button className="mrep-tool-row" disabled={exportingExcel} onClick={handleExportExcel}>
+            <span className="mrep-tool-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+              <Icon name="download" size={20} />
+            </span>
+            <div>
+              <b>Reporte completo (Excel)</b>
+              <small>{exportingExcel ? 'Generando…' : 'Movimientos, cuentas y categorías por hoja'}</small>
+            </div>
+            <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+          </button>
           {onImport && (
             <button className="mrep-tool-row" onClick={onImport}>
               <span className="mrep-tool-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>

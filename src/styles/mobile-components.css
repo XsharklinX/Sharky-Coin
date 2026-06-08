@@ -304,7 +304,7 @@
   .mobile-app .mobile-top-bar     { background: var(--bg, #0a0e16); border-color: var(--border, rgba(255,255,255,.06)); }
   .mobile-app .mobile-bottom-nav  { background: var(--bg, #0a0e16); border-color: var(--border, rgba(255,255,255,.06)); }
 
-  /* Números animados: tabular nums consistentes */
+  /* Nï¿½meros animados: tabular nums consistentes */
   .mhome-hero-amount,
   .mhome-pill strong,
   .mhome-account-card b {
@@ -793,6 +793,7 @@
   .mrep-tool-row:active { background: color-mix(in oklab, var(--m-surface) 80%, var(--m-text) 6%); }
   .mrep-tool-row:first-of-type { border-radius: 14px 14px 0 0; }
   .mrep-tool-row:last-of-type  { border-bottom: none; border-radius: 0 0 14px 14px; }
+  .mrep-tool-row:disabled { opacity: .55; }
   .mrep-tool-icon { align-items: center; border-radius: 10px; display: flex; flex-shrink: 0; height: 40px; justify-content: center; width: 40px; }
   .mrep-tool-row b    { color: var(--m-text); display: block; font-size: 15px; }
   .mrep-tool-row small{ color: var(--m-muted); display: block; font-size: 12px; }
