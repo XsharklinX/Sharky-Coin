@@ -45,13 +45,10 @@ export async function saveBackupAuto(json: string): Promise<string> {
 export async function saveBackup(json: string): Promise<void> {
   const filename = `sharky-backup-${new Date().toISOString().slice(0, 10)}.json`
 
-  if (isTauri()) {
-    // On Android the save dialog is unreliable — auto-save to app documents folder
-    const isAndroid = /android/i.test(navigator.userAgent)
-    if (isAndroid) {
-      await tauriInvoke('save_backup_auto', { json })
-      return
-    }
+  const isAndroid = /android/i.test(navigator.userAgent)
+
+  if (isTauri() && !isAndroid) {
+    // Desktop Tauri: diálogo nativo de guardar archivo
     const path = await tauriSaveDialog({
       defaultPath: filename,
       filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -61,14 +58,15 @@ export async function saveBackup(json: string): Promise<void> {
     return
   }
 
-  // Web Share API — preferred on Android PWA (shares to Files, Drive, WhatsApp, etc.)
+  // Android (Tauri o PWA) y otros: Web Share API
+  // Abre el menú compartir nativo → usuario elige Descargas, Drive, WhatsApp, etc.
   const file = new File([json], filename, { type: 'application/json' })
   if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
     await navigator.share({ files: [file], title: '$harky backup' })
     return
   }
 
-  // Fallback: programmatic download (desktop browsers)
+  // Fallback: descarga programática (Chrome desktop sin Web Share)
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
   const a   = Object.assign(document.createElement('a'), { href: url, download: filename })
   a.click()
