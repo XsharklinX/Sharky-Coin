@@ -245,7 +245,10 @@
     display: grid;
     flex: 1;
     gap: 6px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .mobile-keypad-compact button.wide {
+    grid-column: span 2;
   }
   .mobile-keypad-compact button {
     background: #222;
@@ -277,16 +280,16 @@
   }
   .mobile-back-button {
     align-items: center;
-    background: #222;
-    border: 1px solid rgba(255,255,255,.05);
+    background: color-mix(in oklab, #ff6b8a 16%, #222);
+    border: 1px solid color-mix(in oklab, #ff6b8a 28%, transparent);
     border-radius: 12px;
-    color: var(--m-muted);
+    color: #ff6b8a;
     display: grid;
     place-items: center;
     transition: background .07s;
   }
   .mobile-back-button:active {
-    background: var(--m-surface-2);
+    background: color-mix(in oklab, #ff6b8a 28%, #222);
     transform: scale(.96);
   }
   /* Account picker sheet */
@@ -483,11 +486,11 @@
   /* "Listo" — segunda celda de la columna de acciones, debajo de "borrar" */
   .mobile-done-button {
     align-items: center;
-    background: var(--m-primary);
+    background: #35d0a2;
     border: 0;
     border-radius: 12px;
-    box-shadow: 0 4px 14px rgba(0,0,0,.35);
-    color: #151515;
+    box-shadow: 0 4px 14px rgba(53,208,162,.28);
+    color: #0b2b22;
     display: grid;
     place-items: center;
   }

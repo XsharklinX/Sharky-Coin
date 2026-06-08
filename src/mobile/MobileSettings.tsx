@@ -489,7 +489,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
         <SettingsSheet title="Nombre" onClose={close}>
           <div className="mset-sheet-body">
             <input
-              className="mset-text-input" autoFocus type="text"
+              className="mset-text-input" type="text"
               value={nameInput} placeholder="Ej. Juan Pérez"
               autoCapitalize="words" enterKeyHint="done"
               onChange={e => setNameInput(e.target.value)}
@@ -623,7 +623,7 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
               ¿Tienes una sugerencia, encontraste un error o quieres contarnos algo? Escríbelo abajo y lo enviamos directo a nuestro equipo.
             </p>
             <textarea
-              className="mset-textarea" autoFocus rows={6}
+              className="mset-textarea" rows={6}
               value={commentText} placeholder="Escribe tu comentario aquí…"
               onChange={e => setCommentText(e.target.value)}
             />

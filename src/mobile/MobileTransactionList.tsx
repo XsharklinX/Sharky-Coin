@@ -193,7 +193,7 @@ export function MobileTransactionList({
           </div>
           <label className="mobile-search-input">
             <Icon name="search" size={18} />
-            <input autoFocus value={query} placeholder="Nota, categoría o cuenta" onChange={event => setQuery(event.target.value)} />
+            <input value={query} placeholder="Nota, categoría o cuenta" onChange={event => setQuery(event.target.value)} />
           </label>
           <MobileTransactionList transactions={rows} onEdit={onEdit} onDelete={onDelete} compact />
         </div>

@@ -13,10 +13,9 @@ type MobileTxMode = Transaction['type']
 
 const today = () => new Date().toISOString().slice(0, 10)
 const keypad = [
-  '7', '8', '9',
-  '4', '5', '6',
-  '1', '2', '3',
-  '÷', '×', '−',
+  '7', '8', '9', '÷',
+  '4', '5', '6', '×',
+  '1', '2', '3', '−',
   '0', '.', '+',
 ] as const
 const OPERATORS = ['+', '−', '×', '÷'] as const
@@ -412,7 +411,10 @@ export function MobileCreateFlow({
               {keypad.map(key => (
                 <button
                   key={key}
-                  className={(OPERATORS as readonly string[]).includes(key) ? 'op' : ''}
+                  className={[
+                    (OPERATORS as readonly string[]).includes(key) ? 'op' : '',
+                    key === '0' ? 'wide' : '',
+                  ].filter(Boolean).join(' ')}
                   onClick={() => pressKey(key)}>
                   {key}
                 </button>
@@ -558,7 +560,6 @@ function MobileCategoryEditor({
         <label>
           <span>{t('name')}</span>
           <input
-            autoFocus
             type="text"
             value={name}
             placeholder={type === 'income' ? t('egIncomeCategory') : t('egExpenseCategory')}

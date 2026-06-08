@@ -88,7 +88,6 @@ function GoalForm({
               placeholder="Ej. Fondo de emergencia"
               value={name}
               onChange={e => setName(e.target.value)}
-              autoFocus
             />
           </label>
 
@@ -209,7 +208,6 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
               placeholder="0.00"
               value={amount}
               onChange={e => setAmount(e.target.value)}
-              autoFocus
             />
           </label>
 

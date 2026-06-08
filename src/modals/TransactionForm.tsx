@@ -146,7 +146,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
 
         <div className="field">
           <label htmlFor="tx-amount">Monto (RD$)</label>
-          <input id="tx-amount" autoFocus className="select" type="number" inputMode="decimal"
+          <input id="tx-amount" className="select" type="number" inputMode="decimal"
             value={amount} onChange={e => setAmount(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && submit()} />
         </div>

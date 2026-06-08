@@ -95,7 +95,6 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
           </div>
           <input
             className="mob-onboard-input"
-            autoFocus
             type="text"
             value={name}
             placeholder={selectedType.label}
@@ -136,7 +135,6 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
             <span className="mob-onboard-balance-symbol">RD$</span>
             <input
               className="mob-onboard-balance-input"
-              autoFocus
               type="number"
               inputMode="decimal"
               value={balance}

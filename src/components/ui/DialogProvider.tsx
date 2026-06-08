@@ -123,7 +123,6 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             <label htmlFor="dialog-prompt-input">{dialog.options.label}</label>
             <input
               id="dialog-prompt-input"
-              autoFocus
               className="select"
               value={dialog.value}
               placeholder={dialog.options.placeholder}

@@ -217,7 +217,6 @@ function BudgetEditor({
             <span>Name</span>
             <input
               className="mbud-input"
-              autoFocus
               type="text"
               value={name}
               placeholder="e.g. Food, Gas"

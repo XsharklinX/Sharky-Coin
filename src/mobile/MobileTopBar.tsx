@@ -41,37 +41,40 @@ export function MobileTopBar({
   }
 
   const showMonth = route !== 'add' && route !== 'profile'
-  const compactMonthLabel = (() => {
+  const monthLabel = (() => {
     const [y, m] = mkey.split('-').map(Number)
-    return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: 'numeric' })
+    return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
   })()
 
   return (
     <header className="mobile-topbar">
-      <div className="mobile-topbar-mid">
+      <div className="mobile-topbar-row">
         <h1>{title ?? TITLES[route]}</h1>
-        {showMonth && (
-          <div className="mobile-month">
-            <button aria-label="Mes anterior" disabled={!canGoBack} onClick={onPrevMonth}>
-              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(-90deg)' }} />
-            </button>
-            <span>{compactMonthLabel}</span>
-            <button aria-label="Mes siguiente" disabled={!canGoForward} onClick={onNextMonth}>
-              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)' }} />
-            </button>
-          </div>
-        )}
+        <div className="mobile-topbar-right">
+          <button className="mobile-currency-btn" aria-label={t('currency')} onClick={onCurrency}>
+            <span className="mobile-currency-flag">{meta.flag}</span>
+            <span className="mobile-currency-code">{currency}</span>
+          </button>
+          <button className="mobile-icon-btn" aria-label={t('settings')} onClick={onSettings}>
+            <Icon name="settings" size={21} />
+          </button>
+        </div>
       </div>
 
-      <div className="mobile-topbar-right">
-        <button className="mobile-currency-btn" aria-label={t('currency')} onClick={onCurrency}>
-          <span className="mobile-currency-flag">{meta.flag}</span>
-          <span className="mobile-currency-code">{currency}</span>
-        </button>
-        <button className="mobile-icon-btn" aria-label={t('settings')} onClick={onSettings}>
-          <Icon name="settings" size={21} />
-        </button>
-      </div>
+      {showMonth && (
+        <div className="mobile-month">
+          <button aria-label="Mes anterior" disabled={!canGoBack} onClick={onPrevMonth}>
+            <Icon name="arrowUp" size={14} style={{ transform: 'rotate(-90deg)' }} />
+          </button>
+          <span className="mobile-month-label">
+            <Icon name="calendar" size={14} />
+            {monthLabel}
+          </span>
+          <button aria-label="Mes siguiente" disabled={!canGoForward} onClick={onNextMonth}>
+            <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)' }} />
+          </button>
+        </div>
+      )}
     </header>
   )
 }

@@ -88,7 +88,6 @@ export function MobileProfile({
         {editingName ? (
           <div className="mpr-name-editor">
             <input
-              autoFocus
               type="text"
               value={nameInput}
               placeholder="Tu nombre"
@@ -208,7 +207,7 @@ function AccountEditorSheet({
         <div className="mpr-editor-body">
           <label className="mpr-field">
             <span>Nombre</span>
-            <input className="mpr-input" value={fields.name} placeholder="Ej. Banco Principal" autoFocus onChange={e => patch('name', e.target.value)} />
+            <input className="mpr-input" value={fields.name} placeholder="Ej. Banco Principal" onChange={e => patch('name', e.target.value)} />
           </label>
 
           <div className="mpr-field-row">

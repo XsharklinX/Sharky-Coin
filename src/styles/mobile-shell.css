@@ -43,23 +43,22 @@
     cursor: pointer;
   }
   .mobile-topbar {
-    align-items: center;
     background: var(--m-bg);
     border-bottom: 1px solid var(--m-border);
-    display: grid;
-    gap: 10px;
-    grid-template-columns: 1fr auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     padding: calc(10px + env(safe-area-inset-top)) 10px 10px 12px;
     position: sticky;
     top: 0;
     z-index: 30;
   }
-  .mobile-topbar-mid {
-    align-items: baseline;
+  .mobile-topbar-row {
+    align-items: center;
     display: flex;
     gap: 10px;
+    justify-content: space-between;
     min-width: 0;
-    overflow: hidden;
   }
   .mobile-topbar h1 {
     flex: none;
@@ -109,8 +108,9 @@
     .mobile-topbar { gap: 6px; }
     .mobile-currency-btn { gap: 0; padding: 0 6px; }
     .mobile-currency-code { display: none; }
-    .mobile-month { gap: 0; padding: 2px; }
-    .mobile-month button { height: 20px; width: 20px; }
+    .mobile-month { padding: 2px 2px 2px 10px; }
+    .mobile-month-label { font-size: 12px; }
+    .mobile-month button { height: 24px; width: 24px; }
     .mobile-topbar h1 { font-size: 17px; }
   }
   /* ── Currency sheet ── */
@@ -398,38 +398,47 @@
   .mgl-contrib-display small { color: var(--text-dim); font-size: 14px; }
   .mobile-month {
     align-items: center;
-    background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    align-self: flex-start;
+    background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent));
+    border: 1px solid color-mix(in oklab, var(--accent) 24%, transparent);
     border-radius: 999px;
     display: flex;
     flex: 0 1 auto;
     gap: 2px;
+    max-width: 100%;
     min-width: 0;
-    padding: 3px;
+    padding: 3px 3px 3px 14px;
   }
-  .mobile-month span {
-    color: var(--m-muted);
-    font-size: 12px;
-    font-weight: 700;
+  .mobile-month-label {
+    align-items: center;
+    color: var(--accent);
+    display: flex;
+    font-size: 13px;
+    font-weight: 800;
+    gap: 6px;
+    letter-spacing: -.01em;
     min-width: 0;
     overflow: hidden;
-    padding: 0 2px;
+    padding: 0 4px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .mobile-month span::first-letter { text-transform: uppercase; }
+  .mobile-month-label::first-letter { text-transform: uppercase; }
+  .mobile-month-label svg { flex-shrink: 0; opacity: .8; }
   .mobile-month button {
     align-items: center;
-    background: transparent;
+    background: color-mix(in oklab, var(--accent) 14%, transparent);
     border: 0;
     border-radius: 999px;
-    color: var(--m-muted);
+    color: var(--accent);
     display: grid;
-    height: 26px;
+    flex-shrink: 0;
+    height: 28px;
     place-items: center;
-    width: 26px;
+    width: 28px;
   }
-  .mobile-month button:active:not(:disabled) { background: color-mix(in oklab, var(--m-text) 12%, transparent); color: var(--m-text); }
-  .mobile-month button:disabled { opacity: .28; }
+  .mobile-month button:active:not(:disabled) { background: color-mix(in oklab, var(--accent) 28%, transparent); }
+  .mobile-month button:disabled { opacity: .3; }
   .mobile-content {
     flex: 1;
     min-height: 0;

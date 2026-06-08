@@ -217,7 +217,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
         <div className="mdebt-sheet-body">
           <label className="mdebt-field">
             <span>Nombre</span>
-            <input className="mdebt-input" autoFocus value={f.name}
+            <input className="mdebt-input" value={f.name}
               placeholder="ej. Tarjeta de crédito" onChange={e => p('name', e.target.value)} />
           </label>
 
