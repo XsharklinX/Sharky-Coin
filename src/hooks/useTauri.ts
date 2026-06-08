@@ -150,11 +150,13 @@ export async function checkSharedFile(): Promise<SharedReceipt | null> {
 
 /**
  * Carga un backup JSON.
- * - En Tauri: abre diálogo de archivo nativo → lee el contenido
- * - En browser: usa input[type=file]
+ * - En Tauri desktop: abre diálogo de archivo nativo → lee el contenido
+ * - En Android (Tauri o PWA): usa input[type=file] (tauriOpenDialog no funciona en Android)
+ * - En browser desktop: usa input[type=file]
  */
 export function openBackup(): Promise<string | null> {
-  if (isTauri()) {
+  const isAndroid = /android/i.test(navigator.userAgent)
+  if (isTauri() && !isAndroid) {
     return tauriOpenDialog({ filters: [{ name: 'JSON', extensions: ['json'] }] })
       .then(path => path ? tauriInvoke<string>('read_backup', { path }) : null)
   }

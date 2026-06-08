@@ -6,6 +6,7 @@ import { fmtCompact, monthLabel } from '@/data/helpers'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
+import { useFmt } from '@/hooks/useFmt'
 import type { Account, AccountType, ViewId } from '@/types'
 
 const TYPE_META: Record<AccountType, { label: string; group: string; icon: Parameters<typeof Icon>[0]['name'] }> = {
@@ -22,6 +23,7 @@ function accountKind(a: Account): 'asset' | 'debt' {
 export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => void; onImport?: () => void; mkey: string }) {
   const finance = useFinance()
   const { accounts, currency } = finance
+  const fmtVal = useFmt()
   const ownerName = useSettings(s => s.displayName) || '$harky'
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
@@ -69,7 +71,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
       {/* Net worth hero */}
       <div className="mrep-hero">
         <span className="mrep-hero-label">Patrimonio neto</span>
-        <strong className="mrep-hero-value">{fmtCompact(summary.net, currency)}</strong>
+        <strong className="mrep-hero-value">{fmtVal(summary.net, currency)}</strong>
         <div className="mrep-hero-bar">
           {summary.assets + summary.liabilities > 0 && (
             <div
@@ -83,14 +85,14 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
             <span className="mrep-hero-dot asset" />
             <div>
               <small>Activos</small>
-              <strong>{fmtCompact(summary.assets, currency)}</strong>
+              <strong>{fmtVal(summary.assets, currency)}</strong>
             </div>
           </div>
           <div className="mrep-hero-stat">
             <span className="mrep-hero-dot debt" />
             <div>
               <small>Pasivos</small>
-              <strong>{fmtCompact(summary.liabilities, currency)}</strong>
+              <strong>{fmtVal(summary.liabilities, currency)}</strong>
             </div>
           </div>
         </div>
@@ -117,7 +119,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                       flex: Math.max(0, a.balance) / Math.max(1, totalBalance),
                       background: a.color,
                     }}
-                    title={`${a.name}: ${fmtCompact(a.balance, currency)}`}
+                    title={`${a.name}: ${fmtVal(a.balance, currency)}`}
                   />
                 ))}
               </div>
@@ -137,7 +139,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
             <div key={group} className="mrep-group">
               <div className="mrep-group-header">
                 <span>{group}</span>
-                <strong>{fmtCompact(accs.reduce((s, a) => s + a.balance, 0), currency)}</strong>
+                <strong>{fmtVal(accs.reduce((s, a) => s + a.balance, 0), currency)}</strong>
               </div>
               {accs.map(a => {
                 const used    = a.type === 'credit' && a.limit ? Math.abs(Math.min(0, a.balance)) : null
@@ -159,13 +161,13 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                             }} />
                           </div>
                           <span className={utilPct >= 90 ? 'text-expense' : utilPct >= 70 ? 'text-warn' : ''}>
-                            {Math.round(utilPct)}% usado · {fmtCompact(a.limit - used!, currency)} disponible
+                            {Math.round(utilPct)}% usado · {fmtVal(a.limit - used!, currency)} disponible
                           </span>
                         </div>
                       )}
                     </div>
                     <strong className={accountKind(a) === 'debt' ? 'text-expense' : ''}>
-                      {fmtCompact(a.balance, currency)}
+                      {fmtVal(a.balance, currency)}
                     </strong>
                   </div>
                 )

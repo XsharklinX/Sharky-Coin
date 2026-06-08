@@ -4,11 +4,13 @@ import { toast } from '@/components/ui/Toast'
 import { byCategory, fmtCompact, monthlySeries, totals } from '@/data/helpers'
 import { exportElementPng } from '@/data/imageExport'
 import { useFinance } from '@/store/finance'
+import { useFmt } from '@/hooks/useFmt'
 
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 export function MobileAnnual({ mkey }: { mkey: string }) {
   const { transactions, categories, currency } = useFinance()
+  const fmtVal = useFmt()
   const [exporting, setExporting] = useState(false)
   const year = Number(mkey.slice(0, 4))
   const yearTx = transactions.filter(tx => tx.date.startsWith(String(year)))
@@ -45,7 +47,7 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
       <section className="mobile-annual-hero">
         <span className="mobile-annual-year">{year}</span>
         <h2>Resumen anual</h2>
-        <strong className={summary.net >= 0 ? 'income' : 'expense'}>{fmtCompact(summary.net, currency)}</strong>
+        <strong className={summary.net >= 0 ? 'income' : 'expense'}>{fmtVal(summary.net, currency)}</strong>
         <p>{summary.net >= 0 ? 'Ahorro neto del año' : 'Déficit del año'}</p>
       </section>
 
@@ -53,11 +55,11 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
       <div className="mobile-annual-metrics">
         <article>
           <small>Ingresos</small>
-          <b className="income">{fmtCompact(summary.income, currency)}</b>
+          <b className="income">{fmtVal(summary.income, currency)}</b>
         </article>
         <article>
           <small>Gastos</small>
-          <b className="expense">{fmtCompact(summary.expense, currency)}</b>
+          <b className="expense">{fmtVal(summary.expense, currency)}</b>
         </article>
         <article>
           <small>Ahorro</small>
@@ -100,12 +102,12 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
                 <span
                   className="bar-income"
                   style={{ height: `${Math.max(3, m.income / maxBar * 80)}px` }}
-                  title={`Ingresos: ${fmtCompact(m.income, currency)}`}
+                  title={`Ingresos: ${fmtVal(m.income, currency)}`}
                 />
                 <span
                   className="bar-expense"
                   style={{ height: `${Math.max(3, m.expense / maxBar * 80)}px` }}
-                  title={`Gastos: ${fmtCompact(m.expense, currency)}`}
+                  title={`Gastos: ${fmtVal(m.expense, currency)}`}
                 />
               </div>
               <small>{MONTH_LABELS[Number(m.key.slice(5, 7)) - 1]}</small>
@@ -130,7 +132,7 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
                     <strong style={{ fontSize: 11, marginRight: 4, opacity: .6 }}>#{idx + 1}</strong>
                     {item.category.name}
                   </span>
-                  <strong>{fmtCompact(item.amount, currency)}</strong>
+                  <strong>{fmtVal(item.amount, currency)}</strong>
                 </div>
                 <div className="mobile-progress-track">
                   <span style={{ width: `${Math.min(100, item.amount / totalExpense * 100)}%`, background: item.category.color }} />
@@ -149,7 +151,7 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
             {incomeCategories.slice(0, 4).map(item => (
               <div key={item.category.id} className="mobile-annual-income-row">
                 <span style={{ color: item.category.color }}>{item.category.name}</span>
-                <strong className="income">{fmtCompact(item.amount, currency)}</strong>
+                <strong className="income">{fmtVal(item.amount, currency)}</strong>
               </div>
             ))}
           </div>

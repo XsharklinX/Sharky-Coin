@@ -508,6 +508,86 @@
   }
   .mobile-month button:active:not(:disabled) { background: color-mix(in oklab, var(--accent) 28%, transparent); }
   .mobile-month button:disabled { opacity: .3; }
+  /* ── Calendario (MobileCalendar) ── */
+  .mcal-root { display: flex; flex-direction: column; padding: 0 12px 120px; }
+  .mcal-header {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 12px 0;
+  }
+  .mcal-month-label { font-size: 16px; font-weight: 750; letter-spacing: -.02em; }
+  .mcal-nav {
+    align-items: center;
+    background: color-mix(in oklab, var(--text) 8%, transparent);
+    border: 0;
+    border-radius: 10px;
+    color: var(--text);
+    display: grid;
+    height: 36px;
+    place-items: center;
+    width: 36px;
+  }
+  .mcal-nav:active { background: color-mix(in oklab, var(--accent) 22%, transparent); }
+  .mcal-grid {
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(7, 1fr);
+  }
+  .mcal-dow {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 0;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .mcal-empty { min-height: 62px; }
+  .mcal-day {
+    background: color-mix(in oklab, var(--text) 5%, transparent);
+    border: 0;
+    border-radius: 10px;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 62px;
+    padding: 6px 4px;
+    position: relative;
+    text-align: center;
+    width: 100%;
+  }
+  .mcal-day.ok { background: color-mix(in oklab, #30d158 14%, transparent); }
+  .mcal-day.over { background: color-mix(in oklab, #ff453a 14%, transparent); }
+  .mcal-day.today { outline: 2px solid var(--accent); }
+  .mcal-day.selected { outline: 2px solid #5bc0ff; }
+  .mcal-day-num { font-size: 13px; font-weight: 700; }
+  .mcal-amt {
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mcal-amt.inc { color: #30d158; }
+  .mcal-amt.exp { color: #ff453a; }
+  .mcal-footer { display: flex; flex-direction: column; gap: 6px; padding: 12px 4px 0; }
+  .mcal-budget-label { color: var(--text-dim); font-size: 13px; }
+  .mcal-budget-label strong { color: var(--text); }
+  .mcal-legend { color: var(--text-dim); display: flex; font-size: 12px; gap: 16px; }
+  .mcal-dot {
+    border-radius: 50%;
+    display: inline-block;
+    height: 8px;
+    margin-right: 4px;
+    width: 8px;
+  }
+  .mcal-dot.ok   { background: #30d158; }
+  .mcal-dot.over { background: #ff453a; }
+  .mcal-detail { margin-top: 16px; }
+  .mcal-empty-day { color: var(--text-dim); font-size: 14px; padding: 16px 4px; text-align: center; }
   .mobile-content {
     flex: 1;
     min-height: 0;

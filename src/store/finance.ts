@@ -16,7 +16,25 @@ const ICONS = new Set([
   'fileJson','eye','eyeOff','info','lock','user','palette',
   'tree','sun','bike','train','tv','monitor','headphones','clock','key','tool',
   'brush','graduation','stethoscope','salad','wine','crown','trophy','shield','map','package',
+  'banknote','coins','handCoins','landmark','receipt',
 ])
+
+// Migración: nombres de categorías semilla originalmente en inglés → español
+// Solo se aplica si el nombre actual coincide con alguno de los nombres ingleses conocidos
+const CAT_MIGRATE: Record<string, { es: string; oldEn: string[] }> = {
+  'cat_renta':   { es: 'Vivienda',        oldEn: ['Housing', 'Rent', 'Vivienda'] },
+  'cat_super':   { es: 'Supermercado',    oldEn: ['Groceries', 'Supermarket', 'Supermercado'] },
+  'cat_rest':    { es: 'Restaurantes',    oldEn: ['Restaurants', 'Dining', 'Restaurantes'] },
+  'cat_trans':   { es: 'Transporte',      oldEn: ['Transport', 'Transportation', 'Transporte'] },
+  'cat_serv':    { es: 'Servicios',       oldEn: ['Services', 'Bills', 'Utilities', 'Servicios'] },
+  'cat_ocio':    { es: 'Entretenimiento', oldEn: ['Entertainment', 'Leisure', 'Entretenimiento'] },
+  'cat_salud':   { es: 'Salud',           oldEn: ['Health', 'Healthcare', 'Salud'] },
+  'cat_compras': { es: 'Compras',         oldEn: ['Shopping', 'Purchases', 'Compras'] },
+  'cat_edu':     { es: 'Educación',       oldEn: ['Education', 'Educación', 'Educacion'] },
+  'cat_salario': { es: 'Salario',         oldEn: ['Salary', 'Payroll', 'Salario'] },
+  'cat_free':    { es: 'Freelance',       oldEn: ['Freelance'] },
+  'cat_inv':     { es: 'Inversiones',     oldEn: ['Investments', 'Inversions', 'Inversiones'] },
+}
 const text = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0
 const amount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const date = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -30,7 +48,17 @@ export function sanitizeFinanceData(value: unknown): FinanceData {
   const categories = (Array.isArray(data.categories) ? data.categories : []).filter(category =>
     text(category.id) && text(category.name) && /\p{L}/u.test(category.name) && text(category.color)
     && ['expense', 'income'].includes(category.type) && amount(category.budget))
-    .map(category => ({ ...category, icon: ICONS.has(category.icon) ? category.icon : 'wallet' as const }))
+    .map(category => {
+      const migration = CAT_MIGRATE[category.id]
+      const migratedName = migration && migration.oldEn.includes(category.name)
+        ? migration.es
+        : category.name
+      return {
+        ...category,
+        icon: ICONS.has(category.icon) ? category.icon : 'wallet' as const,
+        name: migratedName,
+      }
+    })
   const categoryIds = new Set(categories.map(category => category.id))
   const goals = (Array.isArray(data.goals) ? data.goals : []).filter(goal =>
     text(goal.id) && text(goal.name) && text(goal.color) && amount(goal.target) && goal.target > 0 && amount(goal.saved))

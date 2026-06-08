@@ -4,6 +4,8 @@ import { Icon } from '@/components/ui/Icon'
 import { CatBadge } from '@/views/shared'
 import { fmt, fmtCompact, getAccount, getCategory } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { useFmt } from '@/hooks/useFmt'
 import type { Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
@@ -24,10 +26,11 @@ function dateLabel(date: string): string {
   })
 }
 
-function signedAmount(tx: Transaction, currency: ReturnType<typeof useFinance.getState>['currency']): string {
-  if (tx.type === 'income') return `+${fmtCompact(tx.amount, currency)}`
-  if (tx.type === 'expense') return `-${fmtCompact(tx.amount, currency)}`
-  return fmtCompact(tx.amount, currency)
+function signedAmount(tx: Transaction, currency: Parameters<typeof fmt>[1], compact: boolean): string {
+  const f = (n: number) => compact ? fmtCompact(n, currency) : fmt(n, currency)
+  if (tx.type === 'income') return `+${f(tx.amount)}`
+  if (tx.type === 'expense') return `-${f(tx.amount)}`
+  return f(tx.amount)
 }
 
 export function MobileTransactionList({
@@ -42,6 +45,8 @@ export function MobileTransactionList({
   compact?: boolean
 }) {
   const { accounts, categories, currency } = useFinance()
+  const fmtVal = useFmt()
+  const compactNumbers = useSettings(s => s.compactNumbers)
   const [filter, setFilter] = useState<TxFilter>('all')
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -112,8 +117,8 @@ export function MobileTransactionList({
             <div className="mobile-day-header">
               <span>{dateLabel(date)}</span>
               <span className="mobile-day-totals">
-                {dayExpense > 0 && <span className="day-exp">−{fmtCompact(dayExpense, currency)}</span>}
-                {dayIncome > 0 && <span className="day-inc">+{fmtCompact(dayIncome, currency)}</span>}
+                {dayExpense > 0 && <span className="day-exp">−{fmtVal(dayExpense, currency)}</span>}
+                {dayIncome > 0 && <span className="day-inc">+{fmtVal(dayIncome, currency)}</span>}
               </span>
             </div>
             {dayRows.map(tx => {
@@ -147,7 +152,7 @@ export function MobileTransactionList({
                         : `${category?.name ?? 'Sin categoría'} · ${account?.name ?? 'Sin cuenta'}`}</small>
                     </span>
                     <strong className={income ? 'income' : tx.type === 'transfer' ? 'transfer' : ''}>
-                      {signedAmount(tx, currency)}
+                      {signedAmount(tx, currency, compactNumbers)}
                     </strong>
                   </button>
                   {!compact && (
@@ -210,7 +215,7 @@ export function MobileTransactionList({
               <button onClick={() => setSelected(null)}><Icon name="close" size={18} /></button>
             </header>
             <h2>{selected.type === 'transfer' ? 'Transferencia' : selected.note}</h2>
-            <strong className={selected.type === 'income' ? 'income' : ''}>{signedAmount(selected, currency)}</strong>
+            <strong className={selected.type === 'income' ? 'income' : ''}>{signedAmount(selected, currency, compactNumbers)}</strong>
             <dl>
               <div><dt>Fecha</dt><dd>{dateLabel(selected.date)}</dd></div>
               <div><dt>Categoría</dt><dd>{getCategory(selected.categoryId, categories)?.name ?? 'No aplica'}</dd></div>

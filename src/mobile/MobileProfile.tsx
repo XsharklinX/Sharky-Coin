@@ -4,6 +4,8 @@ import { toast } from '@/components/ui/Toast'
 import { fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
+import { useFmt } from '@/hooks/useFmt'
+import { playAccountsSound } from '@/lib/sound'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import type { Account, AccountType, OverdraftPolicy, ViewId, ViewProps } from '@/types'
 
@@ -34,12 +36,15 @@ export function MobileProfile({
 }) {
   const { displayName, setDisplayName } = useSettings()
   const { accounts, currency, addAccount, updateAccount, deleteAccount } = useFinance()
+  const fmtVal = useFmt()
 
   const [editingName,    setEditingName]    = useState(false)
   const [nameInput,      setNameInput]      = useState(displayName || userName || '')
   const [editingAccount, setEditingAccount] = useState<Account | 'new' | null>(null)
 
   useMobileBackDismiss(!!editingAccount, () => setEditingAccount(null))
+
+  useEffect(() => { playAccountsSound() }, [])
 
   useEffect(() => {
     if (createRequest?.target === 'account') setEditingAccount('new')
@@ -113,7 +118,7 @@ export function MobileProfile({
 
         <div className="mpr-balance-badge">
           <span>Balance total</span>
-          <strong>{fmtCompact(totalBalance, currency)}</strong>
+          <strong>{fmtVal(totalBalance, currency)}</strong>
         </div>
       </div>
 
@@ -144,7 +149,7 @@ export function MobileProfile({
                   <small>{TYPE_META[a.type].label}{a.last4 ? ` · ·· ${a.last4}` : ''}</small>
                 </div>
                 <strong className={a.balance < 0 ? 'text-expense' : ''}>
-                  {fmtCompact(a.balance, currency)}
+                  {fmtVal(a.balance, currency)}
                 </strong>
                 <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
               </button>

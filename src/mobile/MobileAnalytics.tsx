@@ -3,6 +3,8 @@ import { Icon } from '@/components/ui/Icon'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { byCategory, currentMonthKey, fmtCompact, monthlySeries, totals, txForMonth, weeklySeries } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { useFmt } from '@/hooks/useFmt'
 
 type AnalyticsPeriod = 'week' | 'month' | 'year'
 
@@ -44,6 +46,8 @@ function SavingsRing({ rate }: { rate: number }) {
 
 export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?: () => void }) {
   const { transactions, categories, currency } = useFinance()
+  const fmtVal = useFmt()
+  const compactNumbers = useSettings(s => s.compactNumbers)
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
   const year = Number(mkey.slice(0, 4))
   const monthTx = txForMonth(transactions, mkey)
@@ -130,16 +134,16 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
       <div className="man-summary">
         <div className="man-summary-card">
           <small>Ingresos</small>
-          <strong className="income"><AnimatedMoney value={summary.income} compact /></strong>
+          <strong className="income"><AnimatedMoney value={summary.income} compact={compactNumbers} /></strong>
         </div>
         <div className="man-summary-card">
           <small>Gastos</small>
-          <strong className="expense"><AnimatedMoney value={summary.expense} compact /></strong>
+          <strong className="expense"><AnimatedMoney value={summary.expense} compact={compactNumbers} /></strong>
         </div>
         <div className="man-summary-card">
           <small>Neto</small>
           <strong style={{ color: summary.net >= 0 ? '#35d0a2' : '#ff6b8a' }}>
-            <AnimatedMoney value={summary.net} compact />
+            <AnimatedMoney value={summary.net} compact={compactNumbers} />
           </strong>
         </div>
       </div>
@@ -154,7 +158,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
           <div className="man-donut" style={{ background: donut }}>
             <span>
               <small>Gastos</small>
-              <strong>{fmtCompact(summary.expense, currency)}</strong>
+              <strong>{fmtVal(summary.expense, currency)}</strong>
             </span>
           </div>
           <div className="man-donut-legend">
@@ -198,8 +202,8 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
             }} />
           </div>
           <div className="man-budget-meta">
-            <span><AnimatedMoney value={summary.expense} compact /> gastado</span>
-            <span>de {fmtCompact(totalBudget, currency)}</span>
+            <span><AnimatedMoney value={summary.expense} compact={compactNumbers} /> gastado</span>
+            <span>de {fmtVal(totalBudget, currency)}</span>
           </div>
         </button>
       )}
@@ -229,7 +233,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
                   <Icon name="trend" size={15} />
                 </span>
                 <div>
-                  <strong>Proyección al cierre: {fmtCompact(projectedExpense, currency)}</strong>
+                  <strong>Proyección al cierre: {fmtVal(projectedExpense, currency)}</strong>
                   <small>Si mantienes el ritmo actual de gasto</small>
                 </div>
               </div>
@@ -250,16 +254,16 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
             <div className="man-savings-detail">
               <div>
                 <small>Ingresos totales</small>
-                <strong>{fmtCompact(summary.income, currency)}</strong>
+                <strong>{fmtVal(summary.income, currency)}</strong>
               </div>
               <div>
                 <small>Gastos totales</small>
-                <strong>{fmtCompact(summary.expense, currency)}</strong>
+                <strong>{fmtVal(summary.expense, currency)}</strong>
               </div>
               <div>
                 <small>{summary.net >= 0 ? 'Ahorro neto' : 'Déficit'}</small>
                 <strong style={{ color: summary.net >= 0 ? '#35d0a2' : '#ff6b8a' }}>
-                  {fmtCompact(Math.abs(summary.net), currency)}
+                  {fmtVal(Math.abs(summary.net), currency)}
                 </strong>
               </div>
             </div>
@@ -280,12 +284,12 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
                 {period !== 'week' && (
                   <div className="man-bar-income"
                     style={{ height: `${Math.max(2, d.income / maxBar * 100)}%` }}
-                    title={`Ingreso: ${fmtCompact(d.income, currency)}`}
+                    title={`Ingreso: ${fmtVal(d.income, currency)}`}
                   />
                 )}
                 <div className="man-bar-expense"
                   style={{ height: `${Math.max(2, d.expense / maxBar * 100)}%` }}
-                  title={`Gasto: ${fmtCompact(d.expense, currency)}`}
+                  title={`Gasto: ${fmtVal(d.expense, currency)}`}
                 />
               </div>
               <span className="man-bar-label">{d.label}</span>
@@ -323,7 +327,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
                   <div className="man-cat-body">
                     <div className="man-cat-top">
                       <span className="man-cat-name">{row.category.name}</span>
-                      <strong>{fmtCompact(row.amount, currency)}</strong>
+                      <strong>{fmtVal(row.amount, currency)}</strong>
                     </div>
                     <div className="man-cat-bar">
                       <div style={{ width: `${pct}%`, background: row.category.color }} />
@@ -331,8 +335,8 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
                     {cat && cat.budget > 0 && (
                       <span className={`man-cat-budget${row.amount > cat.budget ? ' over' : ''}`}>
                         {row.amount > cat.budget
-                          ? `${fmtCompact(row.amount - cat.budget, currency)} sobre presupuesto`
-                          : `${fmtCompact(cat.budget - row.amount, currency)} disponible`}
+                          ? `${fmtVal(row.amount - cat.budget, currency)} sobre presupuesto`
+                          : `${fmtVal(cat.budget - row.amount, currency)} disponible`}
                       </span>
                     )}
                   </div>

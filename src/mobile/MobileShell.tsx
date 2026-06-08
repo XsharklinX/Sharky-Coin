@@ -8,6 +8,7 @@ import { MobileAnalytics } from './MobileAnalytics'
 import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
 import { MobileCurrencySheet } from './MobileCurrencySheet'
+import { MobileCalendar } from './MobileCalendar'
 import { MobileHome } from './MobileHome'
 import { MobileProfile } from './MobileProfile'
 import { MobileReports } from './MobileReports'
@@ -152,6 +153,7 @@ export function MobileShell({
 
     if (route === 'reports') {
       if (view === 'annual') return <MobileAnnual mkey={mkey} />
+      if (view === 'calendar') return <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
       if (view === 'subscriptions') return <MobileSubscriptions />
       if (view === 'debt') return <MobileDebt />
       const renderer = mobileViews[view]
@@ -197,6 +199,7 @@ export function MobileShell({
         onNextMonth={() => mIdx >= 0 && mIdx < keys.length - 1 && onMonth(keys[mIdx + 1])}
         onSettings={onSettings}
         onCurrency={() => setCurrencyOpen(true)}
+        onCalendar={route === 'home' ? () => { setRoute('reports'); setView('calendar') } : undefined}
       />
       {route === 'add' ? (
         renderMain()

@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useFmt } from '@/hooks/useFmt'
 import { useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
@@ -20,6 +21,7 @@ function monthsLabel(m: number) {
 
 export function MobileDebt() {
   const { currency } = useFinance()
+  const fmtVal = useFmt()
   const { debts, extraPayment, addDebt, updateDebt, deleteDebt, setExtraPayment } = useDebt()
   const [method, setMethod] = useState<PayoffMethod>('avalanche')
   const [editing, setEditing] = useState<Debt | 'new' | null>(null)
@@ -66,7 +68,7 @@ export function MobileDebt() {
       {/* Hero */}
       <div className="mdebt-hero">
         <div className="mdebt-hero-label">Deuda total</div>
-        <div className="mdebt-hero-amount">{fmtCompact(totalDebt, currency)}</div>
+        <div className="mdebt-hero-amount">{fmtVal(totalDebt, currency)}</div>
         <div className="mdebt-hero-sub">Mínimo mensual: {fmt(totalMin, currency)}/mes</div>
       </div>
 
@@ -95,19 +97,19 @@ export function MobileDebt() {
           </div>
           <div className="mdebt-result-sep" />
           <div className="mdebt-result-item">
-            <div className="mdebt-result-val">{fmtCompact(active.totalInterest, currency)}</div>
+            <div className="mdebt-result-val">{fmtVal(active.totalInterest, currency)}</div>
             <div className="mdebt-result-lbl">interés total</div>
           </div>
         </div>
         {interestSavings > 0 && (
           <div className="mdebt-badge ok">
-            Ahorras {fmtCompact(interestSavings, currency)} vs {otherName}
+            Ahorras {fmtVal(interestSavings, currency)} vs {otherName}
             {monthSavings > 0 && ` · ${monthSavings} mes${monthSavings !== 1 ? 'es' : ''} menos`}
           </div>
         )}
         {interestSavings < 0 && (
           <div className="mdebt-badge warn">
-            {otherName} ahorraría {fmtCompact(-interestSavings, currency)} más
+            {otherName} ahorraría {fmtVal(-interestSavings, currency)} más
           </div>
         )}
       </div>
@@ -164,7 +166,7 @@ export function MobileDebt() {
               <b>{debt.name}</b>
               <small>{debt.rate}% APR · mínimo {fmt(debt.minPayment, currency)}/mes</small>
             </div>
-            <strong>{fmtCompact(debt.balance, currency)}</strong>
+            <strong>{fmtVal(debt.balance, currency)}</strong>
             <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
           </button>
         ))}
