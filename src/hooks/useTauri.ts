@@ -80,13 +80,55 @@ export async function saveBackup(json: string): Promise<void> {
  * Pide permiso la primera vez si hace falta. No hace nada en web/PWA
  * (ahí los avisos viven como tarjetas in-app en Inicio).
  */
-export async function sendNativeNotification(title: string, body: string): Promise<void> {
+export async function sendNativeNotification(
+  title: string,
+  body: string,
+  opts?: { actionTypeId?: string; extra?: Record<string, unknown> },
+): Promise<void> {
   if (!isTauri()) return
   const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification')
   let granted = await isPermissionGranted()
   if (!granted) granted = (await requestPermission()) === 'granted'
   if (!granted) return
-  sendNotification({ title, body })
+  sendNotification({ title, body, actionTypeId: opts?.actionTypeId, extra: opts?.extra })
+}
+
+const NOTIFICATION_ACTION_TYPE_ID = 'budget-alert'
+
+/**
+ * Registra los botones de acción que pueden aparecer en notificaciones nativas
+ * (ej. "Ver" / "Descartar" en alertas de presupuesto). Llamar una sola vez al
+ * iniciar la app — no hace nada en web/PWA.
+ */
+export async function initNotificationActionTypes(): Promise<void> {
+  if (!isTauri()) return
+  const { registerActionTypes } = await import('@tauri-apps/plugin-notification')
+  await registerActionTypes([{
+    id: NOTIFICATION_ACTION_TYPE_ID,
+    actions: [
+      { id: 'view',    title: 'Ver',       foreground: true },
+      { id: 'dismiss', title: 'Descartar', foreground: false },
+    ],
+  }])
+}
+
+export { NOTIFICATION_ACTION_TYPE_ID as notificationActionTypeId }
+
+/**
+ * Escucha los botones presionados en notificaciones nativas.
+ * Devuelve una función para des-suscribirse. No hace nada en web/PWA.
+ */
+export async function onNotificationAction(
+  handler: (actionId: string, extra: Record<string, unknown>) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const { onAction } = await import('@tauri-apps/plugin-notification')
+  const listener = await onAction(notification => {
+    const actionId = (notification as { actionId?: string }).actionId
+    const extra = (notification as { extra?: Record<string, unknown> }).extra ?? {}
+    if (actionId) handler(actionId, extra)
+  })
+  return () => { void listener.unregister() }
 }
 
 /**

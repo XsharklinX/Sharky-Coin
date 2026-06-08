@@ -3,7 +3,7 @@ import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { getMobileAlerts } from '@/data/alerts'
 import { currentMonthKey, totals, txForMonth } from '@/data/helpers'
-import { sendNativeNotification } from '@/hooks/useTauri'
+import { notificationActionTypeId, sendNativeNotification } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
@@ -40,7 +40,7 @@ export function MobileHome({
     if (!isCurrent) return
     const fresh = alerts.filter(a => !notifiedAlerts.includes(a.id))
     fresh.forEach(alert => {
-      sendNativeNotification(alert.title, alert.text)
+      sendNativeNotification(alert.title, alert.text, { actionTypeId: notificationActionTypeId, extra: { alertId: alert.id } })
       markAlertNotified(alert.id)
     })
   }, [isCurrent, alerts, notifiedAlerts, markAlertNotified])

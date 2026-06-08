@@ -10,6 +10,7 @@ import { MobileOnboarding } from '@/mobile/MobileOnboarding'
 import { TransactionForm } from '@/modals/TransactionForm'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useNotificationActions } from '@/hooks/useNotificationActions'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
@@ -44,6 +45,7 @@ export default function App() {
 
   useRecurring()
   useNotifications()
+  useNotificationActions()
   useAutoBackup()
   useCloudWorkspace()
   useAutoCloudSync()
