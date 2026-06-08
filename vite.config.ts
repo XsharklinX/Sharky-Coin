@@ -36,6 +36,29 @@ export default defineConfig({
         start_url: '/',
         orientation: 'any',
         categories: ['finance', 'productivity'],
+        shortcuts: [
+          {
+            name: 'Agregar gasto',
+            short_name: 'Gasto',
+            description: 'Registrar un nuevo gasto',
+            url: '/?shortcut=add-expense',
+            icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Agregar ingreso',
+            short_name: 'Ingreso',
+            description: 'Registrar un nuevo ingreso',
+            url: '/?shortcut=add-income',
+            icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Ver reportes',
+            short_name: 'Reportes',
+            description: 'Abrir reportes y análisis',
+            url: '/?shortcut=reports',
+            icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+        ],
         icons: [
           {
             src: 'icon.svg',

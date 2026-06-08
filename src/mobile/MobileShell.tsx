@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
@@ -76,6 +76,23 @@ export function MobileShell({
   // Back navigation: sub-views inside reports → main reports
   const isInSubView = route === 'reports' && view !== 'reports'
   useMobileBackDismiss(isInSubView, () => setView('reports'))
+  // Atajos de la app (manifest `shortcuts`): /?shortcut=add-expense|add-income|reports
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const shortcut = params.get('shortcut')
+    if (!shortcut) return
+    if (shortcut === 'add-expense' || shortcut === 'add-income') {
+      setQuickAddMode(shortcut === 'add-expense' ? 'expense' : 'income')
+      setRoute('add')
+    } else if (shortcut === 'reports') {
+      setRoute('reports')
+      setView('reports')
+    }
+    params.delete('shortcut')
+    const rest = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''))
+  }, [])
+
   const goRoute = (next: MobileRoute) => {
     if (next !== 'add') setQuickAddMode(null)
     setRoute(next)
