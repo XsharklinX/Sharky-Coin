@@ -20,7 +20,7 @@ import {
   TreePine, Sun, Bike, Train, Tv, Monitor,
   Headphones, Clock, Key, Wrench, Paintbrush,
   GraduationCap, Stethoscope, Salad, Wine,
-  Crown, Trophy, Shield, MapPin, Package, Menu,
+  Crown, Trophy, Shield, MapPin, Package,
 } from 'lucide-react'
 import type { IconName } from '@/types'
 
@@ -121,7 +121,6 @@ const MAP: Partial<Record<IconName, LucideIcon>> = {
   shield:      Shield,
   map:         MapPin,
   package:     Package,
-  menu:        Menu,
 }
 
 interface IconProps {

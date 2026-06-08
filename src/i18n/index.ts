@@ -1,7 +1,7 @@
 import { useSettings } from '@/store/settings'
 
 const en = {
-  home: 'Home', analytics: 'Analytics', menu: 'Menu',
+  home: 'Home', analytics: 'Analytics',
   add: 'Add', reports: 'Reports', profile: 'Profile',
   income: 'Income', expense: 'Expense', transfer: 'Transfer',
   save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
@@ -53,7 +53,7 @@ export type LangKey = keyof typeof en
 export type Language = 'en' | 'es'
 
 const es: Record<LangKey, string> = {
-  home: 'Inicio', analytics: 'Gráficos', menu: 'Menú',
+  home: 'Inicio', analytics: 'Gráficos',
   add: 'Agregar', reports: 'Informes', profile: 'Perfil',
   income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia',
   save: 'Guardar', cancel: 'Cancelar', delete: 'Eliminar', edit: 'Editar',

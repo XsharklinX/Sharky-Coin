@@ -123,7 +123,6 @@ export default function App() {
           mkey={mkey}
           keys={keys}
           onMonth={setMkey}
-          onMenu={() => toast('Próximamente: crear o unirse a libros de caja', { icon: 'info' })}
           onSettings={() => setSettingsOpen(true)}
           onEditTx={tx => setTxForm(tx)}
           userName={s.displayName || undefined}

@@ -47,7 +47,6 @@ export function MobileShell({
   mkey,
   keys,
   onMonth,
-  onMenu,
   onSettings,
   onEditTx,
   userName,
@@ -59,7 +58,6 @@ export function MobileShell({
   mkey: string
   keys: string[]
   onMonth: (mkey: string) => void
-  onMenu: () => void
   onSettings: () => void
   onEditTx: (transaction: Transaction) => void
   userName?: string
@@ -157,7 +155,6 @@ export function MobileShell({
         canGoForward={mIdx >= 0 && mIdx < keys.length - 1}
         onPrevMonth={() => mIdx > 0 && onMonth(keys[mIdx - 1])}
         onNextMonth={() => mIdx >= 0 && mIdx < keys.length - 1 && onMonth(keys[mIdx + 1])}
-        onMenu={onMenu}
         onSettings={onSettings}
         onCurrency={() => setCurrencyOpen(true)}
       />
