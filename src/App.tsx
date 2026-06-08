@@ -13,6 +13,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
+import { useLiveExchangeRates } from '@/hooks/useLiveExchangeRates'
 import { MobileBiometricGate } from '@/mobile/MobileBiometricGate'
 import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
@@ -44,6 +45,7 @@ export default function App() {
   useAutoBackup()
   useCloudWorkspace()
   useAutoCloudSync()
+  useLiveExchangeRates()
 
   const overlayOpen = !!txForm || settingsOpen
   useMobileBackDismiss(overlayOpen, () => {
