@@ -196,8 +196,8 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                 <Icon name="repeat" size={20} />
               </span>
               <div>
-                <b>Suscripciones</b>
-                <small>Gastos recurrentes</small>
+                <b>Pagos Recurrentes</b>
+                <small>Gastos e ingresos periódicos</small>
               </div>
               <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
             </button>

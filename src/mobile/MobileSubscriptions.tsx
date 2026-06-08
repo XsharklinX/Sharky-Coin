@@ -10,11 +10,11 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 function nextLabel(tx: Transaction): string {
   const next = tx.recurringNext ?? tx.date
-  return new Date(`${next}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(`${next}T00:00:00`).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })
 }
 
 function freqLabel(tx: Transaction) {
-  return tx.recurring === 'weekly' ? '/week' : '/month'
+  return tx.recurring === 'weekly' ? '/semana' : '/mes'
 }
 
 function monthlyEquivalent(tx: Transaction): number {
@@ -38,13 +38,13 @@ export function MobileSubscriptions() {
 
   const handleEnd = (tx: Transaction) => {
     updateTx(tx.id, { recurringEnd: today() })
-    toast(`"${tx.note}" stopped`, { icon: 'check', type: 'ok' })
+    toast(`"${tx.note}" detenido`, { icon: 'check', type: 'ok' })
     setSheet(null)
   }
 
   const handleDelete = (tx: Transaction) => {
     deleteTx(tx.id)
-    toast(`"${tx.note}" deleted`, { icon: 'trash', type: 'ok' })
+    toast(`"${tx.note}" eliminado`, { icon: 'trash', type: 'ok' })
     setSheet(null)
   }
 
@@ -53,8 +53,8 @@ export function MobileSubscriptions() {
       <div className="msub-root">
         <div className="msub-empty">
           <Icon name="repeat" size={40} style={{ opacity: .2 }} />
-          <p>No recurring transactions</p>
-          <small>Add a recurring expense or income from the create screen.</small>
+          <p>Sin pagos recurrentes</p>
+          <small>Agrega un gasto o ingreso recurrente desde la pantalla de creación.</small>
         </div>
       </div>
     )
@@ -64,20 +64,19 @@ export function MobileSubscriptions() {
     <div className="msub-root">
       {/* Hero stat */}
       <div className="msub-hero">
-        <div className="msub-hero-label">Monthly recurring</div>
+        <div className="msub-hero-label">Recurrente mensual</div>
         <div className="msub-hero-amount">{fmt(totalMonthly, currency)}</div>
-        <div className="msub-hero-count">{recurring.length} subscription{recurring.length !== 1 ? 's' : ''}</div>
+        <div className="msub-hero-count">{recurring.length} pago{recurring.length !== 1 ? 's' : ''} recurrente{recurring.length !== 1 ? 's' : ''}</div>
       </div>
 
       {/* Monthly group */}
       {monthly.length > 0 && (
-        <Section title="Monthly" txs={monthly} categories={categories} accounts={accounts}
+        <Section title="Mensual" txs={monthly} categories={categories} accounts={accounts}
           currency={currency} onOpen={tx => setSheet({ tx, confirm: false })} />
       )}
 
-      {/* Weekly group */}
       {weekly.length > 0 && (
-        <Section title="Weekly" txs={weekly} categories={categories} accounts={accounts}
+        <Section title="Semanal" txs={weekly} categories={categories} accounts={accounts}
           currency={currency} onOpen={tx => setSheet({ tx, confirm: false })} />
       )}
 
@@ -95,25 +94,25 @@ export function MobileSubscriptions() {
                 <span>{freqLabel(sheet.tx)}</span>
               </div>
               <div className="msub-sheet-meta">
-                Next occurrence: <strong>{nextLabel(sheet.tx)}</strong>
+                Próximo: <strong>{nextLabel(sheet.tx)}</strong>
               </div>
 
               {!sheet.confirm ? (
                 <>
                   <button className="msub-action-btn warn" onClick={() => handleEnd(sheet.tx)}>
-                    <Icon name="close" size={16} /> Stop future occurrences
+                    <Icon name="close" size={16} /> Detener futuras ocurrencias
                   </button>
                   <button className="msub-action-btn danger"
                     onClick={() => setSheet(s => s ? { ...s, confirm: true } : s)}>
-                    <Icon name="trash" size={16} /> Delete template
+                    <Icon name="trash" size={16} /> Eliminar plantilla
                   </button>
                 </>
               ) : (
                 <div className="msub-confirm">
-                  <p>Delete "{sheet.tx.note}"? Past transactions are kept. Future ones won't be generated.</p>
+                  <p>¿Eliminar "{sheet.tx.note}"? Los movimientos pasados se conservan. Los futuros no se generarán.</p>
                   <div className="msub-confirm-row">
-                    <button onClick={() => setSheet(s => s ? { ...s, confirm: false } : s)}>Cancel</button>
-                    <button className="danger" onClick={() => handleDelete(sheet.tx)}>Delete</button>
+                    <button onClick={() => setSheet(s => s ? { ...s, confirm: false } : s)}>Cancelar</button>
+                    <button className="danger" onClick={() => handleDelete(sheet.tx)}>Eliminar</button>
                   </div>
                 </div>
               )}
@@ -153,8 +152,8 @@ function Section({ title, txs, categories, accounts, currency, onOpen }: {
             <div className="msub-row-info">
               <b>{tx.note || cat?.name || '—'}</b>
               <small>
-                Next: {nextLabel(tx)}
-                {isPast && <span className="msub-overdue"> · overdue</span>}
+                Próx: {nextLabel(tx)}
+                {isPast && <span className="msub-overdue"> · vencido</span>}
                 {acct && <> · <span style={{ color: acct.color }}>●</span> {acct.short}</>}
               </small>
             </div>

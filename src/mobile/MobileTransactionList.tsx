@@ -111,7 +111,10 @@ export function MobileTransactionList({
           <div className="mobile-day-group" key={date}>
             <div className="mobile-day-header">
               <span>{dateLabel(date)}</span>
-              <strong>{dayExpense > 0 ? `Gastos: ${fmtCompact(dayExpense, currency)}` : `Ingresos: ${fmtCompact(dayIncome, currency)}`}</strong>
+              <span className="mobile-day-totals">
+                {dayExpense > 0 && <span className="day-exp">−{fmtCompact(dayExpense, currency)}</span>}
+                {dayIncome > 0 && <span className="day-inc">+{fmtCompact(dayIncome, currency)}</span>}
+              </span>
             </div>
             {dayRows.map(tx => {
               const category = getCategory(tx.categoryId, categories)

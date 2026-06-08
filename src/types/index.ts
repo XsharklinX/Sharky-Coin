@@ -31,6 +31,8 @@ export type IconName =
   | 'headphones' | 'clock' | 'key' | 'tool' | 'brush'
   | 'graduation' | 'stethoscope' | 'salad' | 'wine'
   | 'crown' | 'trophy' | 'shield' | 'map' | 'package'
+  // iconos financieros
+  | 'banknote' | 'coins' | 'handCoins' | 'landmark' | 'receipt'
 
 // ── Entidades financieras ─────────────────────────────────
 export interface Account {

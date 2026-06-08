@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { useT } from '@/i18n'
-import { playBackspaceSound, playConfirmSound, playKeySound, playOperatorSound } from '@/lib/sound'
+import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -28,6 +28,7 @@ const CATEGORY_ICONS: IconName[] = [
   'music', 'coffee', 'phone', 'gym', 'bus', 'building',
   'gamepad', 'gift', 'scissors', 'baby', 'paw', 'pill',
   'plane', 'briefcase', 'shirt', 'pizza', 'star', 'fuel', 'flame', 'soda',
+  'banknote', 'coins', 'handCoins', 'landmark', 'receipt',
   'tree', 'sun', 'bike', 'train', 'tv', 'monitor', 'headphones', 'clock',
   'key', 'tool', 'brush', 'graduation', 'stethoscope', 'salad', 'wine',
   'crown', 'trophy', 'shield', 'map', 'package',
@@ -96,13 +97,14 @@ export function MobileCreateFlow({
   onSaved: () => void
 }) {
   const t = useT()
-  const { accounts, categories, currency, addTx, transfer, addCategory } = useFinance()
+  const { accounts, categories, transactions, currency, addTx, transfer, addCategory } = useFinance()
+  const noteInputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<MobileTxMode>(initialMode ?? 'expense')
   const [amountText, setAmountText] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [accountId, setAccountId] = useState<string | null>(null)   // no default account
-  const [fromAccount, setFromAccount] = useState(accounts[0]?.id ?? '')
-  const [toAccount, setToAccount] = useState(accounts[1]?.id ?? accounts[0]?.id ?? '')
+  const [fromAccount, setFromAccount] = useState('')
+  const [toAccount, setToAccount] = useState('')
   const [note, setNote] = useState('')
   const [noteFocused, setNoteFocused] = useState(false)
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
@@ -133,6 +135,19 @@ export function MobileCreateFlow({
   const fromAccountObj = accounts.find(a => a.id === fromAccount)
   const toAccountObj = accounts.find(a => a.id === toAccount)
   const validTransfer = mode === 'transfer' && !!fromAccount && !!toAccount && fromAccount !== toAccount
+
+  // Notas anteriores únicas para el modo actual (autocompletar)
+  const pastNotes = useMemo(() => {
+    const seen = new Set<string>()
+    const result: string[] = []
+    for (const tx of transactions) {
+      if (tx.type !== mode || !tx.note) continue
+      const n = tx.note.trim()
+      if (n && !seen.has(n)) { seen.add(n); result.push(n) }
+      if (result.length >= 20) break
+    }
+    return result
+  }, [transactions, mode])
 
   // Save is only allowed when account is explicitly selected
   const canSave = amount > 0 && date && (
@@ -172,6 +187,9 @@ export function MobileCreateFlow({
       const cut = lastOperatorIndex(v)
       const head = cut === -1 ? '' : v.slice(0, cut + 1)
       const segment = cut === -1 ? v : v.slice(cut + 1)
+      // Si el segmento es solo "0." (o "0.0", "0.00"), cualquier dígito no-cero reemplaza
+      // el segmento completo en lugar de ir al decimal — evita el efecto "0.05" al escribir "5"
+      if (/^0\.0*$/.test(segment) && key !== '0') return head + key
       return head + cleanAmount(segment + key)
     })
   }
@@ -215,7 +233,7 @@ export function MobileCreateFlow({
         })
       }
       navigator.vibrate?.(18)
-      playConfirmSound()
+      playDoneSound()
       toast(
         recurring
           ? t(recurFreq === 'weekly' ? 'weeklyRecurringScheduled' : 'monthlyRecurringScheduled')
@@ -385,7 +403,9 @@ export function MobileCreateFlow({
             )}
             <strong className="mobile-create-amount-value" style={{ color: amountText ? amountColor : '#3a3a3a' }}>
               {amountText
-                ? fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 })
+                ? (amountText.endsWith('.')
+                    ? `${currencyPrefix} ${amount.toLocaleString('en-US')}.`
+                    : fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 }))
                 : `${currencyPrefix} 0`}
             </strong>
           </span>
@@ -411,6 +431,7 @@ export function MobileCreateFlow({
           <div className="mobile-quick-note-input">
             <Icon name="edit" size={13} />
             <input
+              ref={noteInputRef}
               type="text"
               value={note}
               placeholder={t('notePlaceholder')}
@@ -420,6 +441,7 @@ export function MobileCreateFlow({
               onChange={e => setNote(e.target.value)}
               onFocus={() => setNoteFocused(true)}
               onBlur={() => setNoteFocused(false)}
+              onKeyDown={e => { if (e.key === 'Enter') noteInputRef.current?.blur() }}
             />
           </div>
           <button className="mobile-quick-date-btn" onClick={() => setDatePicker(true)}>
@@ -427,6 +449,17 @@ export function MobileCreateFlow({
             <span>{isToday ? t('today') : formatDateShort(date)}</span>
           </button>
         </div>
+
+        {/* Chips de notas anteriores — visibles solo mientras se escribe la nota */}
+        {noteFocused && pastNotes.length > 0 && (
+          <div className="mobile-note-chips">
+            {pastNotes.map(n => (
+              <button key={n} className="mobile-note-chip" onClick={() => { setNote(n); noteInputRef.current?.blur() }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Numpad + Done — escondidos mientras se escribe la nota, para no competir con el teclado del SO */}
         {!noteFocused && (
@@ -498,10 +531,10 @@ export function MobileCreateFlow({
               <button onClick={() => setTransferPicker(null)}><Icon name="close" size={18} /></button>
             </header>
             <div className="mobile-picker-list">
-              {accounts
-                .filter(a => transferPicker === 'from' ? a.id !== toAccount : a.id !== fromAccount)
-                .map(account => (
-                  <button key={account.id} className="mobile-picker-row"
+              {accounts.map(account => {
+                const selected = transferPicker === 'from' ? account.id === fromAccount : account.id === toAccount
+                return (
+                  <button key={account.id} className={`mobile-picker-row${selected ? ' active' : ''}`}
                     onClick={() => {
                       if (transferPicker === 'from') setFromAccount(account.id)
                       else setToAccount(account.id)
@@ -512,8 +545,10 @@ export function MobileCreateFlow({
                     </span>
                     <b>{account.name}</b>
                     <small>{fmtCompact(account.balance, currency)}</small>
+                    {selected && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 4 }} />}
                   </button>
-                ))}
+                )
+              })}
             </div>
           </section>
         </div>

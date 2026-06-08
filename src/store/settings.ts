@@ -19,6 +19,8 @@ interface SettingsState {
   requireBiometric: boolean
   appPin: string | null
   soundsEnabled: boolean
+  soundVolume: number
+  compactNumbers: boolean
   dismissedAlerts: string[]
   notifiedAlerts: string[]
 
@@ -38,6 +40,8 @@ interface SettingsState {
   setRequireBiometric: (v: boolean) => void
   setAppPin: (v: string | null) => void
   setSoundsEnabled: (v: boolean) => void
+  setSoundVolume: (v: number) => void
+  setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
   markAlertNotified: (id: string) => void
 }
@@ -61,6 +65,8 @@ export const useSettings = create<SettingsState>()(
       requireBiometric: false,
       appPin: null,
       soundsEnabled: true,
+      soundVolume: 1,
+      compactNumbers: false,
       dismissedAlerts: [],
       notifiedAlerts: [],
 
@@ -80,6 +86,8 @@ export const useSettings = create<SettingsState>()(
       setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
       setAppPin: (appPin) => set({ appPin }),
       setSoundsEnabled: (soundsEnabled) => set({ soundsEnabled }),
+      setSoundVolume: (soundVolume) => set({ soundVolume: Math.min(1, Math.max(0, soundVolume)) }),
+      setCompactNumbers: (compactNumbers) => set({ compactNumbers }),
       dismissAlert: (id) => set(state =>
         state.dismissedAlerts.includes(id) ? state : { dismissedAlerts: [...state.dismissedAlerts, id] }),
       markAlertNotified: (id) => set(state =>

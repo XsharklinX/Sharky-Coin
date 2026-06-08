@@ -1,23 +1,37 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { playKeySound, playBackspaceSound, playDoneSound } from '@/lib/sound'
 
 export function MobilePinGate({ pin, onUnlocked }: { pin: string; onUnlocked: () => void }) {
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
 
   const press = (digit: string) => {
+    navigator.vibrate?.(8)
+    playKeySound()
     if (error) setError('')
     setValue(v => {
       if (v.length >= pin.length) return v
       const next = v + digit
       if (next.length === pin.length) {
-        if (next === pin) { setTimeout(onUnlocked, 80); return next }
+        if (next === pin) {
+          playDoneSound()
+          navigator.vibrate?.(12)
+          setTimeout(onUnlocked, 80)
+          return next
+        }
+        navigator.vibrate?.([20, 40, 20])
         setTimeout(() => { setValue(''); setError('PIN incorrecto') }, 220)
       }
       return next
     })
   }
-  const back = () => { if (error) setError(''); setValue(v => v.slice(0, -1)) }
+  const back = () => {
+    navigator.vibrate?.(10)
+    playBackspaceSound()
+    if (error) setError('')
+    setValue(v => v.slice(0, -1))
+  }
 
   return (
     <div className="mbio-root">

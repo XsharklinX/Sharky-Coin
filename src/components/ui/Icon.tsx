@@ -21,6 +21,7 @@ import {
   Headphones, Clock, Key, Wrench, Paintbrush,
   GraduationCap, Stethoscope, Salad, Wine,
   Crown, Trophy, Shield, MapPin, Package,
+  Banknote, Coins, HandCoins, Landmark, Receipt,
 } from 'lucide-react'
 import type { IconName } from '@/types'
 
@@ -121,6 +122,12 @@ const MAP: Partial<Record<IconName, LucideIcon>> = {
   shield:      Shield,
   map:         MapPin,
   package:     Package,
+  // financieros
+  banknote:    Banknote,
+  coins:       Coins,
+  handCoins:   HandCoins,
+  landmark:    Landmark,
+  receipt:     Receipt,
 }
 
 interface IconProps {

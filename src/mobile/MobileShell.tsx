@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
+import type { AppShortcut } from '@/hooks/useAppShortcut'
 import type { SharedReceipt } from '@/hooks/useTauri'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
@@ -53,6 +54,8 @@ export function MobileShell({
   userName,
   sharedReceipt,
   onConsumeSharedReceipt,
+  appShortcut,
+  onConsumeAppShortcut,
 }: {
   view: ViewId
   setView: (view: ViewId) => void
@@ -66,6 +69,8 @@ export function MobileShell({
   userName?: string
   sharedReceipt?: SharedReceipt | null
   onConsumeSharedReceipt?: () => void
+  appShortcut?: AppShortcut | null
+  onConsumeAppShortcut?: () => void
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
@@ -88,22 +93,18 @@ export function MobileShell({
     setQuickAddMode('expense')
     setRoute('add')
   }, [sharedReceipt])
-  // Atajos de la app (manifest `shortcuts`): /?shortcut=add-expense|add-income|reports
+  // Accesos directos del ícono (mantener presionado — ver res/xml/shortcuts.xml)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const shortcut = params.get('shortcut')
-    if (!shortcut) return
-    if (shortcut === 'add-expense' || shortcut === 'add-income') {
-      setQuickAddMode(shortcut === 'add-expense' ? 'expense' : 'income')
+    if (!appShortcut) return
+    if (appShortcut === 'add-expense' || appShortcut === 'add-income') {
+      setQuickAddMode(appShortcut === 'add-expense' ? 'expense' : 'income')
       setRoute('add')
-    } else if (shortcut === 'reports') {
+    } else if (appShortcut === 'reports') {
       setRoute('reports')
       setView('reports')
     }
-    params.delete('shortcut')
-    const rest = params.toString()
-    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''))
-  }, [])
+    onConsumeAppShortcut?.()
+  }, [appShortcut])
 
   const goRoute = (next: MobileRoute) => {
     if (next !== 'add') {

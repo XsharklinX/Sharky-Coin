@@ -396,6 +396,75 @@
   }
   .mgl-contrib-display strong { font-size: 22px; font-weight: 800; }
   .mgl-contrib-display small { color: var(--text-dim); font-size: 14px; }
+  /* Numpad de metas */
+  .mgl-amount-tap {
+    align-items: center;
+    background: color-mix(in oklab, var(--text) 6%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    display: flex;
+    font-size: 17px;
+    font-weight: 700;
+    gap: 8px;
+    height: 48px;
+    justify-content: space-between;
+    padding: 0 14px;
+    width: 100%;
+  }
+  .mgl-numpad-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 0;
+    padding: 16px 16px 8px;
+  }
+  .mgl-numpad-display {
+    color: var(--text);
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    padding: 8px 4px 16px;
+    text-align: right;
+  }
+  .mgl-numpad-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .mgl-numpad-key {
+    background: var(--surface);
+    border: 0;
+    border-radius: 14px;
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 600;
+    height: 60px;
+  }
+  .mgl-numpad-key:active { background: color-mix(in oklab, var(--text) 12%, var(--surface)); }
+  .mgl-numpad-back {
+    align-items: center;
+    background: color-mix(in oklab, var(--text) 8%, transparent);
+    border: 0;
+    border-radius: 14px;
+    color: var(--text);
+    display: grid;
+    height: 60px;
+    place-items: center;
+  }
+  .mgl-numpad-back:active { background: color-mix(in oklab, var(--text) 16%, transparent); }
+  .mgl-numpad-done {
+    background: var(--accent);
+    border: 0;
+    border-radius: 14px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 700;
+    height: 52px;
+    margin-top: 12px;
+    width: 100%;
+  }
+  .mgl-numpad-done:active { opacity: .85; }
   .mobile-month {
     align-items: center;
     align-self: flex-start;
@@ -529,6 +598,15 @@
     font-size: 11px;
     font-weight: 700;
   }
+  .mobile-day-totals {
+    align-items: center;
+    display: flex;
+    font-size: 11px;
+    font-weight: 750;
+    gap: 6px;
+  }
+  .day-exp { color: #ff6b8a; }
+  .day-inc { color: #35d0a2; }
   .mobile-tx-row {
     align-items: center;
     background: var(--m-surface);

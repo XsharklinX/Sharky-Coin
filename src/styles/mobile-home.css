@@ -12,6 +12,14 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     padding: 12px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .mhome-balance-btn {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
   }
   .mhome-summary-col {
     display: grid;
@@ -39,6 +47,63 @@
   }
   .mhome-summary-col strong.income { color: #35d0a2; }
   .mhome-summary-col strong.expense { color: #ff6b8a; }
+  .mhome-balance-breakdown {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 12px;
+    padding: 10px 16px;
+  }
+  .mhome-balance-row {
+    align-items: center;
+    display: flex;
+    font-size: 13px;
+    gap: 8px;
+    min-height: 30px;
+  }
+  .mhome-balance-acct-name { color: var(--m-muted); flex: 1; font-weight: 700; }
+  .mhome-balance-row strong { font-size: 13px; font-weight: 850; font-variant-numeric: tabular-nums; }
+  .mhome-balance-row strong.expense { color: #ff6b8a; }
+  .mhome-prev-month {
+    margin-top: 8px;
+  }
+  .mhome-prev-month-header {
+    align-items: center;
+    color: var(--m-muted);
+    display: flex;
+    font-size: 12px;
+    font-weight: 800;
+    gap: 6px;
+    letter-spacing: .04em;
+    padding: 4px 16px 8px;
+    text-transform: uppercase;
+  }
+  .mhome-prev-empty {
+    color: var(--m-muted);
+    font-size: 13px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .mhome-load-prev {
+    align-items: center;
+    background: var(--m-surface);
+    border: 1px dashed var(--m-border);
+    border-radius: 16px;
+    color: var(--m-muted);
+    display: flex;
+    font-size: 13px;
+    font-weight: 800;
+    gap: 8px;
+    justify-content: center;
+    margin: 12px 12px 0;
+    min-height: 48px;
+    padding: 0 20px;
+    width: calc(100% - 24px);
+  }
+  .mhome-load-prev:active { background: color-mix(in oklab, var(--m-primary) 8%, var(--m-surface)); }
   .mhome-movements {
     display: grid;
     flex: 1;

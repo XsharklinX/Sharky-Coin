@@ -19,6 +19,10 @@
             android:label="@string/main_activity_title"
             android:name=".MainActivity"
             android:exported="true">
+            <!-- Accesos directos al mantener presionado el ícono (ver res/xml/shortcuts.xml).
+                 NOTA: este directorio se regenera con `tauri android init` — si eso ocurre,
+                 hay que volver a agregar esta referencia. -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -35,6 +39,16 @@
                     android:scheme="sharky"
                     android:host="auth"
                     android:path="/callback" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="sharky"
+                    android:host="shortcut" />
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
 

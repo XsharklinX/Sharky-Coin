@@ -219,6 +219,27 @@
     outline: none;
   }
   .mobile-quick-note-input input::placeholder { color: #444; }
+  .mobile-note-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 16px 6px;
+    scrollbar-width: none;
+  }
+  .mobile-note-chips::-webkit-scrollbar { display: none; }
+  .mobile-note-chip {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 999px;
+    color: var(--m-text);
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    height: 30px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+  .mobile-note-chip:active { background: color-mix(in oklab, var(--m-primary) 12%, var(--m-surface)); }
   .mobile-quick-date-btn {
     align-items: center;
     background: var(--m-surface);

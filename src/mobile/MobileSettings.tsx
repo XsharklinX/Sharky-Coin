@@ -539,6 +539,39 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
                 <span className="mset-toggle" />
               </label>
             </div>
+            {settings.soundsEnabled && (
+              <div className="mset-row mset-row-volume">
+                <span className="mset-row-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+                  <Icon name="sliders" size={18} />
+                </span>
+                <div className="mset-row-text">
+                  <b>Volumen de sonidos</b>
+                  <input
+                    className="mset-slider" type="range"
+                    min={0} max={100} step={5}
+                    value={Math.round(settings.soundVolume * 100)}
+                    onChange={e => settings.setSoundVolume(Number(e.target.value) / 100)}
+                    onInput={e => settings.setSoundVolume(Number((e.target as HTMLInputElement).value) / 100)}
+                  />
+                </div>
+                <span className="mset-value">{Math.round(settings.soundVolume * 100)}%</span>
+              </div>
+            )}
+            <div className="mset-row">
+              <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+                <Icon name="chart" size={18} />
+              </span>
+              <div className="mset-row-text">
+                <b>Números resumidos</b>
+                <small>Mostrar 1.7k en lugar del valor completo</small>
+              </div>
+              <label className="mset-toggle-wrap">
+                <input type="checkbox" className="mset-toggle-input"
+                  checked={settings.compactNumbers}
+                  onChange={e => settings.setCompactNumbers(e.target.checked)} />
+                <span className="mset-toggle" />
+              </label>
+            </div>
           </div>
         </div>
 

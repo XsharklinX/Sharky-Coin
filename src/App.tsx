@@ -12,6 +12,7 @@ import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useNotificationActions } from '@/hooks/useNotificationActions'
 import { useSharedReceipt } from '@/hooks/useSharedReceipt'
+import { useAppShortcut } from '@/hooks/useAppShortcut'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
@@ -48,6 +49,7 @@ export default function App() {
   useNotifications()
   useNotificationActions()
   const [sharedReceipt, consumeSharedReceipt] = useSharedReceipt()
+  const [appShortcut, consumeAppShortcut] = useAppShortcut()
   useAutoBackup()
   useCloudWorkspace()
   useAutoCloudSync()
@@ -142,6 +144,8 @@ export default function App() {
           userName={s.displayName || undefined}
           sharedReceipt={sharedReceipt}
           onConsumeSharedReceipt={consumeSharedReceipt}
+          appShortcut={appShortcut}
+          onConsumeAppShortcut={consumeAppShortcut}
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
