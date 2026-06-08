@@ -1067,3 +1067,62 @@
     text-align: center;
   }
 
+  /* Tutorial progress dots */
+  .mwh-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0 4px; }
+  .mwh-dot { background: rgba(255,255,255,.2); border-radius: 99px; height: 6px; transition: width .2s ease, background .2s ease; width: 6px; }
+  .mwh-dot.on { background: var(--m-primary, #ffdd3d); width: 20px; }
+
+  /* Slide screens */
+  .mwh-slide-screen { display: flex; flex-direction: column; gap: 0; height: 100%; justify-content: stretch; padding: 0; }
+  .mwh-slide-visual {
+    align-items: center; display: flex; flex: 1; justify-content: center;
+    overflow: hidden; padding: 40px 24px 20px; position: relative;
+  }
+  .mwh-slide-glow {
+    background: radial-gradient(ellipse 60% 60% at 50% 50%, color-mix(in oklab, var(--slide-color, #35d0a2) 25%, transparent), transparent 80%);
+    border-radius: 50%; inset: -20%; pointer-events: none; position: absolute;
+  }
+  .mwh-slide-icon-wrap {
+    align-items: center;
+    background: color-mix(in oklab, var(--slide-color, #35d0a2) 16%, transparent);
+    border-radius: 32px; color: var(--slide-color, #35d0a2);
+    display: flex; height: 120px; justify-content: center; position: relative; width: 120px;
+  }
+  .mwh-slide-body {
+    background: #090909; border-radius: 28px 28px 0 0;
+    display: flex; flex-direction: column; gap: 10px; padding: 24px 28px 16px;
+  }
+  .mwh-slide-body h2 { color: #f5f5f5; font-size: 22px; font-weight: 900; margin: 6px 0 0; }
+  .mwh-slide-body p  { color: #a7a7a7; font-size: 15px; line-height: 1.55; margin: 0 0 4px; }
+  .mwh-slide-nav {
+    align-items: center; background: #090909;
+    display: flex; gap: 12px; padding: 12px 28px 36px;
+  }
+  .mwh-nav-back {
+    align-items: center; background: rgba(255,255,255,.08); border: 0; border-radius: 50%;
+    color: #f5f5f5; cursor: pointer; display: flex; flex-shrink: 0; height: 52px;
+    justify-content: center; transition: background .12s ease, transform .1s ease; width: 52px;
+  }
+  .mwh-nav-back:active { background: rgba(255,255,255,.14); transform: scale(.95); }
+  .mwh-nav-next { flex: 1; }
+
+  /* Name step */
+  .mwh-name-screen {
+    display: flex; flex-direction: column; gap: 0; height: 100%;
+    justify-content: center; padding: 48px 28px 60px;
+  }
+  .mwh-name-brand { align-items: center; display: flex; justify-content: center; margin-bottom: 28px; }
+  .mwh-name-screen h2 { color: #f5f5f5; font-size: 26px; font-weight: 900; margin: 0 0 8px; text-align: center; }
+  .mwh-name-hint { color: #a7a7a7; font-size: 14px; line-height: 1.5; margin: 0 0 24px; text-align: center; }
+  .mwh-name-input {
+    background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.12);
+    border-radius: 16px; color: #f5f5f5; font-family: inherit;
+    font-size: 18px; font-weight: 700; margin-bottom: 8px; outline: none;
+    padding: 18px 20px; text-align: center; transition: border-color .15s ease; width: 100%;
+  }
+  .mwh-name-input::placeholder { color: #555; font-weight: 500; }
+  .mwh-name-input:focus { border-color: #ffdd3d; }
+  .mwh-name-input.error { border-color: #ff6b8a; }
+  .mwh-name-error { color: #ff6b8a; font-size: 13px; margin: 0 0 12px; text-align: center; }
+  .mwh-name-actions { align-items: center; display: flex; gap: 12px; margin-top: 20px; }
+

@@ -161,12 +161,49 @@ export function MobileProfile({
       {/* ── Quick links ── */}
       <div className="mpr-section">
         <div className="mpr-section-header"><span>Accesos rápidos</span></div>
-        <div className="mpr-link-list">
-          <button onClick={onSettings}><Icon name="settings" size={20} />Configuración y backup<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
-          <button onClick={() => goto('subscriptions')}><Icon name="repeat" size={20} />Suscripciones<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
-          <button onClick={() => goto('annual')}><Icon name="chart" size={20} />Informe anual<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
-          <button onClick={() => goto('goals')}><Icon name="target" size={20} />Metas<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
-          <button onClick={() => goto('calendar')}><Icon name="calendar" size={20} />Calendario<Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', marginLeft: 'auto', color: 'var(--m-muted)' }} /></button>
+        <div className="mpr-quick-grid">
+          <button className="mpr-quick-card" onClick={onSettings}>
+            <span className="mpr-quick-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
+              <Icon name="settings" size={22} />
+            </span>
+            <strong>Configuración</strong>
+            <small>Backup · Seguridad · Tema</small>
+          </button>
+          <button className="mpr-quick-card" onClick={() => goto('subscriptions')}>
+            <span className="mpr-quick-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
+              <Icon name="repeat" size={22} />
+            </span>
+            <strong>Recurrentes</strong>
+            <small>Pagos y cobros fijos</small>
+          </button>
+          <button className="mpr-quick-card" onClick={() => goto('goals')}>
+            <span className="mpr-quick-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+              <Icon name="target" size={22} />
+            </span>
+            <strong>Metas</strong>
+            <small>Ahorro por objetivo</small>
+          </button>
+          <button className="mpr-quick-card" onClick={() => goto('annual')}>
+            <span className="mpr-quick-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+              <Icon name="chart" size={22} />
+            </span>
+            <strong>Informe anual</strong>
+            <small>Resumen del año</small>
+          </button>
+          <button className="mpr-quick-card" onClick={() => goto('calendar')}>
+            <span className="mpr-quick-icon" style={{ background: '#f59e0b22', color: '#f59e0b' }}>
+              <Icon name="calendar" size={22} />
+            </span>
+            <strong>Calendario</strong>
+            <small>Gastos por día</small>
+          </button>
+          <button className="mpr-quick-card" onClick={() => goto('debt')}>
+            <span className="mpr-quick-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
+              <Icon name="dollar" size={22} />
+            </span>
+            <strong>Deudas</strong>
+            <small>Plan de pago</small>
+          </button>
         </div>
       </div>
 

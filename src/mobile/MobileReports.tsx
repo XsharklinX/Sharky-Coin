@@ -178,64 +178,66 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
       )}
       {/* Tools */}
       {(goto || onImport) && (
-        <div className="mrep-tools">
-          <span className="mrep-section-title">Herramientas</span>
+        <div className="mrep-tools-wrap">
           {goto && (
-            <button className="mrep-tool-row" onClick={() => goto('debt')}>
-              <span className="mrep-tool-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
-                <Icon name="dollar" size={20} />
+            <>
+              <p className="mrep-tools-heading">Herramientas</p>
+              <div className="mrep-tools-grid">
+                <button className="mrep-tool-card" onClick={() => goto('debt')}>
+                  <span className="mrep-tool-card-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
+                    <Icon name="dollar" size={24} />
+                  </span>
+                  <strong>Calculadora de deudas</strong>
+                  <small>Snowball · Avalanche · Plan de pago</small>
+                  <span className="mrep-tool-card-arrow"><Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)' }} /></span>
+                </button>
+                <button className="mrep-tool-card" onClick={() => goto('subscriptions')}>
+                  <span className="mrep-tool-card-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
+                    <Icon name="repeat" size={24} />
+                  </span>
+                  <strong>Pagos Recurrentes</strong>
+                  <small>Gastos e ingresos periódicos</small>
+                  <span className="mrep-tool-card-arrow"><Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)' }} /></span>
+                </button>
+              </div>
+            </>
+          )}
+
+          <p className="mrep-tools-heading">Exportar datos</p>
+          <div className="mrep-export-list">
+            <button className="mrep-export-row" disabled={exportingPdf} onClick={handleExportPdf}>
+              <span className="mrep-export-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
+                <Icon name="book" size={20} />
               </span>
               <div>
-                <b>Calculadora de deudas</b>
-                <small>Snowball · Avalanche · Plan de pago</small>
+                <b>Estado del mes — PDF</b>
+                <small>{exportingPdf ? 'Generando…' : `Resumen de ${monthLabel(mkey)} listo para compartir`}</small>
               </div>
-              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+              {!exportingPdf && <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />}
             </button>
-          )}
-          {goto && (
-            <button className="mrep-tool-row" onClick={() => goto('subscriptions')}>
-              <span className="mrep-tool-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
-                <Icon name="repeat" size={20} />
+            <button className="mrep-export-row" disabled={exportingExcel} onClick={handleExportExcel}>
+              <span className="mrep-export-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+                <Icon name="trend" size={20} />
               </span>
               <div>
-                <b>Pagos Recurrentes</b>
-                <small>Gastos e ingresos periódicos</small>
+                <b>Reporte completo — Excel</b>
+                <small>{exportingExcel ? 'Generando…' : 'Movimientos, cuentas y categorías'}</small>
               </div>
-              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
+              {!exportingExcel && <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />}
             </button>
-          )}
-          <button className="mrep-tool-row" disabled={exportingPdf} onClick={handleExportPdf}>
-            <span className="mrep-tool-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
-              <Icon name="download" size={20} />
-            </span>
-            <div>
-              <b>Estado del mes (PDF)</b>
-              <small>{exportingPdf ? 'Generando…' : `Resumen de ${monthLabel(mkey)} listo para compartir`}</small>
-            </div>
-            <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
-          </button>
-          <button className="mrep-tool-row" disabled={exportingExcel} onClick={handleExportExcel}>
-            <span className="mrep-tool-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
-              <Icon name="download" size={20} />
-            </span>
-            <div>
-              <b>Reporte completo (Excel)</b>
-              <small>{exportingExcel ? 'Generando…' : 'Movimientos, cuentas y categorías por hoja'}</small>
-            </div>
-            <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
-          </button>
-          {onImport && (
-            <button className="mrep-tool-row" onClick={onImport}>
-              <span className="mrep-tool-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
-                <Icon name="upload" size={20} />
-              </span>
-              <div>
-                <b>Importar extracto</b>
-                <small>CSV · OFX desde bancos dominicanos</small>
-              </div>
-              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto', flexShrink: 0 }} />
-            </button>
-          )}
+            {onImport && (
+              <button className="mrep-export-row" onClick={onImport}>
+                <span className="mrep-export-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+                  <Icon name="upload" size={20} />
+                </span>
+                <div>
+                  <b>Importar extracto bancario</b>
+                  <small>CSV · OFX desde bancos dominicanos</small>
+                </div>
+                <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

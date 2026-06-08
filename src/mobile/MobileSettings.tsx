@@ -269,6 +269,7 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
   const [pinError, setPinError] = useState('')
   const [internalBackups, setInternalBackups] = useState<AutoBackupEntry[]>([])
   const [loadingBackups, setLoadingBackups] = useState(false)
+  const [catTab, setCatTab] = useState<'expense' | 'income'>('expense')
   const health = getDataHealthStatus(finance)
 
   useEffect(() => {
@@ -954,18 +955,37 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
       )}
 
       {activeSheet === 'categories' && (
-        <SettingsSheet title="Ajustes de categorías" onClose={close}>
+        <SettingsSheet title="Categorías" onClose={close}>
           <div className="mset-sheet-body">
+            <div className="mset-cat-tabs">
+              <button
+                className={catTab === 'expense' ? 'on' : ''}
+                onClick={() => setCatTab('expense')}
+              >
+                <span style={{ background: '#ff6b8a22', color: '#ff6b8a', borderRadius: 8, width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name="cart" size={14} />
+                </span>
+                Gastos
+                <span className="mset-cat-tab-count">{finance.categories.filter(c => c.type === 'expense').length}</span>
+              </button>
+              <button
+                className={catTab === 'income' ? 'on' : ''}
+                onClick={() => setCatTab('income')}
+              >
+                <span style={{ background: '#35d0a222', color: '#35d0a2', borderRadius: 8, width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name="wallet" size={14} />
+                </span>
+                Ingresos
+                <span className="mset-cat-tab-count">{finance.categories.filter(c => c.type === 'income').length}</span>
+              </button>
+            </div>
             <CategoryGroup
-              title="Gastos" type="expense"
-              categories={finance.categories.filter(c => c.type === 'expense')}
-              onAdd={() => setEditingCat('new-expense')}
-              onEdit={c => setEditingCat(c)} />
-            <CategoryGroup
-              title="Ingresos" type="income"
-              categories={finance.categories.filter(c => c.type === 'income')}
-              onAdd={() => setEditingCat('new-income')}
-              onEdit={c => setEditingCat(c)} />
+              title={catTab === 'expense' ? 'Gastos' : 'Ingresos'}
+              type={catTab}
+              categories={finance.categories.filter(c => c.type === catTab)}
+              onAdd={() => setEditingCat(catTab === 'expense' ? 'new-expense' : 'new-income')}
+              onEdit={c => setEditingCat(c)}
+            />
           </div>
         </SettingsSheet>
       )}

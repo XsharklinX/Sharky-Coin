@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import type { AppShortcut } from '@/hooks/useAppShortcut'
 import type { SharedReceipt } from '@/hooks/useTauri'
@@ -77,7 +77,15 @@ export function MobileShell({
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
+  const [createKey, setCreateKey] = useState(0)
+  const prevIsAdd = useRef(false)
   const mIdx = keys.indexOf(mkey)
+
+  // Remount MobileCreateFlow each time the add route is entered so state resets
+  useEffect(() => {
+    if (route === 'add' && !prevIsAdd.current) setCreateKey(k => k + 1)
+    prevIsAdd.current = route === 'add'
+  }, [route])
 
   // Back navigation: add-flow → home
   useMobileBackDismiss(route === 'add', () => {
@@ -120,6 +128,7 @@ export function MobileShell({
     if (route === 'add') {
       return (
         <MobileCreateFlow
+          key={createKey}
           mkey={mkey}
           initialMode={quickAddMode ?? undefined}
           receiptPreview={sharedReceipt ?? undefined}
