@@ -37,8 +37,18 @@
                     android:path="/callback" />
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
-            
+
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
+
+            <!-- Compartir hacia $harky: recibos (foto/PDF) desde Galería, Drive, WhatsApp, etc.
+                 NOTA: este directorio se regenera con `tauri android init` — si eso ocurre,
+                 hay que volver a agregar este intent-filter. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
         </activity>
 
         <provider

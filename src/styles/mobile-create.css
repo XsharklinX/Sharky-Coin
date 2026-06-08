@@ -315,6 +315,21 @@
   .mobile-picker-row b { flex: 1; font-size: 15px; font-weight: 800; }
   .mobile-picker-row small { color: var(--m-muted); font-size: 13px; font-weight: 750; }
 
+  .mobile-create-receipt-preview {
+    align-items: center; display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 12px;
+  }
+  .mobile-create-receipt-preview img {
+    border: 1px solid rgba(255,255,255,.12); border-radius: 14px;
+    max-height: 220px; object-fit: contain; width: auto;
+  }
+  .mobile-create-receipt-file {
+    align-items: center; background: var(--m-surface); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 14px; display: flex; gap: 10px; padding: 14px 16px;
+  }
+  .mobile-create-receipt-file span { font-size: 14px; font-weight: 750; }
+  .mobile-create-receipt-hint { color: var(--m-muted); font-size: 12px; font-weight: 700; text-align: center; }
+
   .mobile-segment {
     background: var(--m-surface);
     border: 1px solid rgba(255,255,255,.18);

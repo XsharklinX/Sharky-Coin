@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
+import type { SharedReceipt } from '@/hooks/useTauri'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
 import { MobileAnalytics } from './MobileAnalytics'
@@ -50,6 +51,8 @@ export function MobileShell({
   onSettings,
   onEditTx,
   userName,
+  sharedReceipt,
+  onConsumeSharedReceipt,
 }: {
   view: ViewId
   setView: (view: ViewId) => void
@@ -61,6 +64,8 @@ export function MobileShell({
   onSettings: () => void
   onEditTx: (transaction: Transaction) => void
   userName?: string
+  sharedReceipt?: SharedReceipt | null
+  onConsumeSharedReceipt?: () => void
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
@@ -72,10 +77,17 @@ export function MobileShell({
   useMobileBackDismiss(route === 'add', () => {
     setRoute('home')
     setView('dashboard')
+    onConsumeSharedReceipt?.()
   })
   // Back navigation: sub-views inside reports → main reports
   const isInSubView = route === 'reports' && view !== 'reports'
   useMobileBackDismiss(isInSubView, () => setView('reports'))
+  // Recibo compartido desde otra app (Galería, WhatsApp, etc.) → abrir "agregar gasto" con vista previa
+  useEffect(() => {
+    if (!sharedReceipt) return
+    setQuickAddMode('expense')
+    setRoute('add')
+  }, [sharedReceipt])
   // Atajos de la app (manifest `shortcuts`): /?shortcut=add-expense|add-income|reports
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -94,7 +106,10 @@ export function MobileShell({
   }, [])
 
   const goRoute = (next: MobileRoute) => {
-    if (next !== 'add') setQuickAddMode(null)
+    if (next !== 'add') {
+      setQuickAddMode(null)
+      onConsumeSharedReceipt?.()
+    }
     setRoute(next)
     if (next !== 'add') setView(viewFromRoute(next))
   }
@@ -105,7 +120,11 @@ export function MobileShell({
         <MobileCreateFlow
           mkey={mkey}
           initialMode={quickAddMode ?? undefined}
-          onSaved={() => { setQuickAddMode(null); setRoute('home'); setView('dashboard') }}
+          receiptPreview={sharedReceipt ?? undefined}
+          onSaved={() => {
+            setQuickAddMode(null); setRoute('home'); setView('dashboard')
+            onConsumeSharedReceipt?.()
+          }}
         />
       )
     }

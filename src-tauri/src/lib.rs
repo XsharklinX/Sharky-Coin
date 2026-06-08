@@ -30,6 +30,55 @@ fn save_backup_auto(app: tauri::AppHandle, json: String) -> Result<String, Strin
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Archivo (foto/PDF de recibo) recibido vía "Compartir" desde otra app.
+/// Lo escribe `MainActivity.kt` en `{cache_dir}/shared/` cuando llega un
+/// intent `ACTION_SEND`; este lado lo consume una sola vez (lo borra al leerlo).
+#[derive(serde::Serialize)]
+struct SharedFile {
+    #[serde(rename = "dataUrl")]
+    data_url: String,
+    #[serde(rename = "mimeType")]
+    mime_type: String,
+    name: String,
+}
+
+#[derive(serde::Deserialize)]
+struct SharedFileMarker {
+    path: String,
+    #[serde(rename = "mimeType")]
+    mime_type: String,
+    name: String,
+}
+
+/// Lee y consume el recibo compartido pendiente (si hay alguno).
+/// Devuelve `None` si el usuario no compartió nada hacia la app.
+#[tauri::command]
+fn take_pending_shared_file(app: tauri::AppHandle) -> Result<Option<SharedFile>, String> {
+    use base64::Engine;
+
+    let cache_dir = app.path().app_cache_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let shared_dir = cache_dir.join("shared");
+    let marker_path = shared_dir.join("pending.json");
+    if !marker_path.exists() {
+        return Ok(None);
+    }
+
+    let marker_json = std::fs::read_to_string(&marker_path).map_err(|e| e.to_string())?;
+    let marker: SharedFileMarker = serde_json::from_str(&marker_json).map_err(|e| e.to_string())?;
+    let bytes = std::fs::read(&marker.path).map_err(|e| e.to_string())?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let data_url = format!("data:{};base64,{}", marker.mime_type, encoded);
+
+    let _ = std::fs::remove_file(&marker_path);
+    let _ = std::fs::remove_file(&marker.path);
+
+    Ok(Some(SharedFile {
+        data_url,
+        mime_type: marker.mime_type,
+        name: marker.name,
+    }))
+}
+
 const SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas";
 extern crate chrono;
 const DESKTOP_PWA_CACHE_RESET_SCRIPT: &str = r#"
@@ -117,6 +166,7 @@ pub fn run() {
             secure_storage_set,
             secure_storage_get,
             secure_storage_remove,
+            take_pending_shared_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

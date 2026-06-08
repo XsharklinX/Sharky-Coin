@@ -131,6 +131,23 @@ export async function onNotificationAction(
   return () => { void listener.unregister() }
 }
 
+/** Recibo (foto/PDF) recibido vía "Compartir" desde otra app — referencia visual temporal. */
+export interface SharedReceipt {
+  dataUrl: string
+  mimeType: string
+  name: string
+}
+
+/**
+ * Revisa si el usuario compartió una foto/PDF hacia $harky (ej. desde Galería o WhatsApp).
+ * Consume el archivo pendiente una sola vez — llamadas siguientes devuelven `null`
+ * hasta que se comparta algo nuevo. No hace nada en web/PWA.
+ */
+export async function checkSharedFile(): Promise<SharedReceipt | null> {
+  if (!isTauri()) return null
+  return tauriInvoke<SharedReceipt | null>('take_pending_shared_file')
+}
+
 /**
  * Carga un backup JSON.
  * - En Tauri: abre diálogo de archivo nativo → lee el contenido

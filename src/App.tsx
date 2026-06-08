@@ -11,6 +11,7 @@ import { TransactionForm } from '@/modals/TransactionForm'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useNotificationActions } from '@/hooks/useNotificationActions'
+import { useSharedReceipt } from '@/hooks/useSharedReceipt'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
@@ -46,6 +47,7 @@ export default function App() {
   useRecurring()
   useNotifications()
   useNotificationActions()
+  const [sharedReceipt, consumeSharedReceipt] = useSharedReceipt()
   useAutoBackup()
   useCloudWorkspace()
   useAutoCloudSync()
@@ -138,6 +140,8 @@ export default function App() {
           onSettings={() => setSettingsOpen(true)}
           onEditTx={tx => setTxForm(tx)}
           userName={s.displayName || undefined}
+          sharedReceipt={sharedReceipt}
+          onConsumeSharedReceipt={consumeSharedReceipt}
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}

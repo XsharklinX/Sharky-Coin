@@ -87,10 +87,12 @@ function formatDateShort(date: string): string {
 export function MobileCreateFlow({
   mkey,
   initialMode,
+  receiptPreview,
   onSaved,
 }: {
   mkey: string
   initialMode?: MobileTxMode
+  receiptPreview?: { dataUrl: string; mimeType: string; name: string }
   onSaved: () => void
 }) {
   const t = useT()
@@ -248,6 +250,21 @@ export function MobileCreateFlow({
 
       {/* ─── Scrollable top section ─── */}
       <div className="mobile-create-scroll">
+
+        {/* Recibo compartido desde otra app — solo referencia visual, no se guarda */}
+        {receiptPreview && (
+          <div className="mobile-create-receipt-preview">
+            {receiptPreview.mimeType.startsWith('image/') ? (
+              <img src={receiptPreview.dataUrl} alt={receiptPreview.name} />
+            ) : (
+              <div className="mobile-create-receipt-file">
+                <Icon name="book" size={22} />
+                <span>{receiptPreview.name}</span>
+              </div>
+            )}
+            <span className="mobile-create-receipt-hint">{t('receiptHint')}</span>
+          </div>
+        )}
 
         {/* Mode tabs */}
         <div className="mobile-segment" role="tablist" aria-label={t('movementType')}>
