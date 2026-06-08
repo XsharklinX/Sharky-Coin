@@ -17,6 +17,7 @@ interface SettingsState {
   displayName: string
   language: 'en' | 'es'
   requireBiometric: boolean
+  appPin: string | null
   dismissedAlerts: string[]
   notifiedAlerts: string[]
 
@@ -34,6 +35,7 @@ interface SettingsState {
   setDisplayName: (v: string) => void
   setLanguage: (v: 'en' | 'es') => void
   setRequireBiometric: (v: boolean) => void
+  setAppPin: (v: string | null) => void
   dismissAlert: (id: string) => void
   markAlertNotified: (id: string) => void
 }
@@ -55,6 +57,7 @@ export const useSettings = create<SettingsState>()(
       displayName: '',
       language: 'es',
       requireBiometric: false,
+      appPin: null,
       dismissedAlerts: [],
       notifiedAlerts: [],
 
@@ -72,6 +75,7 @@ export const useSettings = create<SettingsState>()(
       setDisplayName: (displayName) => set({ displayName }),
       setLanguage: (language) => set({ language }),
       setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
+      setAppPin: (appPin) => set({ appPin }),
       dismissAlert: (id) => set(state =>
         state.dismissedAlerts.includes(id) ? state : { dismissedAlerts: [...state.dismissedAlerts, id] }),
       markAlertNotified: (id) => set(state =>

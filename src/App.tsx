@@ -15,6 +15,7 @@ import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { useLiveExchangeRates } from '@/hooks/useLiveExchangeRates'
 import { MobileBiometricGate } from '@/mobile/MobileBiometricGate'
+import { MobilePinGate } from '@/mobile/MobilePinGate'
 import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
@@ -31,6 +32,7 @@ export default function App() {
   const { transactions, accounts, currency, setCurrency, addTx, deleteTx } = useFinance()
 
   const [bioUnlocked, setBioUnlocked]  = useState(!s.requireBiometric)
+  const [pinUnlocked, setPinUnlocked]  = useState(!s.appPin)
   const [splashDone,   setSplashDone]   = useState(false)
   const [view,         setView]         = useState<ViewId>('dashboard')
   const [mkey,         setMkey]         = useState(currentMonthKey())
@@ -62,6 +64,12 @@ export default function App() {
   if (s.requireBiometric && !bioUnlocked) return (
     <div className="app mobile-app" {...themeProps}>
       <MobileBiometricGate onUnlocked={() => setBioUnlocked(true)} />
+    </div>
+  )
+
+  if (s.appPin && !pinUnlocked) return (
+    <div className="app mobile-app" {...themeProps}>
+      <MobilePinGate pin={s.appPin} onUnlocked={() => setPinUnlocked(true)} />
     </div>
   )
 
@@ -131,7 +139,7 @@ export default function App() {
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
-        {settingsOpen && <MobileSettings onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <MobileSettings mkey={mkey} onClose={() => setSettingsOpen(false)} />}
       </DialogProvider>
     </div>
   )

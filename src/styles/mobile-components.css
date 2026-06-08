@@ -701,6 +701,30 @@
     gap: 8px; margin-top: 8px; padding: 14px 24px;
   }
 
+/* -- MobilePinGate ------------------------------------------ */
+  .mpin-card { max-width: 320px; }
+  .mpin-dots { display: flex; gap: 14px; margin: 4px 0 6px; }
+  .mpin-dot {
+    background: var(--m-surface); border: 1px solid var(--m-border);
+    border-radius: 50%; height: 14px; width: 14px;
+    transition: background .15s, border-color .15s;
+  }
+  .mpin-dot.on { background: var(--accent, #ffdd3d); border-color: var(--accent, #ffdd3d); }
+  .mpin-dot.err { background: #ff6b8a; border-color: #ff6b8a; }
+  .mpin-keypad {
+    display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr);
+    margin-top: 8px; width: 100%;
+  }
+  .mpin-keypad button, .mpin-keypad span {
+    align-items: center; display: flex; justify-content: center;
+  }
+  .mpin-keypad button {
+    background: var(--m-surface); border: 1px solid var(--m-border);
+    border-radius: 14px; color: var(--m-text); font-size: 20px; font-weight: 700;
+    height: 56px;
+  }
+  .mpin-keypad button:active { background: color-mix(in oklab, var(--accent, #ffdd3d) 16%, var(--m-surface)); }
+
 /* -- Smart Insights (MobileHome) --------------------------- */
   .mhome-smart-insights { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
   .mhome-insight-chip { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-muted); display: flex; font-size: 13px; gap: 8px; padding: 10px 14px; }

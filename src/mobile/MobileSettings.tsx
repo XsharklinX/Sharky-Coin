@@ -5,12 +5,14 @@ import { toast } from '@/components/ui/Toast'
 import { APP_VERSION } from '@/data/release'
 import { createBackup, parseBackup } from '@/data/backup'
 import { getDataHealthStatus } from '@/data/dataHealth'
+import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
+import { monthLabel } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useAuth } from '@/store/auth'
 import { isTauri, openBackup, saveBackup } from '@/hooks/useTauri'
 import { checkBiometric } from '@/lib/biometric'
-import type { DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
+import type { Category, DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
@@ -28,7 +30,17 @@ const DENSITY_LABELS: Record<DensityName, string> = { compact: 'Compacto', regul
 const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = { block: 'Bloquear', warn: 'Advertir', allow: 'Permitir' }
 
 type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
-  | 'comments' | 'about' | 'privacy' | 'terms'
+  | 'comments' | 'about' | 'privacy' | 'terms' | 'export' | 'pin' | 'categories'
+
+const CAT_COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b','#fb7185','#22c55e','#c084fc','#38bdf8']
+
+const CAT_ICONS: IconName[] = [
+  'cart','food','car','bolt','heart','home','bag','book','wallet','laptop','trend','play',
+  'music','coffee','phone','gym','bus','building','gamepad','gift','scissors','baby','paw','pill',
+  'plane','briefcase','shirt','pizza','star','fuel','flame','soda',
+  'tree','sun','bike','train','tv','monitor','headphones','clock','key','tool',
+  'brush','graduation','stethoscope','salad','wine','crown','trophy','shield','map','package',
+]
 
 const PRIVACY_SECTIONS: { title: string; body: string[] }[] = [
   {
@@ -237,7 +249,7 @@ function GoogleButton({ busy, onClick }: { busy: boolean; onClick: () => void })
   )
 }
 
-export function MobileSettings({ onClose }: { onClose: () => void }) {
+export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () => void }) {
   const settings = useSettings()
   const finance  = useFinance()
   const auth = useAuth()
@@ -248,6 +260,13 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
   const [pendingReset, setPendingReset] = useState(false)
   const [bioAvailable, setBioAvailable] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const [editingCat, setEditingCat] = useState<Category | 'new-expense' | 'new-income' | null>(null)
+  const [pinStep, setPinStep] = useState<'idle' | 'enter' | 'confirm' | 'remove'>('idle')
+  const [pinDraft, setPinDraft] = useState('')
+  const [pinValue, setPinValue] = useState('')
+  const [pinError, setPinError] = useState('')
   const health = getDataHealthStatus(finance)
 
   useEffect(() => {
@@ -255,10 +274,15 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
   }, [])
 
   useMobileBackDismiss(true, onClose)
-  useMobileBackDismiss(!!activeSheet, () => { setActiveSheet(null); setPendingReset(false) })
+  useMobileBackDismiss(!!activeSheet, () => { setActiveSheet(null); setPendingReset(false); resetPinFlow() })
+  useMobileBackDismiss(!!editingCat, () => setEditingCat(null))
 
   const open  = (sheet: Sheet) => { setActiveSheet(sheet); if (sheet === 'name') setNameInput(settings.displayName) }
-  const close = () => { setActiveSheet(null); setPendingReset(false) }
+  const close = () => { setActiveSheet(null); setPendingReset(false); resetPinFlow() }
+
+  function resetPinFlow() {
+    setPinStep('idle'); setPinDraft(''); setPinValue(''); setPinError('')
+  }
 
   const saveName = () => {
     settings.setDisplayName(nameInput.trim())
@@ -286,6 +310,99 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
       toast(error instanceof Error ? error.message : 'Archivo inválido.', { icon: 'alert' })
     }
   }
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true)
+    try {
+      await exportMonthlyPdf(finance, mkey, settings.displayName || '$harky')
+      toast(`Estado de ${monthLabel(mkey)} exportado en PDF`, { icon: 'download', type: 'ok' })
+    } catch {
+      toast('No se pudo generar el PDF.', { icon: 'alert' })
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true)
+    try {
+      await exportExcel(finance)
+      toast('Reporte completo exportado en Excel', { icon: 'download', type: 'ok' })
+    } catch {
+      toast('No se pudo generar el Excel.', { icon: 'alert' })
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
+  const saveCategory = (fields: { name: string; type: 'expense' | 'income'; budget: number; color: string; icon: IconName }) => {
+    if (!fields.name.trim()) { toast('Escribe un nombre para la categoría.', { icon: 'alert' }); return }
+    try {
+      if (editingCat === 'new-expense' || editingCat === 'new-income') {
+        finance.addCategory({ name: fields.name.trim(), type: fields.type, budget: fields.budget, color: fields.color, icon: fields.icon })
+        toast('Categoría creada', { icon: 'check', type: 'ok' })
+      } else if (editingCat) {
+        finance.updateCategory(editingCat.id, { name: fields.name.trim(), budget: fields.budget, color: fields.color, icon: fields.icon })
+        toast('Categoría actualizada', { icon: 'check', type: 'ok' })
+      }
+      setEditingCat(null)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo guardar la categoría.', { icon: 'alert' })
+    }
+  }
+
+  const removeCategory = (cat: Category) => {
+    try {
+      finance.deleteCategory(cat.id)
+      toast('Categoría eliminada', { icon: 'trash' })
+      setEditingCat(null)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar.', { icon: 'alert' })
+    }
+  }
+
+  const pressPinDigit = (digit: string) => {
+    if (pinError) setPinError('')
+    if (pinStep === 'enter') {
+      setPinValue(v => {
+        if (v.length >= 4) return v
+        const next = v + digit
+        if (next.length === 4) setTimeout(() => { setPinDraft(next); setPinValue(''); setPinStep('confirm') }, 120)
+        return next
+      })
+    } else if (pinStep === 'confirm') {
+      setPinValue(v => {
+        if (v.length >= 4) return v
+        const next = v + digit
+        if (next.length === 4) {
+          if (next === pinDraft) {
+            settings.setAppPin(next)
+            toast('PIN configurado', { icon: 'check', type: 'ok' })
+            setTimeout(close, 250)
+          } else {
+            setTimeout(() => { setPinValue(''); setPinDraft(''); setPinStep('enter'); setPinError('Los PIN no coinciden, intenta de nuevo') }, 200)
+          }
+        }
+        return next
+      })
+    } else if (pinStep === 'remove') {
+      setPinValue(v => {
+        if (v.length >= 4) return v
+        const next = v + digit
+        if (next.length === 4) {
+          if (next === settings.appPin) {
+            settings.setAppPin(null)
+            toast('PIN eliminado', { icon: 'trash' })
+            setTimeout(close, 200)
+          } else {
+            setTimeout(() => { setPinValue(''); setPinError('PIN incorrecto') }, 200)
+          }
+        }
+        return next
+      })
+    }
+  }
+  const backspacePin = () => { if (pinError) setPinError(''); setPinValue(v => v.slice(0, -1)) }
 
   const sendComment = () => {
     const body = commentText.trim()
@@ -380,6 +497,8 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
             <SettingsRow icon="alert" iconColor="#f59e0b" label="Sobregiro"
               value={OVERDRAFT_LABELS[settings.overdraftPolicy]}
               onClick={() => open('overdraft')} />
+            <SettingsRow icon="tag" iconColor="#c084fc" label="Ajustes de categorías"
+              onClick={() => open('categories')} />
           </div>
         </div>
 
@@ -422,8 +541,8 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           <div className="mset-card">
-            <SettingsRow icon="download" iconColor="#35d0a2" label="Exportar backup"
-              onClick={() => void exportBackup()} />
+            <SettingsRow icon="download" iconColor="#35d0a2" label="Exportar Datos"
+              onClick={() => open('export')} />
             <SettingsRow icon="upload" iconColor="#5bc0ff" label="Restaurar backup"
               onClick={() => void importBackup()} />
           </div>
@@ -433,11 +552,11 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* ── Security (Tauri only) ── */}
-        {isTauri() && (
-          <div className="mset-section">
-            <div className="mset-section-label">Seguridad</div>
-            <div className="mset-card">
+        {/* ── Security ── */}
+        <div className="mset-section">
+          <div className="mset-section-label">Seguridad</div>
+          <div className="mset-card">
+            {isTauri() && (
               <div className="mset-row">
                 <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
                   <Icon name="lock" size={18} />
@@ -454,9 +573,12 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
                   <span className="mset-toggle" />
                 </label>
               </div>
-            </div>
+            )}
+            <SettingsRow icon="key" iconColor="#ffdd3d" label="Contraseña de la app"
+              value={settings.appPin ? 'Activada' : 'Desactivada'}
+              onClick={() => { resetPinFlow(); setPinStep(settings.appPin ? 'idle' : 'enter'); open('pin') }} />
           </div>
-        )}
+        </div>
 
         {/* ── Acerca de / Legal ── */}
         <div className="mset-section">
@@ -675,6 +797,220 @@ export function MobileSettings({ onClose }: { onClose: () => void }) {
           </div>
         </SettingsSheet>
       )}
+
+      {activeSheet === 'export' && (
+        <SettingsSheet title="Exportar Datos" onClose={close}>
+          <div className="mset-sheet-body">
+            <p className="mset-legal-intro">Elige el formato en el que quieres exportar tu información financiera.</p>
+            <div className="mset-card" style={{ margin: 0 }}>
+              <SettingsRow icon="fileJson" iconColor="#35d0a2" label="Backup (JSON)"
+                onClick={() => void exportBackup()} />
+              <SettingsRow icon="download" iconColor="#5bc0ff" label={exportingExcel ? 'Generando Excel…' : 'Reporte completo (Excel)'}
+                onClick={() => { if (!exportingExcel) void handleExportExcel() }} />
+              <SettingsRow icon="download" iconColor="#a78bfa" label={exportingPdf ? 'Generando PDF…' : `Estado de ${monthLabel(mkey)} (PDF)`}
+                onClick={() => { if (!exportingPdf) void handleExportPdf() }} />
+            </div>
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'pin' && (
+        <SettingsSheet title="Contraseña de la app" onClose={close}>
+          <div className="mset-sheet-body">
+            {pinStep === 'idle' && (
+              <>
+                <p className="mset-legal-intro">Tu app está protegida con un PIN de 4 dígitos. Puedes cambiarlo o quitarlo.</p>
+                <button className="mset-sheet-confirm" onClick={() => { setPinStep('enter'); setPinValue(''); setPinDraft(''); setPinError('') }}>
+                  Cambiar PIN
+                </button>
+                <button className="mset-sheet-danger" onClick={() => { setPinStep('remove'); setPinValue(''); setPinError('') }}>
+                  <Icon name="trash" size={16} /> Quitar PIN
+                </button>
+              </>
+            )}
+
+            {pinStep !== 'idle' && (
+              <>
+                <p className="mset-legal-intro">
+                  {pinStep === 'enter' && 'Crea un PIN de 4 dígitos para bloquear la app.'}
+                  {pinStep === 'confirm' && 'Confirma tu nuevo PIN.'}
+                  {pinStep === 'remove' && 'Ingresa tu PIN actual para quitarlo.'}
+                </p>
+                <p style={{ color: pinError ? '#ff6b8a' : 'var(--m-muted)', fontSize: 13, minHeight: 18, textAlign: 'center' }}>
+                  {pinError || ' '}
+                </p>
+                <div className="mpin-dots" style={{ justifyContent: 'center', margin: '4px 0 18px' }}>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <span key={i} className={`mpin-dot${i < pinValue.length ? ' on' : ''}${pinError ? ' err' : ''}`} />
+                  ))}
+                </div>
+                <div className="mpin-keypad">
+                  {['1','2','3','4','5','6','7','8','9'].map(d => (
+                    <button key={d} onClick={() => pressPinDigit(d)}>{d}</button>
+                  ))}
+                  <span />
+                  <button onClick={() => pressPinDigit('0')}>0</button>
+                  <button aria-label="Borrar" onClick={backspacePin}><Icon name="close" size={18} /></button>
+                </div>
+              </>
+            )}
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'categories' && (
+        <SettingsSheet title="Ajustes de categorías" onClose={close}>
+          <div className="mset-sheet-body">
+            <CategoryGroup
+              title="Gastos" type="expense"
+              categories={finance.categories.filter(c => c.type === 'expense')}
+              onAdd={() => setEditingCat('new-expense')}
+              onEdit={c => setEditingCat(c)} />
+            <CategoryGroup
+              title="Ingresos" type="income"
+              categories={finance.categories.filter(c => c.type === 'income')}
+              onAdd={() => setEditingCat('new-income')}
+              onEdit={c => setEditingCat(c)} />
+          </div>
+        </SettingsSheet>
+      )}
+
+      {editingCat !== null && (
+        <CategoryEditor
+          category={typeof editingCat === 'string' ? undefined : editingCat}
+          type={editingCat === 'new-income' ? 'income' : editingCat === 'new-expense' ? 'expense' : editingCat.type}
+          onClose={() => setEditingCat(null)}
+          onSave={saveCategory}
+          onDelete={typeof editingCat !== 'string' ? removeCategory : undefined}
+        />
+      )}
+    </div>
+  )
+}
+
+function CategoryGroup({ title, type, categories, onAdd, onEdit }: {
+  title: string
+  type: 'expense' | 'income'
+  categories: Category[]
+  onAdd: () => void
+  onEdit: (c: Category) => void
+}) {
+  return (
+    <div className="mset-cat-group">
+      <div className="mset-cat-group-head">
+        <span>{title}</span>
+        <button onClick={onAdd}><Icon name="plus" size={14} /> Agregar</button>
+      </div>
+      {categories.length === 0 ? (
+        <p className="mset-cat-empty">Sin categorías de {type === 'expense' ? 'gastos' : 'ingresos'} todavía.</p>
+      ) : (
+        <div className="mset-cat-list">
+          {categories.map(cat => (
+            <button key={cat.id} className="mset-cat-row" onClick={() => onEdit(cat)}>
+              <span className="mset-cat-icon" style={{ color: cat.color, background: `color-mix(in oklab, ${cat.color} 16%, transparent)` }}>
+                <Icon name={cat.icon} size={18} />
+              </span>
+              <span className="mset-cat-name">{cat.name}</span>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: '#4a4a4a', flexShrink: 0 }} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CategoryEditor({ category, type, onClose, onSave, onDelete }: {
+  category?: Category
+  type: 'expense' | 'income'
+  onClose: () => void
+  onSave: (f: { name: string; type: 'expense' | 'income'; budget: number; color: string; icon: IconName }) => void
+  onDelete?: (c: Category) => void
+}) {
+  const [name,       setName]       = useState(category?.name ?? '')
+  const [budget,     setBudget]     = useState(String(category?.budget ?? ''))
+  const [color,      setColor]      = useState(category?.color ?? CAT_COLORS[0])
+  const [icon,       setIcon]       = useState<IconName>(category?.icon ?? (type === 'income' ? 'wallet' : 'cart'))
+  const [confirmDel, setConfirmDel] = useState(false)
+
+  useMobileBackDismiss(true, onClose)
+
+  return (
+    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={category ? 'Editar categoría' : 'Nueva categoría'} onClick={onClose}>
+      <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
+        <header>
+          <span>{category ? 'Editar categoría' : `Nueva categoría de ${type === 'expense' ? 'gasto' : 'ingreso'}`}</span>
+          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
+        </header>
+
+        <div className="mbud-editor-body">
+          <label className="mbud-field">
+            <span>Nombre</span>
+            <input className="mbud-input" type="text" value={name}
+              placeholder="ej. Comida, Salario" autoCapitalize="words"
+              onChange={e => setName(e.target.value)} />
+          </label>
+
+          {type === 'expense' && (
+            <label className="mbud-field">
+              <span>Límite mensual (0 = sin límite)</span>
+              <input className="mbud-input" type="number" inputMode="decimal"
+                value={budget} placeholder="0" onChange={e => setBudget(e.target.value)} />
+            </label>
+          )}
+
+          <div className="mbud-field">
+            <span>Color</span>
+            <div className="mbud-color-strip">
+              {CAT_COLORS.map(c => (
+                <button key={c} className={`mbud-color-dot${color === c ? ' on' : ''}`}
+                  aria-label={`Color ${c}`} aria-pressed={color === c}
+                  style={{ background: c }} onClick={() => setColor(c)} />
+              ))}
+            </div>
+          </div>
+
+          <div className="mbud-field">
+            <span>Ícono</span>
+            <div className="mbud-icon-grid-sheet">
+              {CAT_ICONS.map(ic => (
+                <button key={ic} className={`mbud-icon-btn-sheet${icon === ic ? ' on' : ''}`}
+                  aria-label={`Ícono ${ic}`} aria-pressed={icon === ic}
+                  style={icon === ic ? { color, background: `color-mix(in oklab, ${color} 18%, transparent)` } : {}}
+                  onClick={() => setIcon(ic)}>
+                  <Icon name={ic} size={20} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {category && onDelete && (
+            !confirmDel ? (
+              <button className="mbud-del-btn" onClick={() => setConfirmDel(true)}>
+                <Icon name="trash" size={16} /> Eliminar categoría
+              </button>
+            ) : (
+              <div className="mbud-confirm-del">
+                <p>¿Eliminar "{category.name}"? Esta acción no se puede deshacer.</p>
+                <div>
+                  <button onClick={() => setConfirmDel(false)}>Cancelar</button>
+                  <button className="danger" onClick={() => onDelete(category)}>
+                    <Icon name="trash" size={16} /> Eliminar
+                  </button>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="mbud-editor-actions">
+          <button className="mbud-btn-cancel" onClick={onClose}>Cancelar</button>
+          <button className="mbud-btn-save" style={{ background: color }}
+            onClick={() => onSave({ name, type, budget: Number(budget) || 0, color, icon })}>
+            {category ? 'Guardar' : 'Crear'}
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
