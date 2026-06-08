@@ -35,6 +35,26 @@ export async function saveBackupAuto(json: string): Promise<string> {
   return tauriInvoke<string>('save_backup_auto', { json })
 }
 
+export interface AutoBackupEntry {
+  name: string
+  path: string
+  content: string
+}
+
+/** Lista los backups guardados internamente (solo Tauri). Vacío en browser/PWA. */
+export async function listAutoBackups(): Promise<AutoBackupEntry[]> {
+  if (!isTauri()) return []
+  return tauriInvoke<AutoBackupEntry[]>('list_auto_backups')
+}
+
+/** Comparte un backup interno vía el menú nativo de Android. */
+export async function shareAutoBackup(entry: AutoBackupEntry): Promise<void> {
+  const file = new File([entry.content], entry.name, { type: 'application/json' })
+  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: '$harky backup' })
+  }
+}
+
 /**
  * Guarda un backup JSON.
  * - En Tauri Android: auto-guarda a {app_document_dir}/backups/

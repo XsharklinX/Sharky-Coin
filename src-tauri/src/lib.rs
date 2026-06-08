@@ -30,6 +30,39 @@ fn save_backup_auto(app: tauri::AppHandle, json: String) -> Result<String, Strin
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Lista los backups guardados automáticamente en la carpeta interna de la app.
+/// Devuelve [{name, path, content}] ordenados por fecha (más reciente primero).
+#[derive(serde::Serialize)]
+struct AutoBackupEntry {
+    name: String,
+    path: String,
+    content: String,
+}
+
+#[tauri::command]
+fn list_auto_backups(app: tauri::AppHandle) -> Result<Vec<AutoBackupEntry>, String> {
+    let doc_dir = app.path().document_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let backup_dir = doc_dir.join("backups");
+    if !backup_dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut entries: Vec<AutoBackupEntry> = std::fs::read_dir(&backup_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path().extension().and_then(|x| x.to_str()) == Some("json")
+        })
+        .filter_map(|e| {
+            let path = e.path();
+            let name = path.file_name()?.to_string_lossy().to_string();
+            let content = std::fs::read_to_string(&path).ok()?;
+            Some(AutoBackupEntry { name, path: path.to_string_lossy().to_string(), content })
+        })
+        .collect();
+    entries.sort_by(|a, b| b.name.cmp(&a.name));
+    Ok(entries)
+}
+
 /// Archivo (foto/PDF de recibo) recibido vía "Compartir" desde otra app.
 /// Lo escribe `MainActivity.kt` en `{cache_dir}/shared/` cuando llega un
 /// intent `ACTION_SEND`; este lado lo consume una sola vez (lo borra al leerlo).
@@ -163,6 +196,7 @@ pub fn run() {
             write_backup,
             read_backup,
             save_backup_auto,
+            list_auto_backups,
             secure_storage_set,
             secure_storage_get,
             secure_storage_remove,

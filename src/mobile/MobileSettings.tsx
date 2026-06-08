@@ -10,7 +10,7 @@ import { monthLabel } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useAuth } from '@/store/auth'
-import { isTauri, openBackup, saveBackup } from '@/hooks/useTauri'
+import { isTauri, listAutoBackups, openBackup, saveBackup, shareAutoBackup, type AutoBackupEntry } from '@/hooks/useTauri'
 import { checkBiometric } from '@/lib/biometric'
 import type { Category, DensityName, IconName, OverdraftPolicy, ThemeName } from '@/types'
 import { useT } from '@/i18n'
@@ -30,7 +30,7 @@ const DENSITY_LABELS: Record<DensityName, string> = { compact: 'Compacto', regul
 const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = { block: 'Bloquear', warn: 'Advertir', allow: 'Permitir' }
 
 type Sheet = 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
-  | 'comments' | 'about' | 'privacy' | 'terms' | 'export' | 'pin' | 'categories'
+  | 'comments' | 'about' | 'privacy' | 'terms' | 'export' | 'pin' | 'categories' | 'internalBackups'
 
 const CAT_COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b','#fb7185','#22c55e','#c084fc','#38bdf8']
 
@@ -267,11 +267,23 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
   const [pinDraft, setPinDraft] = useState('')
   const [pinValue, setPinValue] = useState('')
   const [pinError, setPinError] = useState('')
+  const [internalBackups, setInternalBackups] = useState<AutoBackupEntry[]>([])
+  const [loadingBackups, setLoadingBackups] = useState(false)
   const health = getDataHealthStatus(finance)
 
   useEffect(() => {
     if (isTauri()) checkBiometric().then(s => setBioAvailable(s.available))
   }, [])
+
+  const loadInternalBackups = async () => {
+    setLoadingBackups(true)
+    try {
+      const list = await listAutoBackups()
+      setInternalBackups(list)
+    } finally {
+      setLoadingBackups(false)
+    }
+  }
 
   useMobileBackDismiss(true, onClose)
   useMobileBackDismiss(!!activeSheet, () => { setActiveSheet(null); setPendingReset(false); resetPinFlow() })
@@ -593,6 +605,10 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
               onClick={() => open('export')} />
             <SettingsRow icon="upload" iconColor="#5bc0ff" label="Restaurar backup"
               onClick={() => void importBackup()} />
+            {isTauri() && (
+              <SettingsRow icon="fileJson" iconColor="#f59e0b" label="Backups guardados internamente"
+                onClick={() => void loadInternalBackups().then(() => open('internalBackups'))} />
+            )}
           </div>
           <div className="mset-card">
             <SettingsRow icon="trash" iconColor="#ff6b8a" label="Eliminar todos los datos"
@@ -842,6 +858,37 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
                 {section.body.map((p, i) => <p key={i}>{p}</p>)}
               </div>
             ))}
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'internalBackups' && (
+        <SettingsSheet title="Backups guardados" onClose={close}>
+          <div className="mset-sheet-body">
+            {loadingBackups && <p className="mset-legal-intro">Buscando archivos…</p>}
+            {!loadingBackups && internalBackups.length === 0 && (
+              <p className="mset-legal-intro">No se encontraron backups guardados internamente. Esto ocurre cuando previamente se exportaron usando el nuevo método (menú compartir).</p>
+            )}
+            {!loadingBackups && internalBackups.length > 0 && (
+              <>
+                <p className="mset-legal-intro">Estos archivos quedaron en el almacenamiento interno de la app. Toca uno para compartirlo y guardarlo donde quieras.</p>
+                <div className="mset-card" style={{ margin: 0 }}>
+                  {internalBackups.map(entry => (
+                    <SettingsRow
+                      key={entry.path}
+                      icon="fileJson"
+                      iconColor="#f59e0b"
+                      label={entry.name}
+                      onClick={() => void shareAutoBackup(entry).then(() => toast('Archivo compartido', { icon: 'check', type: 'ok' }))}
+                    />
+                  ))}
+                </div>
+                <p className="mset-legal-intro" style={{ marginTop: 12 }}>
+                  <Icon name="info" size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                  Una vez que lo guardes en Descargas o Drive, ya puedes importarlo normalmente.
+                </p>
+              </>
+            )}
           </div>
         </SettingsSheet>
       )}
