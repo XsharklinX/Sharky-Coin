@@ -306,8 +306,9 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
   const exportBackup = async () => {
     try {
       await saveBackup(JSON.stringify(createBackup(finance), null, 2))
-      toast('Backup exportado', { icon: 'download', type: 'ok' })
+      toast('Backup guardado', { icon: 'download', type: 'ok' })
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return
       toast(error instanceof Error ? error.message : 'Error al exportar.', { icon: 'alert' })
     }
   }

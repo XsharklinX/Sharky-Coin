@@ -1,261 +1,367 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { ModalShell } from '@/components/ui/ModalShell'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
+import { fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
-import type { RecurrenceFrequency, Transaction, TxType } from '@/types'
+import { MobileAmountSheet } from '@/mobile/MobileAmountSheet'
+import { MobileTextSheet } from '@/mobile/MobileTextSheet'
+import { MobileDatePicker } from '@/mobile/MobileDatePicker'
+import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
+import type { CurrencyCode, IconName, RecurrenceFrequency, Transaction, TxType } from '@/types'
+
+function currencyPrefix(c: CurrencyCode): string {
+  return c === 'DOP' ? 'RD$' : c === 'USD' ? '$' : c === 'EUR' ? '€' : c
+}
+
+type Sub = 'amount' | 'note' | 'account' | 'category' | 'date' | 'recurEnd' | null
+
+const ACCT_ICONS: Record<string, IconName> = {
+  cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
+}
+
+function fmtDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 export function TransactionForm({ value, mkey, onClose, onDelete }: {
-  value:     Transaction | 'new'
-  mkey:      string
-  onClose:   () => void
-  onDelete?: (id: string) => void   // si se pasa, usa undo-aware delete del App
+  value: Transaction | 'new'
+  mkey: string
+  onClose: () => void
+  onDelete?: (id: string) => void
 }) {
-  const { accounts, categories, transactions, addTx, updateTx, deleteTx } = useFinance()
+  const { accounts, categories, transactions, currency, addTx, updateTx, deleteTx } = useFinance()
   const overdraftPolicy = useSettings(s => s.overdraftPolicy)
+  const { confirm } = useDialogs()
   const editing = value !== 'new'
 
-  const [type,       setType]       = useState<Exclude<TxType, 'transfer'>>('expense')
-  const [amount,     setAmount]     = useState('')
-  const [note,       setNote]       = useState('')
-  const [date,       setDate]       = useState(`${mkey}-01`)
-  const [accountId,  setAccountId]  = useState(accounts[0]?.id ?? '')
-  const [categoryId, setCategoryId] = useState('')
-  const [recurring,  setRecurring]  = useState(false)
-  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly')
+  const [type,           setType]           = useState<Exclude<TxType, 'transfer'>>('expense')
+  const [amount,         setAmount]         = useState(0)
+  const [note,           setNote]           = useState('')
+  const [date,           setDate]           = useState(`${mkey}-01`)
+  const [accountId,      setAccountId]      = useState(accounts[0]?.id ?? '')
+  const [categoryId,     setCategoryId]     = useState('')
+  const [recurring,      setRecurring]      = useState(false)
+  const [recurFreq,      setRecurFreq]      = useState<RecurrenceFrequency>('monthly')
   const [recurringStart, setRecurringStart] = useState(`${mkey}-01`)
-  const [recurringEnd, setRecurringEnd] = useState('')
-  const [tags,       setTags]       = useState<string[]>([])
-  const [tagInput,   setTagInput]   = useState('')
-  const [noteSugg,   setNoteSugg]   = useState<string[]>([])
-  const [tagSugg,    setTagSugg]    = useState<string[]>([])
+  const [recurringEnd,   setRecurringEnd]   = useState('')
+  const [tags,           setTags]           = useState<string[]>([])
+  const [sub,            setSub]            = useState<Sub>(null)
 
   useEffect(() => {
-    if (editing) {
-      setType(value.type === 'income' ? 'income' : 'expense')
-      setAmount(String(value.amount)); setNote(value.note); setDate(value.date)
-      setAccountId(value.accountId ?? accounts[0]?.id ?? '')
-      setCategoryId(value.categoryId ?? '')
-      setRecurring(!!value.recurring)
-      setRecurrenceFrequency(value.recurring ?? 'monthly')
-      setRecurringStart(value.recurringStart ?? value.date)
-      setRecurringEnd(value.recurringEnd ?? '')
-      setTags(value.tags ?? [])
-    }
-  }, [accounts, editing, value])
+    if (!editing) return
+    setType(value.type === 'income' ? 'income' : 'expense')
+    setAmount(value.amount)
+    setNote(value.note)
+    setDate(value.date)
+    setAccountId(value.accountId ?? accounts[0]?.id ?? '')
+    setCategoryId(value.categoryId ?? '')
+    setRecurring(!!value.recurring)
+    setRecurFreq(value.recurring ?? 'monthly')
+    setRecurringStart(value.recurringStart ?? value.date)
+    setRecurringEnd(value.recurringEnd ?? '')
+    setTags(value.tags ?? [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const visibleCats = categories.filter(c => c.type === type)
   useEffect(() => {
-    if (!visibleCats.some(c => c.id === categoryId)) setCategoryId(visibleCats[0]?.id ?? '')
+    if (visibleCats.length && !visibleCats.some(c => c.id === categoryId))
+      setCategoryId(visibleCats[0]?.id ?? '')
   }, [categoryId, visibleCats])
 
-  // autocomplete de notas
-  useEffect(() => {
-    if (!note || note.length < 2) { setNoteSugg([]); return }
-    const nl = note.toLowerCase()
-    const seen = new Set<string>()
-    setNoteSugg(transactions
-      .filter(t => t.note?.toLowerCase().startsWith(nl) && t.note !== note)
-      .map(t => t.note).filter(n => { if (seen.has(n)) return false; seen.add(n); return true })
-      .slice(0, 4))
-  }, [note, transactions])
+  const activeAccount  = accounts.find(a => a.id === accountId)  ?? null
+  const activeCategory = visibleCats.find(c => c.id === categoryId) ?? null
+  const typeColor      = type === 'income' ? '#35d0a2' : '#f65574'
 
-  // tags existentes para sugerencias
-  const allTags = useMemo(() => {
-    const s = new Set<string>()
-    transactions.forEach(t => t.tags?.forEach(tag => s.add(tag)))
-    return Array.from(s).sort()
-  }, [transactions])
-
-  const addTag = (raw: string) => {
-    const tag = raw.trim().toLowerCase().replace(/[^a-zA-Z0-9áéíóúüñ-]/g, '')
-    if (!tag || tags.includes(tag)) return
-    setTags(p => [...p, tag]); setTagInput(''); setTagSugg([])
-  }
-  const removeTag = (tag: string) => setTags(p => p.filter(t => t !== tag))
+  useMobileBackDismiss(sub !== null, () => setSub(null))
 
   const submit = () => {
-    const amt = Number(amount)
-    if (!amt || amt <= 0 || !note.trim() || !accountId || !categoryId)
-      return toast('Completa monto, descripción, cuenta y categoría.', { icon: 'edit' })
+    if (!amount || !note.trim() || !accountId || !categoryId)
+      return toast('Completa todos los campos requeridos.', { icon: 'alert' })
+
     const fields = {
-      type, amount: amt, note: note.trim(), date, accountId, categoryId,
+      type, amount, note: note.trim(), date, accountId, categoryId,
       ...(recurring ? {
-        recurring: recurrenceFrequency,
+        recurring: recurFreq,
         recurringStart,
         recurringEnd: recurringEnd || undefined,
         recurringNext: editing && value.recurringNext
           ? value.recurringNext
-          : advanceRecurrenceDate(recurringStart || date, recurrenceFrequency),
-      } : {
-        recurring: null, recurringStart: undefined, recurringEnd: undefined, recurringNext: undefined,
-      }),
+          : advanceRecurrenceDate(recurringStart || date, recurFreq),
+      } : { recurring: null, recurringStart: undefined, recurringEnd: undefined, recurringNext: undefined }),
       tags: tags.length ? tags : undefined,
     }
-    const account = accounts.find(a => a.id === accountId)
-    const previousAmount = editing && value.type === 'expense' && value.accountId === accountId ? value.amount : 0
-    const available = (account?.balance ?? 0) + previousAmount
-    if (type === 'expense' && account?.type !== 'credit' && available < amt && (account?.overdraftPolicy ?? overdraftPolicy) === 'warn') {
-      toast(`Aviso: el gasto dejará ${account?.name ?? 'la cuenta'} con saldo negativo.`, { icon: 'alert' })
-    }
+
+    const acct = accounts.find(a => a.id === accountId)
+    const prev = editing && value.type === 'expense' && value.accountId === accountId ? value.amount : 0
+    if (type === 'expense' && acct?.type !== 'credit' && (acct?.balance ?? 0) + prev < amount
+      && (acct?.overdraftPolicy ?? overdraftPolicy) === 'warn')
+      toast(`Aviso: dejará ${acct?.name ?? 'la cuenta'} con saldo negativo.`, { icon: 'alert' })
+
     try {
       if (editing) updateTx(value.id, fields)
-      else         addTx(fields)
-    } catch (error) {
-      toast(error instanceof Error ? error.message : 'No se pudo guardar el movimiento.', { icon: 'alert' })
-      return
+      else addTx(fields)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'No se pudo guardar.', { icon: 'alert' }); return
     }
-    toast(editing ? 'Movimiento actualizado' : 'Movimiento agregado', { icon: 'edit', type: 'ok' })
+    toast(editing ? 'Movimiento actualizado' : 'Movimiento agregado', { icon: 'check', type: 'ok' })
     onClose()
   }
 
   const remove = () => {
     if (!editing) return
-    // Usar el delete undo-aware del App si está disponible
-    if (onDelete) onDelete(value.id)
-    else { deleteTx(value.id); toast('Movimiento eliminado', { icon: 'trash' }) }
-    onClose()
+    void confirm({ title: '¿Eliminar movimiento?', description: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', icon: 'trash' })
+      .then(ok => { if (ok) { if (onDelete) onDelete(value.id); else { deleteTx(value.id); toast('Movimiento eliminado', { icon: 'trash' }) }; onClose() } })
   }
 
+  const arrow = <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+  const pfx = currencyPrefix(currency)
+
   return (
-    <ModalShell
-      title={editing ? 'Editar movimiento' : 'Nuevo movimiento'}
-      eyebrow={editing ? 'Movimiento existente' : 'Registro financiero'}
-      description="Registra ingresos o gastos con cuenta, categoria, fecha y etiquetas."
-      icon={type === 'income' ? 'arrowUp' : 'arrowDn'}
-      onClose={onClose}
-      footer={(
-        <>
+    <>
+      {/* ── Full-screen overlay ── */}
+      <div className="txf-overlay" role="dialog" aria-modal="true">
+
+        <header className="mpr-editor-header">
+          <div className="mpr-editor-header-icon" style={{ background: typeColor + '28', color: typeColor }}>
+            <Icon name={type === 'income' ? 'arrowUp' : 'arrowDn'} size={18} />
+          </div>
+          <span className="mpr-editor-name-input" style={{ cursor: 'default' }}>
+            {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
+          </span>
+          <button className="mpr-editor-close" onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+
+        <div className="txf-body">
+
+          {/* Type */}
+          <div className="mpr-form-section">
+            <button
+              className={`mpr-type-pill${type === 'expense' ? ' on' : ''}`}
+              style={type === 'expense' ? { borderColor: '#f65574', background: '#f6557420', color: '#f65574' } : {}}
+              onClick={() => setType('expense')}
+            >
+              <Icon name="arrowDn" size={14} /> Gasto
+            </button>
+            <button
+              className={`mpr-type-pill${type === 'income' ? ' on' : ''}`}
+              style={type === 'income' ? { borderColor: '#35d0a2', background: '#35d0a220', color: '#35d0a2' } : {}}
+              onClick={() => setType('income')}
+            >
+              <Icon name="arrowUp" size={14} /> Ingreso
+            </button>
+          </div>
+
+          {/* Amount hero */}
+          <button className="txf-amount-hero" onClick={() => setSub('amount')}>
+            <span className="txf-amount-label">{type === 'expense' ? 'Gasto total' : 'Ingreso total'}</span>
+            <span className="txf-amount-value" style={{ color: amount > 0 ? typeColor : 'var(--m-muted)' }}>
+              {amount > 0 ? fmt(amount, currency) : `${pfx} 0`}
+            </span>
+            <span className="txf-amount-tap">toca para editar</span>
+          </button>
+
+          {/* Detail rows */}
+          <div className="mpr-form-rows txf-rows">
+            <button className="mpr-form-row" onClick={() => setSub('note')}>
+              <Icon name="edit" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
+              <span className="mpr-form-row-label">Descripción</span>
+              <span className={note ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>{note || 'Requerido'}</span>
+              {arrow}
+            </button>
+
+            <button className="mpr-form-row" onClick={() => setSub('account')}>
+              <Icon
+                name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'wallet'}
+                size={16}
+                style={{ color: activeAccount?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+              />
+              <span className="mpr-form-row-label">Cuenta</span>
+              <span className={activeAccount ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                {activeAccount?.name ?? 'Seleccionar'}
+              </span>
+              {arrow}
+            </button>
+
+            <button className="mpr-form-row" onClick={() => setSub('category')}>
+              <Icon
+                name={(activeCategory?.icon as IconName | undefined) ?? 'tag'}
+                size={16}
+                style={{ color: activeCategory?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+              />
+              <span className="mpr-form-row-label">Categoría</span>
+              <span className={activeCategory ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                {activeCategory?.name ?? 'Seleccionar'}
+              </span>
+              {arrow}
+            </button>
+
+            <button className="mpr-form-row" onClick={() => setSub('date')}>
+              <Icon name="calendar" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
+              <span className="mpr-form-row-label">Fecha</span>
+              <span className="mpr-form-row-val">{fmtDate(date)}</span>
+              {arrow}
+            </button>
+          </div>
+
+          {/* Recurring */}
+          <button
+            className={`mobile-create-recurring-toggle${recurring ? ' active' : ''}`}
+            onClick={() => setRecurring(r => !r)}
+          >
+            <span className="mobile-recur-icon"><Icon name="repeat" size={15} /></span>
+            <span className="mobile-recur-label">Programar recurrencia</span>
+            <span className={`mobile-recur-switch${recurring ? ' on' : ''}`} />
+          </button>
+
+          {recurring && (
+            <div className="mpr-form-rows txf-rows">
+              <div className="mpr-form-row">
+                <Icon name="repeat" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
+                <span className="mpr-form-row-label">Frecuencia</span>
+                <div className="mpr-pill-row" style={{ flex: 1, justifyContent: 'flex-end' }}>
+                  {(['weekly', 'monthly'] as RecurrenceFrequency[]).map(f => (
+                    <button
+                      key={f}
+                      className={`mpr-pill${recurFreq === f ? ' on' : ''}`}
+                      style={recurFreq === f ? { borderColor: 'var(--m-text)', color: 'var(--m-text)' } : {}}
+                      onClick={() => setRecurFreq(f)}
+                    >
+                      {f === 'weekly' ? 'Semanal' : 'Mensual'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button className="mpr-form-row" onClick={() => setSub('recurEnd')}>
+                <Icon name="calendar" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
+                <span className="mpr-form-row-label">Hasta</span>
+                <span className={recurringEnd ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                  {recurringEnd ? fmtDate(recurringEnd) : 'Sin fin'}
+                </span>
+                {arrow}
+              </button>
+            </div>
+          )}
+
+        </div>
+
+        <div className="mpr-editor-actions">
           {editing && (
-            <button className="btn-danger" onClick={remove}>
-              <Icon name="trash" size={15} />Eliminar
+            <button className="mpr-del-btn" onClick={remove}>
+              <Icon name="trash" size={15} /> Eliminar
             </button>
           )}
-          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" onClick={submit}>
+          <button className="mpr-btn-cancel" onClick={onClose}>Cancelar</button>
+          <button className="mpr-btn-save" style={{ background: 'var(--m-primary, #ffdd3d)' }} onClick={submit}>
             {editing ? 'Guardar' : 'Agregar'}
           </button>
-        </>
-      )}>
-        <div className="seg seg-lg" style={{ marginTop: 16 }}>
-          <button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Gasto</button>
-          <button className={type === 'income'  ? 'on' : ''} onClick={() => setType('income')}>Ingreso</button>
         </div>
 
-        <div className="field">
-          <label htmlFor="tx-amount">Monto (RD$)</label>
-          <input id="tx-amount" className="select" type="number" inputMode="decimal"
-            value={amount} onChange={e => setAmount(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()} />
-        </div>
+      </div>
 
-        <div className="field" style={{ position: 'relative' }}>
-          <label htmlFor="tx-note">Descripción</label>
-          <input id="tx-note" className="select" value={note}
-            onChange={e => setNote(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            placeholder="Ej. Compra supermercado" autoComplete="off" />
-          {noteSugg.length > 0 && (
-            <ul className="note-suggestions">
-              {noteSugg.map(s => (
-                <li key={s}><button onClick={() => { setNote(s); setNoteSugg([]) }}>{s}</button></li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {/* ── Sub-sheets ── */}
 
-        <div className="field-row">
-          <div className="field">
-            <label htmlFor="tx-account">Cuenta</label>
-            <select id="tx-account" className="select" value={accountId}
-              onChange={e => setAccountId(e.target.value)}>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="tx-category">Categoría</label>
-            <select id="tx-category" className="select" value={categoryId}
-              onChange={e => setCategoryId(e.target.value)}>
-              {visibleCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-        </div>
+      {sub === 'amount' && (
+        <MobileAmountSheet
+          title="Monto"
+          value={amount}
+          currency={currency}
+          onDone={v => { setAmount(v); setSub(null) }}
+          onClose={() => setSub(null)}
+        />
+      )}
 
-        <div className="field">
-          <label htmlFor="tx-date">Fecha</label>
-          <input id="tx-date" className="select" type="date" value={date}
-            onChange={e => setDate(e.target.value)} />
-        </div>
+      {sub === 'note' && (
+        <MobileTextSheet
+          title="Descripción"
+          value={note}
+          placeholder="Ej. Compra supermercado"
+          onDone={v => { setNote(v); setSub(null) }}
+          onClose={() => setSub(null)}
+        />
+      )}
 
-        {/* ── Tags ── */}
-        <div className="field">
-          <label htmlFor="tx-tags">Etiquetas <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(opcional)</span></label>
-          {tags.length > 0 && (
-            <div className="tags-list">
-              {tags.map(tag => (
-                <span key={tag} className="tag-chip">
-                  #{tag}
-                  <button aria-label={`Quitar etiqueta ${tag}`} onClick={() => removeTag(tag)}>×</button>
-                </span>
-              ))}
-            </div>
-          )}
-          <div style={{ position: 'relative' }}>
-            <input id="tx-tags" className="select" value={tagInput}
-              placeholder="trabajo, viaje, regalo… Enter para agregar"
-              autoComplete="off"
-              onChange={e => {
-                setTagInput(e.target.value)
-                const q = e.target.value.toLowerCase()
-                setTagSugg(q.length > 0
-                  ? allTags.filter(t => t.startsWith(q) && !tags.includes(t)).slice(0, 5)
-                  : [])
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput) }
-                if (e.key === 'Backspace' && !tagInput && tags.length) removeTag(tags[tags.length - 1])
-              }} />
-            {tagSugg.length > 0 && (
-              <ul className="note-suggestions">
-                {tagSugg.map(s => (
-                  <li key={s}><button onClick={() => addTag(s)}>#{s}</button></li>
+      {sub === 'date' && (
+        <MobileDatePicker
+          value={date}
+          mkey={mkey}
+          onChange={v => { setDate(v); setSub(null) }}
+          onClose={() => setSub(null)}
+        />
+      )}
+
+      {sub === 'recurEnd' && (
+        <MobileDatePicker
+          value={recurringEnd || date}
+          mkey={mkey}
+          onChange={v => { setRecurringEnd(v); setSub(null) }}
+          onClose={() => setSub(null)}
+        />
+      )}
+
+      {sub === 'account' && (
+        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+          <section className="mobile-detail-sheet mpr-editor-sheet" onClick={e => e.stopPropagation()}>
+            <header className="mpr-editor-header">
+              <span className="mpr-editor-name-input" style={{ cursor: 'default' }}>Seleccionar cuenta</span>
+              <button className="mpr-editor-close" onClick={() => setSub(null)}>
+                <Icon name="close" size={18} />
+              </button>
+            </header>
+            <div className="mpr-editor-body" style={{ overflowY: 'auto' }}>
+              <div className="mpr-form-rows">
+                {accounts.map(a => (
+                  <button
+                    key={a.id}
+                    className={`mpr-form-row${a.id === accountId ? ' txf-selected' : ''}`}
+                    onClick={() => { setAccountId(a.id); setSub(null) }}
+                  >
+                    <Icon name={ACCT_ICONS[a.type]} size={15} style={{ color: a.color, flexShrink: 0 }} />
+                    <span className="mpr-form-row-label" style={{ minWidth: 0, flex: 1 }}>{a.name}</span>
+                    <span className="mpr-form-row-dim">{fmt(a.balance, currency)}</span>
+                    {a.id === accountId && <Icon name="check" size={14} style={{ color: 'var(--m-primary, #ffdd3d)', flexShrink: 0 }} />}
+                  </button>
                 ))}
-              </ul>
-            )}
-          </div>
+              </div>
+            </div>
+          </section>
         </div>
+      )}
 
-        {/* ── Recurrente ── */}
-        <label className="recurring-toggle">
-          <input type="checkbox" checked={recurring} onChange={e => setRecurring(e.target.checked)} />
-          <span><Icon name="repeat" size={14} />Programar recurrencia</span>
-          {recurring && <span className="recurring-badge">Recurrente</span>}
-        </label>
-        {recurring && (
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="tx-frequency">Frecuencia</label>
-              <select id="tx-frequency" className="select" value={recurrenceFrequency}
-                onChange={e => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensual</option>
-              </select>
+      {sub === 'category' && (
+        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+          <section className="mobile-detail-sheet mpr-editor-sheet" onClick={e => e.stopPropagation()}>
+            <header className="mpr-editor-header">
+              <span className="mpr-editor-name-input" style={{ cursor: 'default' }}>Seleccionar categoría</span>
+              <button className="mpr-editor-close" onClick={() => setSub(null)}>
+                <Icon name="close" size={18} />
+              </button>
+            </header>
+            <div className="mpr-editor-body" style={{ overflowY: 'auto' }}>
+              <div className="mobile-category-grid">
+                {visibleCats.map(c => (
+                  <button
+                    key={c.id}
+                    className={categoryId === c.id ? 'on' : ''}
+                    aria-pressed={categoryId === c.id}
+                    onClick={() => { setCategoryId(c.id); setSub(null) }}
+                  >
+                    <span style={{ color: c.color, background: `color-mix(in oklab, ${c.color} 22%, transparent)` }}>
+                      <Icon name={c.icon as IconName} size={20} />
+                    </span>
+                    <small>{c.name}</small>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="tx-recurring-start">Desde</label>
-              <input id="tx-recurring-start" className="select" type="date" value={recurringStart}
-                onChange={e => setRecurringStart(e.target.value)} />
-            </div>
-            <div className="field">
-              <label htmlFor="tx-recurring-end">Hasta <em>opcional</em></label>
-              <input id="tx-recurring-end" className="select" type="date" value={recurringEnd}
-                min={recurringStart} onChange={e => setRecurringEnd(e.target.value)} />
-            </div>
-          </div>
-        )}
-
-    </ModalShell>
+          </section>
+        </div>
+      )}
+    </>
   )
 }

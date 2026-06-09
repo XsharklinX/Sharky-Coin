@@ -3,6 +3,7 @@ import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { CatBadge } from '@/views/shared'
 import { fmt, fmtCompact, getAccount, getCategory } from '@/data/helpers'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -45,6 +46,7 @@ export function MobileTransactionList({
   compact?: boolean
 }) {
   const { accounts, categories, currency } = useFinance()
+  const { confirm } = useDialogs()
   const fmtVal = useFmt()
   const compactNumbers = useSettings(s => s.compactNumbers)
   const [filter, setFilter] = useState<TxFilter>('all')
@@ -52,15 +54,11 @@ export function MobileTransactionList({
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [openActionId, setOpenActionId] = useState<string | null>(null)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const startX = useRef(0)
   useMobileBackDismiss(searchOpen, () => setSearchOpen(false))
   useMobileBackDismiss(!!selected, () => setSelected(null))
 
-  const closeSwipe = () => {
-    setOpenActionId(null)
-    setPendingDeleteId(null)
-  }
+  const closeSwipe = () => { setOpenActionId(null) }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -133,7 +131,7 @@ export function MobileTransactionList({
                   onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? 0 }}
                   onTouchEnd={event => {
                     const delta = (event.changedTouches[0]?.clientX ?? 0) - startX.current
-                    if (delta < -42) { setOpenActionId(tx.id); setPendingDeleteId(null) }
+                    if (delta < -42) { setOpenActionId(tx.id) }
                     if (delta > 42) closeSwipe()
                   }}
                   onClick={opened ? (event => { event.stopPropagation(); closeSwipe() }) : undefined}
@@ -160,19 +158,15 @@ export function MobileTransactionList({
                       <button onClick={() => { onEdit(tx); closeSwipe() }}><Icon name="edit" size={17} />Editar</button>
                       {onDelete && (
                         <button
-                          className={`danger${pendingDeleteId === tx.id ? ' confirm' : ''}`}
+                          className="danger"
                           onClick={() => {
-                            if (pendingDeleteId === tx.id) {
-                              navigator.vibrate?.([12, 40, 24])
-                              onDelete(tx.id)
-                              closeSwipe()
-                            } else {
-                              navigator.vibrate?.(8)
-                              setPendingDeleteId(tx.id)
-                            }
+                            const label = tx.note || (tx.type === 'transfer' ? 'Transferencia' : 'Movimiento')
+                            void confirm({ title: `¿Eliminar "${label}"?`, description: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', icon: 'trash' }).then(ok => {
+                              if (ok) { navigator.vibrate?.([12, 40, 24]); onDelete(tx.id); closeSwipe() }
+                            })
                           }}>
                           <Icon name="trash" size={17} />
-                          {pendingDeleteId === tx.id ? '¿Seguro?' : 'Eliminar'}
+                          Eliminar
                         </button>
                       )}
                     </div>

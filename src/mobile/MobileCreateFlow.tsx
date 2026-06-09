@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
@@ -165,9 +165,9 @@ export function MobileCreateFlow({
   useMobileBackDismiss(datePicker, () => setDatePicker(false))
   useMobileBackDismiss(recurEndPicker, () => setRecurEndPicker(false))
 
-  const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null); setTriedSave(false); setFormError(null) }
+  const switchMode = useCallback((next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null); setTriedSave(false); setFormError(null) }, [])
 
-  const pressKey = (key: (typeof keypad)[number] | 'back') => {
+  const pressKey = useCallback((key: (typeof keypad)[number] | 'back') => {
     setFormError(null)
     if (key === 'back') { playBackspaceSound(); setAmountText(v => v.slice(0, -1)); return }
     if ((OPERATORS as readonly string[]).includes(key)) {
@@ -194,7 +194,7 @@ export function MobileCreateFlow({
       if (/^0\.0*$/.test(segment) && key !== '0') return head + key
       return head + cleanAmount(segment + key)
     })
-  }
+  }, [])
 
   const triggerShake = () => {
     setShaking(true)
@@ -491,7 +491,7 @@ export function MobileCreateFlow({
               <button className="mobile-back-button" onClick={() => pressKey('back')} aria-label={t('delete')}>
                 <Icon name="close" size={18} />
               </button>
-              <button className="mobile-done-button" disabled={!canSave} onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
+              <button className="mobile-done-button" onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
                 <Icon name="check" size={20} />
               </button>
             </div>

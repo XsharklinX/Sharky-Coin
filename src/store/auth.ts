@@ -3,6 +3,7 @@ import { recordAuditEvent } from '@/data/audit'
 import { getAuthRedirectUrl } from '@/lib/authRedirect'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { isTauri } from '@/hooks/useTauri'
+import { toast } from '@/components/ui/Toast'
 
 const LOCAL_USER_KEY = 'sharky-user-v1'
 const LOCAL_SESSION_KEY = 'sharky-session-v1'
@@ -126,6 +127,7 @@ async function attachRuntimeDeepLinkListener(setUser: (user: AuthUser) => void):
       if (data.session?.user) setUser(mapCloudUser(data.session.user))
     } catch (error) {
       console.error('No se pudo completar el enlace de autenticación.', error)
+      toast('No se pudo iniciar sesión. Intenta de nuevo.', { icon: 'alert', type: 'warn', duration: 5000 })
     }
   })
 }

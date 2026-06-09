@@ -56,19 +56,18 @@ export async function shareAutoBackup(entry: AutoBackupEntry): Promise<void> {
 }
 
 /**
- * Guarda un backup JSON.
- * - En Tauri Android: auto-guarda a {app_document_dir}/backups/
- * - En Tauri desktop: abre diálogo de guardado nativo → escribe al FS
- * - En Android PWA: usa navigator.share() con el archivo
- * - En browser desktop: descarga el archivo
+ * Guarda un backup JSON permitiendo al usuario elegir la ubicación.
+ * - Tauri desktop: diálogo nativo de guardado
+ * - Chrome/Android Chrome/WebView: showSaveFilePicker (selector de carpeta real)
+ * - Fallback: Web Share API → el usuario elige la app destino (Descargas, Drive…)
+ * - Último recurso: descarga automática del navegador
  */
 export async function saveBackup(json: string): Promise<void> {
   const filename = `sharky-backup-${new Date().toISOString().slice(0, 10)}.json`
-
   const isAndroid = /android/i.test(navigator.userAgent)
 
+  // Tauri desktop: diálogo nativo
   if (isTauri() && !isAndroid) {
-    // Desktop Tauri: diálogo nativo de guardar archivo
     const path = await tauriSaveDialog({
       defaultPath: filename,
       filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -78,15 +77,32 @@ export async function saveBackup(json: string): Promise<void> {
     return
   }
 
-  // Android (Tauri o PWA) y otros: Web Share API
-  // Abre el menú compartir nativo → usuario elige Descargas, Drive, WhatsApp, etc.
+  // File System Access API: selector de carpeta nativo (Chrome 86+, Android Chrome, WebView)
+  // Permite elegir exactamente dónde guardar el archivo.
+  type SaveFilePickerFn = (opts: {
+    suggestedName: string
+    types: Array<{ description: string; accept: Record<string, string[]> }>
+  }) => Promise<{ createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }>
+  const showSaveFilePicker = (window as unknown as { showSaveFilePicker?: SaveFilePickerFn }).showSaveFilePicker
+  if (typeof showSaveFilePicker === 'function') {
+    const handle = await showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: 'Backup de $harky', accept: { 'application/json': ['.json'] } }],
+    })
+    const writable = await handle.createWritable()
+    await writable.write(json)
+    await writable.close()
+    return
+  }
+
+  // Android PWA fallback: share sheet nativo (usuario elige app destino)
   const file = new File([json], filename, { type: 'application/json' })
   if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
     await navigator.share({ files: [file], title: '$harky backup' })
     return
   }
 
-  // Fallback: descarga programática (Chrome desktop sin Web Share)
+  // Último recurso: descarga programática del navegador
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
   const a   = Object.assign(document.createElement('a'), { href: url, download: filename })
   a.click()

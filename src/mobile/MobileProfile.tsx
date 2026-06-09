@@ -8,6 +8,8 @@ import { useFmt } from '@/hooks/useFmt'
 import { playAccountsSound } from '@/lib/sound'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { MobileAmountSheet } from './MobileAmountSheet'
+import { MobileTextSheet } from './MobileTextSheet'
+import { MobileDigitSheet } from './MobileDigitSheet'
 import type { Account, AccountType, OverdraftPolicy, ViewId, ViewProps } from '@/types'
 
 const COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b']
@@ -228,6 +230,8 @@ const OVERDRAFT_OPTIONS: { value: OverdraftPolicy | ''; label: string }[] = [
   { value: 'allow',  label: 'Permitir' },
 ]
 
+type SubSheet = 'balance' | 'limit' | 'short' | 'last4' | null
+
 function AccountEditorSheet({
   account,
   onClose,
@@ -242,26 +246,38 @@ function AccountEditorSheet({
   const { currency } = useFinance()
   const [fields, setFields] = useState<Omit<Account, 'id'>>(account ?? EMPTY_ACCOUNT)
   const [confirmDel, setConfirmDel] = useState(false)
-  const [amountSheet, setAmountSheet] = useState<'balance' | 'limit' | null>(null)
+  const [sub, setSub] = useState<SubSheet>(null)
 
   const patch = <K extends keyof typeof fields>(key: K, val: typeof fields[K]) =>
     setFields(cur => ({ ...cur, [key]: val }))
 
-  useMobileBackDismiss(amountSheet !== null, () => setAmountSheet(null))
-  useMobileBackDismiss(amountSheet === null, onClose)
+  useMobileBackDismiss(sub !== null, () => setSub(null))
+  useMobileBackDismiss(sub === null, onClose)
 
-  const typeIcon = TYPE_META[fields.type].icon
-  const typeLabel = TYPE_META[fields.type].label
+  const row = (
+    label: string,
+    icon: Parameters<typeof Icon>[0]['name'],
+    display: string,
+    dim: boolean,
+    target: SubSheet,
+  ) => (
+    <button className="mpr-form-row" onClick={() => setSub(target)}>
+      <Icon name={icon} size={15} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
+      <span className="mpr-form-row-label">{label}</span>
+      <span className={dim ? 'mpr-form-row-dim' : 'mpr-form-row-val'}>{display}</span>
+      <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+    </button>
+  )
 
   return (
     <>
       <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
         <section className="mpr-editor-sheet" onClick={e => e.stopPropagation()}>
 
-          {/* Header */}
-          <div className="mpr-editor-hero">
-            <div className="mpr-editor-icon" style={{ background: fields.color + '28', color: fields.color }}>
-              <Icon name={typeIcon} size={30} />
+          {/* Header compacto con icono dinámico */}
+          <header className="mpr-editor-header">
+            <div className="mpr-editor-header-icon" style={{ background: fields.color + '28', color: fields.color }}>
+              <Icon name={TYPE_META[fields.type].icon} size={18} />
             </div>
             <input
               className="mpr-editor-name-input"
@@ -270,116 +286,95 @@ function AccountEditorSheet({
               autoCapitalize="words"
               onChange={e => patch('name', e.target.value)}
             />
-            <small className="mpr-editor-type-label">{typeLabel}</small>
-          </div>
+            <button className="mpr-editor-close" onClick={onClose}>
+              <Icon name="close" size={18} />
+            </button>
+          </header>
 
           <div className="mpr-editor-body">
 
-            {/* Tipo de cuenta */}
-            <div className="mpr-section-label">Tipo de cuenta</div>
-            <div className="mpr-type-grid">
+            {/* Tipo */}
+            <div className="mpr-form-section">
               {(Object.entries(TYPE_META) as [AccountType, typeof TYPE_META[AccountType]][]).map(([type, meta]) => (
                 <button
                   key={type}
-                  className={`mpr-type-card${fields.type === type ? ' on' : ''}`}
-                  style={fields.type === type ? { borderColor: fields.color, background: fields.color + '18' } : {}}
+                  className={`mpr-type-pill${fields.type === type ? ' on' : ''}`}
+                  style={fields.type === type ? { borderColor: fields.color, background: fields.color + '20', color: fields.color } : {}}
                   onClick={() => patch('type', type)}
                 >
-                  <span style={{ color: fields.type === type ? fields.color : 'var(--m-muted)' }}>
-                    <Icon name={meta.icon} size={22} />
-                  </span>
-                  <small>{meta.label}</small>
+                  <Icon name={meta.icon} size={14} />
+                  {meta.label}
                 </button>
               ))}
             </div>
 
             {/* Color */}
-            <div className="mpr-section-label">Color</div>
-            <div className="mpr-color-strip">
+            <div className="mpr-form-section mpr-color-strip">
               {COLORS.map(c => (
                 <button
                   key={c}
                   className={`mpr-color-dot${fields.color === c ? ' on' : ''}`}
-                  aria-label={`Color ${c}`}
-                  aria-pressed={fields.color === c}
                   style={{ background: c }}
                   onClick={() => patch('color', c)}
                 />
               ))}
             </div>
 
-            {/* Balance */}
-            <div className="mpr-section-label">Balance inicial</div>
-            <button className="mpr-amount-row" onClick={() => setAmountSheet('balance')}>
-              <Icon name="coins" size={16} style={{ color: 'var(--m-muted)' }} />
-              <span className={fields.balance !== 0 ? 'mpr-amount-set' : 'mpr-amount-placeholder'}>
-                {fields.balance !== 0 ? fmt(fields.balance, currency) : 'RD$ 0.00'}
-              </span>
-              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto' }} />
-            </button>
+            {/* Filas tapeables */}
+            <div className="mpr-form-rows">
+              {row('Balance', 'coins',
+                fields.balance !== 0 ? fmt(fields.balance, currency) : '0.00',
+                fields.balance === 0, 'balance')}
 
-            {/* Crédito: límite */}
-            {fields.type === 'credit' && (
-              <>
-                <div className="mpr-section-label">Límite de crédito</div>
-                <button className="mpr-amount-row" onClick={() => setAmountSheet('limit')}>
-                  <Icon name="cards" size={16} style={{ color: 'var(--m-muted)' }} />
-                  <span className={fields.limit ? 'mpr-amount-set' : 'mpr-amount-placeholder'}>
-                    {fields.limit ? fmt(fields.limit, currency) : 'Sin límite'}
-                  </span>
-                  <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto' }} />
-                </button>
-              </>
-            )}
+              {fields.type === 'credit' && row('Límite', 'cards',
+                fields.limit ? fmt(fields.limit, currency) : 'Sin límite',
+                !fields.limit, 'limit')}
 
-            {/* No crédito: sobregiro */}
+              {row('Etiqueta', 'edit',
+                fields.short || 'Añadir',
+                !fields.short, 'short')}
+
+              {row('Últimos 4', 'cards',
+                fields.last4 ? `·· ${fields.last4}` : 'Opcional',
+                !fields.last4, 'last4')}
+            </div>
+
+            {/* Sobregiro (solo no crédito) */}
             {fields.type !== 'credit' && (
-              <>
-                <div className="mpr-section-label">Sobregiro</div>
+              <div className="mpr-form-section mpr-overdraft-row">
+                <span className="mpr-overdraft-label">Sobregiro</span>
                 <div className="mpr-pill-row">
                   {OVERDRAFT_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
                       className={`mpr-pill${(fields.overdraftPolicy ?? '') === opt.value ? ' on' : ''}`}
-                      style={(fields.overdraftPolicy ?? '') === opt.value ? { borderColor: fields.color, background: fields.color + '22', color: fields.color } : {}}
+                      style={(fields.overdraftPolicy ?? '') === opt.value
+                        ? { borderColor: fields.color, background: fields.color + '22', color: fields.color }
+                        : {}}
                       onClick={() => patch('overdraftPolicy', (opt.value || undefined) as OverdraftPolicy | undefined)}
                     >
                       {opt.label}
                     </button>
                   ))}
                 </div>
-              </>
+              </div>
             )}
-
-            {/* Etiqueta + últimos 4 */}
-            <div className="mpr-field-row" style={{ marginTop: 4 }}>
-              <label className="mpr-field" style={{ flex: 1 }}>
-                <div className="mpr-section-label" style={{ marginBottom: 6 }}>Etiqueta</div>
-                <input className="mpr-input" value={fields.short} placeholder="Débito" onChange={e => patch('short', e.target.value)} />
-              </label>
-              <label className="mpr-field" style={{ flex: 1 }}>
-                <div className="mpr-section-label" style={{ marginBottom: 6 }}>Últimos 4</div>
-                <input className="mpr-input" maxLength={4} inputMode="numeric" value={fields.last4 ?? ''} placeholder="Opcional" onChange={e => patch('last4', e.target.value)} />
-              </label>
-            </div>
 
             {/* Eliminar */}
             {account && onDelete && (
-              !confirmDel ? (
-                <button className="mpr-del-btn" onClick={() => setConfirmDel(true)}>
-                  <Icon name="trash" size={16} /> Eliminar cuenta
-                </button>
-              ) : (
-                <div className="mpr-confirm-del">
-                  <p>¿Eliminar "{account.name}"? Esta acción no se puede deshacer.</p>
-                  <div>
-                    <button onClick={() => setConfirmDel(false)}>Cancelar</button>
-                    <button className="danger" onClick={() => onDelete(account)}>
-                      <Icon name="trash" size={16} /> Eliminar
-                    </button>
+              !confirmDel
+                ? <button className="mpr-del-btn" onClick={() => setConfirmDel(true)}>
+                    <Icon name="trash" size={15} /> Eliminar cuenta
+                  </button>
+                : <div className="mpr-confirm-del">
+                    <p>¿Eliminar "{account.name}"?</p>
+                    <div>
+                      <button onClick={() => setConfirmDel(false)}>Cancelar</button>
+                      <button className="danger" onClick={() => onDelete(account)}>
+                        <Icon name="trash" size={15} /> Eliminar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )
             )}
           </div>
 
@@ -392,22 +387,41 @@ function AccountEditorSheet({
         </section>
       </div>
 
-      {amountSheet === 'balance' && (
+      {sub === 'balance' && (
         <MobileAmountSheet
           title="Balance inicial"
           value={fields.balance}
           currency={currency}
-          onDone={v => { patch('balance', v); setAmountSheet(null) }}
-          onClose={() => setAmountSheet(null)}
+          onDone={v => { patch('balance', v); setSub(null) }}
+          onClose={() => setSub(null)}
         />
       )}
-      {amountSheet === 'limit' && (
+      {sub === 'limit' && (
         <MobileAmountSheet
           title="Límite de crédito"
           value={fields.limit ?? 0}
           currency={currency}
-          onDone={v => { patch('limit', v || undefined); setAmountSheet(null) }}
-          onClose={() => setAmountSheet(null)}
+          onDone={v => { patch('limit', v || undefined); setSub(null) }}
+          onClose={() => setSub(null)}
+        />
+      )}
+      {sub === 'short' && (
+        <MobileTextSheet
+          title="Etiqueta"
+          value={fields.short}
+          placeholder="Ej. Débito, Cash, Visa"
+          maxLength={12}
+          onDone={v => patch('short', v)}
+          onClose={() => setSub(null)}
+        />
+      )}
+      {sub === 'last4' && (
+        <MobileDigitSheet
+          title="Últimos 4 dígitos"
+          value={fields.last4 ?? ''}
+          maxDigits={4}
+          onDone={v => patch('last4', v || null)}
+          onClose={() => setSub(null)}
         />
       )}
     </>

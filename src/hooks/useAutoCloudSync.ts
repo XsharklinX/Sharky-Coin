@@ -2,9 +2,13 @@ import { useEffect } from 'react'
 import { useCloudSync } from '@/data/cloudSync'
 import { useAuth } from '@/store/auth'
 import { useFinance } from '@/store/finance'
+import { toast } from '@/components/ui/Toast'
 
 const DIRTY_PREFIX = 'sharky-cloud-dirty-v1:'
 const SYNC_DELAY_MS = 1800
+const SYNC_ERROR_TOAST_THROTTLE_MS = 60_000
+
+let lastSyncErrorToastAt = 0
 
 function dirtyKey(userId: string): string {
   return `${DIRTY_PREFIX}${userId}`
@@ -29,8 +33,14 @@ export function useAutoCloudSync(): void {
         await useCloudSync.getState().syncNow()
         localStorage.removeItem(dirtyKey(userId))
         useCloudSync.getState().setPending(false)
-      } catch {
+      } catch (err) {
         useCloudSync.getState().setPending(true)
+        const now = Date.now()
+        if (now - lastSyncErrorToastAt > SYNC_ERROR_TOAST_THROTTLE_MS) {
+          lastSyncErrorToastAt = now
+          const msg = err instanceof Error ? err.message : 'No fue posible sincronizar.'
+          toast(msg, { icon: 'alert', type: 'warn', duration: 4000 })
+        }
       }
     }
 
