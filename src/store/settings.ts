@@ -23,6 +23,7 @@ interface SettingsState {
   compactNumbers: boolean
   dismissedAlerts: string[]
   notifiedAlerts: string[]
+  hasSeenOnboarding: boolean
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -44,6 +45,7 @@ interface SettingsState {
   setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
   markAlertNotified: (id: string) => void
+  markOnboardingSeen: () => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -69,6 +71,7 @@ export const useSettings = create<SettingsState>()(
       compactNumbers: false,
       dismissedAlerts: [],
       notifiedAlerts: [],
+      hasSeenOnboarding: false,
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -92,6 +95,7 @@ export const useSettings = create<SettingsState>()(
         state.dismissedAlerts.includes(id) ? state : { dismissedAlerts: [...state.dismissedAlerts, id] }),
       markAlertNotified: (id) => set(state =>
         state.notifiedAlerts.includes(id) ? state : { notifiedAlerts: [...state.notifiedAlerts, id] }),
+      markOnboardingSeen: () => set({ hasSeenOnboarding: true }),
     }),
     {
       name:    'sharky-settings-v2',

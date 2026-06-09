@@ -9,38 +9,62 @@ const SLIDES: Array<{ icon: IconName; color: string; title: string; text: string
   {
     icon:  'chart',
     color: '#35d0a2',
-    title: 'Registra gastos e ingresos',
-    text:  'Toca el botón + para agregar cualquier movimiento. Categoría, cuenta, nota y fecha en segundos.',
+    title: 'Registra en segundos',
+    text:  'Toca el botón + para agregar un gasto o ingreso. Elige la categoría, la cuenta y escribe una nota — todo en menos de 10 segundos.',
+  },
+  {
+    icon:  'cards',
+    color: '#5bc0ff',
+    title: 'Todas tus cuentas en un lugar',
+    text:  'Agrega tu cuenta bancaria, efectivo, ahorros o tarjeta de crédito. $harky lleva el balance de cada una automáticamente al registrar movimientos.',
   },
   {
     icon:  'target',
     color: '#a78bfa',
     title: 'Presupuestos y metas de ahorro',
-    text:  'Pon límites de gasto por categoría y crea metas para lo que más te importa — vacaciones, emergencias, lo que sea.',
+    text:  'Pon un límite mensual por categoría (Comida, Transporte, etc.) y crea metas de ahorro para lo que más te importa: un viaje, un fondo de emergencia, lo que sea.',
   },
   {
     icon:  'trend',
-    color: '#5bc0ff',
-    title: 'Analiza tu dinero',
-    text:  'Informes mensuales, anuales, gráficos de gastos, calendario por día y calculadora para salir de deudas.',
+    color: '#ffdd3d',
+    title: 'Analiza, exporta y respalda',
+    text:  'Informes mensuales y anuales, gráficos de gastos, calendario por día y calculadora de deudas. Exporta en PDF o Excel, y haz backup para no perder nada.',
   },
 ]
 
+const TOTAL_SLIDES = SLIDES.length
+
 export function MobileWelcomeHub() {
-  const startEmpty      = useFinance(s => s.startEmpty)
-  const setDisplayName  = useSettings(s => s.setDisplayName)
-  const [step, setStep] = useState(0) // 0 = welcome, 1-3 = slides, 4 = name
-  const [name, setName] = useState('')
+  const startEmpty         = useFinance(s => s.startEmpty)
+  const { setDisplayName, markOnboardingSeen, displayName } = useSettings()
+  // True when user already has finance data (existing user who just updated the app)
+  const isExistingUser     = !!localStorage.getItem('sharky-finance-v2')
+
+  const [step, setStep]    = useState(0) // 0 = welcome, 1..N = slides, N+1 = name (new users only)
+  const [name, setName]    = useState(displayName || '')
   const [nameError, setNameError] = useState(false)
 
-  const begin = () => {
+  const LAST_SLIDE = TOTAL_SLIDES  // step number of the last slide
+  const NAME_STEP  = TOTAL_SLIDES + 1
+
+  const finish = () => {
     const trimmed = name.trim()
-    if (!trimmed) { setNameError(true); return }
-    setDisplayName(trimmed)
-    startEmpty()
+    if (!isExistingUser && !trimmed) { setNameError(true); return }
+    if (trimmed) setDisplayName(trimmed)
+    if (!isExistingUser) startEmpty()
+    markOnboardingSeen()
   }
 
-  /* ── Welcome ───────────────────────────────────────────── */
+  const nextStep = () => {
+    if (step < LAST_SLIDE) { setStep(step + 1); return }
+    // After last slide
+    if (isExistingUser) { finish(); return }  // existing user: just close
+    setStep(NAME_STEP)                        // new user: go to name step
+  }
+
+  const prevStep = () => setStep(Math.max(0, step - 1))
+
+  /* ── Welcome screen ─────────────────────────────────────── */
   if (step === 0) {
     return (
       <div className="mobile-welcome-hub">
@@ -56,18 +80,18 @@ export function MobileWelcomeHub() {
         </div>
 
         <div className="mwh-dots">
-          {[1, 2, 3].map(i => (
+          {SLIDES.map((_, i) => (
             <span key={i} className="mwh-dot" />
           ))}
         </div>
 
         <div className="mobile-welcome-actions">
           <button className="mobile-welcome-primary" onClick={() => setStep(1)}>
-            Conoce cómo funciona
+            Cómo funciona
             <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
           </button>
-          <button className="mobile-welcome-ghost" onClick={() => setStep(4)}>
-            Saltar tutorial
+          <button className="mobile-welcome-ghost" onClick={finish}>
+            {isExistingUser ? 'Entendido, continuar' : 'Saltar tutorial'}
           </button>
           <p className="mobile-welcome-fine">Sin cuenta en la nube · Tus datos, 100% privados</p>
         </div>
@@ -75,9 +99,10 @@ export function MobileWelcomeHub() {
     )
   }
 
-  /* ── Tutorial slides 1-3 ────────────────────────────────── */
-  if (step >= 1 && step <= 3) {
+  /* ── Tutorial slides ────────────────────────────────────── */
+  if (step >= 1 && step <= LAST_SLIDE) {
     const slide = SLIDES[step - 1]
+    const isLast = step === LAST_SLIDE
     return (
       <div className="mobile-welcome-hub mwh-slide-screen">
         <div className="mwh-slide-visual" style={{ '--slide-color': slide.color } as React.CSSProperties}>
@@ -89,8 +114,8 @@ export function MobileWelcomeHub() {
 
         <div className="mwh-slide-body">
           <div className="mwh-dots">
-            {[1, 2, 3].map(i => (
-              <span key={i} className={`mwh-dot${i === step ? ' on' : ''}`} />
+            {SLIDES.map((_, i) => (
+              <span key={i} className={`mwh-dot${i + 1 === step ? ' on' : ''}`} />
             ))}
           </div>
           <h2>{slide.title}</h2>
@@ -98,26 +123,30 @@ export function MobileWelcomeHub() {
         </div>
 
         <div className="mwh-slide-nav">
-          <button className="mwh-nav-back" onClick={() => setStep(step - 1)}>
+          <button className="mwh-nav-back" onClick={prevStep} aria-label="Anterior">
             <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
           </button>
-          <button className="mobile-welcome-primary mwh-nav-next" onClick={() => setStep(step + 1)}>
-            {step === 3 ? 'Continuar' : 'Siguiente'}
-            <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
+          <button className="mobile-welcome-primary mwh-nav-next" onClick={nextStep}>
+            {isLast
+              ? (isExistingUser ? 'Entendido' : 'Continuar')
+              : 'Siguiente'}
+            <Icon name="arrowUp" size={16} style={{ transform: isLast && isExistingUser ? 'none' : 'rotate(90deg)' }} />
           </button>
         </div>
       </div>
     )
   }
 
-  /* ── Name input (step 4) ───────────────────────────────── */
+  /* ── Name step (new users only) ─────────────────────────── */
   return (
     <div className="mobile-welcome-hub mwh-name-screen">
       <div className="mwh-name-brand">
         <BrandMark size={54} />
       </div>
       <h2>¿Cómo te llamas?</h2>
-      <p className="mwh-name-hint">Tu nombre aparece en los informes y exportaciones. Puedes cambiarlo después.</p>
+      <p className="mwh-name-hint">
+        Tu nombre aparece en los informes exportados y en tu perfil. Puedes cambiarlo después desde Perfil.
+      </p>
       <input
         className={`mwh-name-input${nameError ? ' error' : ''}`}
         type="text"
@@ -126,15 +155,15 @@ export function MobileWelcomeHub() {
         autoCapitalize="words"
         autoCorrect="off"
         onChange={e => { setName(e.target.value); setNameError(false) }}
-        onKeyDown={e => e.key === 'Enter' && begin()}
+        onKeyDown={e => e.key === 'Enter' && finish()}
       />
       {nameError && <p className="mwh-name-error">Escribe tu nombre para continuar</p>}
 
       <div className="mwh-name-actions">
-        <button className="mwh-nav-back" onClick={() => setStep(3)}>
+        <button className="mwh-nav-back" onClick={() => setStep(LAST_SLIDE)} aria-label="Atrás">
           <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
         </button>
-        <button className="mobile-welcome-primary mwh-nav-next" onClick={begin}>
+        <button className="mobile-welcome-primary mwh-nav-next" onClick={finish}>
           Comenzar <Icon name="check" size={16} />
         </button>
       </div>

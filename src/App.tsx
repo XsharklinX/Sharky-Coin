@@ -6,7 +6,6 @@ import { currentMonthKey, monthKeys } from '@/data/helpers'
 import { ToastHost, toast } from '@/components/ui/Toast'
 import { DialogProvider } from '@/components/ui/DialogProvider'
 import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
-import { MobileOnboarding } from '@/mobile/MobileOnboarding'
 import { TransactionForm } from '@/modals/TransactionForm'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -79,17 +78,9 @@ export default function App() {
     </div>
   )
 
-  const hasOnboarded = !!localStorage.getItem('sharky-finance-v2')
-  if (!hasOnboarded) return (
+  if (!s.hasSeenOnboarding) return (
     <div className="app mobile-app" {...themeProps}>
       <MobileWelcomeHub />
-    </div>
-  )
-
-  if (accounts.length === 0) return (
-    <div className="app mobile-app" {...themeProps}>
-      <ToastHost />
-      <MobileOnboarding onDone={() => setMkey(currentMonthKey())} />
     </div>
   )
 
