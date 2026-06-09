@@ -74,21 +74,21 @@ export function MobileHome({
       {/* ─── Resumen del mes (sticky) ─── */}
       <section className="mhome-summary">
         <div className="mhome-summary-col">
-          <small>{t('expenses')}</small>
-          <strong className="expense">
-            <AnimatedMoney value={summary.expense} compact={compactNumbers} />
-          </strong>
-        </div>
-        <div className="mhome-summary-col">
           <small>{t('incomes')}</small>
           <strong className="income">
             <AnimatedMoney value={summary.income} compact={compactNumbers} />
           </strong>
         </div>
+        <div className="mhome-summary-col">
+          <small>{t('expenses')}</small>
+          <strong className="expense">
+            <AnimatedMoney value={summary.expense} compact={compactNumbers} />
+          </strong>
+        </div>
         <button className="mhome-summary-col mhome-balance-btn" onClick={() => setShowBalanceBreakdown(v => !v)}>
           <small>{t('balance')} <Icon name="arrowDn" size={9} style={{ display: 'inline', verticalAlign: 'middle', opacity: .6, transform: showBalanceBreakdown ? 'rotate(180deg)' : 'none' }} /></small>
           <strong className={balancePositive ? 'income' : 'expense'}>
-            {balancePositive ? '+' : '–'}
+            {!balancePositive && '–'}
             <AnimatedMoney value={Math.abs(totalBalance)} compact={compactNumbers} />
           </strong>
         </button>

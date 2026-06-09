@@ -195,6 +195,16 @@
     background: color-mix(in oklab, var(--m-primary) 8%, var(--m-surface-2));
     border-color: color-mix(in oklab, var(--m-primary) 30%, transparent);
   }
+  .mobile-quick-icon-btn.field-error {
+    background: color-mix(in oklab, #ff4d6d 12%, var(--m-surface-2));
+    border-color: #ff4d6d;
+  }
+  .mobile-category-grid.field-error {
+    border-radius: 16px;
+    box-shadow: 0 0 0 2px #ff4d6d66;
+    outline: 2px solid #ff4d6d;
+    outline-offset: 4px;
+  }
   .mobile-quick-note-input {
     align-items: center;
     background: var(--m-surface);
@@ -589,4 +599,56 @@
   .mobile-category-grid button:active { background: rgba(255,255,255,.06); }
   .mobile-section-card header button:active,
   .mobile-hero-card button:active { filter: brightness(.92); }
+
+  /* ── MobileAmountSheet ── */
+  .mamt-sheet {
+    background: var(--m-bg, #0f0f10);
+    border-radius: 28px 28px 0 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    left: 0;
+    position: fixed;
+    right: 0;
+    width: 100%;
+  }
+  .mamt-sheet > header {
+    align-items: center;
+    border-bottom: 1px solid var(--m-border);
+    display: flex;
+    flex-shrink: 0;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+  }
+  .mamt-sheet > header > span { font-size: 16px; font-weight: 750; letter-spacing: -.01em; }
+  .mamt-sheet > header > button {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-text, #fff) 8%, transparent);
+    border: 0;
+    border-radius: 50%;
+    display: flex;
+    height: 32px;
+    justify-content: center;
+    width: 32px;
+  }
+  .mamt-amount-display {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 22px 24px 14px;
+  }
+  .mamt-expr {
+    color: var(--m-muted);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .mamt-amount-display > strong {
+    font-size: 36px;
+    font-weight: 860;
+    letter-spacing: -.03em;
+  }
+  .mamt-keypad {
+    padding: 4px 16px calc(20px + env(safe-area-inset-bottom));
+  }
 

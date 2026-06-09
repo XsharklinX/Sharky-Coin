@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmtCompact } from '@/data/helpers'
+import { fmt, fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
 import { playAccountsSound } from '@/lib/sound'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { MobileAmountSheet } from './MobileAmountSheet'
 import type { Account, AccountType, OverdraftPolicy, ViewId, ViewProps } from '@/types'
 
 const COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b']
@@ -220,6 +221,13 @@ export function MobileProfile({
   )
 }
 
+const OVERDRAFT_OPTIONS: { value: OverdraftPolicy | ''; label: string }[] = [
+  { value: '',       label: 'Global' },
+  { value: 'block',  label: 'Bloquear' },
+  { value: 'warn',   label: 'Avisar' },
+  { value: 'allow',  label: 'Permitir' },
+]
+
 function AccountEditorSheet({
   account,
   onClose,
@@ -231,75 +239,62 @@ function AccountEditorSheet({
   onSave: (fields: Omit<Account, 'id'>) => void
   onDelete?: (account: Account) => void
 }) {
+  const { currency } = useFinance()
   const [fields, setFields] = useState<Omit<Account, 'id'>>(account ?? EMPTY_ACCOUNT)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [amountSheet, setAmountSheet] = useState<'balance' | 'limit' | null>(null)
+
   const patch = <K extends keyof typeof fields>(key: K, val: typeof fields[K]) =>
     setFields(cur => ({ ...cur, [key]: val }))
 
-  useMobileBackDismiss(true, onClose)
+  useMobileBackDismiss(amountSheet !== null, () => setAmountSheet(null))
+  useMobileBackDismiss(amountSheet === null, onClose)
+
+  const typeIcon = TYPE_META[fields.type].icon
+  const typeLabel = TYPE_META[fields.type].label
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
-      <section className="mpr-editor-sheet" onClick={e => e.stopPropagation()}>
-        <header>
-          <span>{account ? 'Editar cuenta' : 'Nueva cuenta'}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
-        </header>
+    <>
+      <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+        <section className="mpr-editor-sheet" onClick={e => e.stopPropagation()}>
 
-        <div className="mpr-editor-body">
-          <label className="mpr-field">
-            <span>Nombre</span>
-            <input className="mpr-input" value={fields.name} placeholder="Ej. Banco Principal" onChange={e => patch('name', e.target.value)} />
-          </label>
-
-          <div className="mpr-field-row">
-            <label className="mpr-field" style={{ flex: 1 }}>
-              <span>Etiqueta</span>
-              <input className="mpr-input" value={fields.short} placeholder="Débito" onChange={e => patch('short', e.target.value)} />
-            </label>
-            <label className="mpr-field" style={{ flex: 1 }}>
-              <span>Tipo</span>
-              <select className="mpr-input" value={fields.type} onChange={e => patch('type', e.target.value as AccountType)}>
-                <option value="cash">Efectivo</option>
-                <option value="debit">Débito</option>
-                <option value="savings">Ahorros</option>
-                <option value="credit">Crédito</option>
-              </select>
-            </label>
+          {/* Header */}
+          <div className="mpr-editor-hero">
+            <div className="mpr-editor-icon" style={{ background: fields.color + '28', color: fields.color }}>
+              <Icon name={typeIcon} size={30} />
+            </div>
+            <input
+              className="mpr-editor-name-input"
+              value={fields.name}
+              placeholder="Nombre de la cuenta"
+              autoCapitalize="words"
+              onChange={e => patch('name', e.target.value)}
+            />
+            <small className="mpr-editor-type-label">{typeLabel}</small>
           </div>
 
-          <div className="mpr-field-row">
-            <label className="mpr-field" style={{ flex: 1 }}>
-              <span>Balance</span>
-              <input className="mpr-input" type="number" value={fields.balance} onChange={e => patch('balance', Number(e.target.value))} />
-            </label>
-            <label className="mpr-field" style={{ flex: 1 }}>
-              <span>Últimos 4 dígitos</span>
-              <input className="mpr-input" maxLength={4} value={fields.last4 ?? ''} placeholder="Opcional" onChange={e => patch('last4', e.target.value)} />
-            </label>
-          </div>
+          <div className="mpr-editor-body">
 
-          {fields.type === 'credit' && (
-            <label className="mpr-field">
-              <span>Límite de crédito</span>
-              <input className="mpr-input" type="number" value={fields.limit ?? ''} onChange={e => patch('limit', Number(e.target.value) || undefined)} />
-            </label>
-          )}
+            {/* Tipo de cuenta */}
+            <div className="mpr-section-label">Tipo de cuenta</div>
+            <div className="mpr-type-grid">
+              {(Object.entries(TYPE_META) as [AccountType, typeof TYPE_META[AccountType]][]).map(([type, meta]) => (
+                <button
+                  key={type}
+                  className={`mpr-type-card${fields.type === type ? ' on' : ''}`}
+                  style={fields.type === type ? { borderColor: fields.color, background: fields.color + '18' } : {}}
+                  onClick={() => patch('type', type)}
+                >
+                  <span style={{ color: fields.type === type ? fields.color : 'var(--m-muted)' }}>
+                    <Icon name={meta.icon} size={22} />
+                  </span>
+                  <small>{meta.label}</small>
+                </button>
+              ))}
+            </div>
 
-          {fields.type !== 'credit' && (
-            <label className="mpr-field">
-              <span>Sobregiro</span>
-              <select className="mpr-input" value={fields.overdraftPolicy ?? ''} onChange={e => patch('overdraftPolicy', (e.target.value || undefined) as OverdraftPolicy | undefined)}>
-                <option value="">Usar configuración global</option>
-                <option value="block">Bloquear cuando vacío</option>
-                <option value="warn">Advertir</option>
-                <option value="allow">Siempre permitir</option>
-              </select>
-            </label>
-          )}
-
-          <div className="mpr-field">
-            <span>Color</span>
+            {/* Color */}
+            <div className="mpr-section-label">Color</div>
             <div className="mpr-color-strip">
               {COLORS.map(c => (
                 <button
@@ -312,34 +307,109 @@ function AccountEditorSheet({
                 />
               ))}
             </div>
+
+            {/* Balance */}
+            <div className="mpr-section-label">Balance inicial</div>
+            <button className="mpr-amount-row" onClick={() => setAmountSheet('balance')}>
+              <Icon name="coins" size={16} style={{ color: 'var(--m-muted)' }} />
+              <span className={fields.balance !== 0 ? 'mpr-amount-set' : 'mpr-amount-placeholder'}>
+                {fields.balance !== 0 ? fmt(fields.balance, currency) : 'RD$ 0.00'}
+              </span>
+              <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto' }} />
+            </button>
+
+            {/* Crédito: límite */}
+            {fields.type === 'credit' && (
+              <>
+                <div className="mpr-section-label">Límite de crédito</div>
+                <button className="mpr-amount-row" onClick={() => setAmountSheet('limit')}>
+                  <Icon name="cards" size={16} style={{ color: 'var(--m-muted)' }} />
+                  <span className={fields.limit ? 'mpr-amount-set' : 'mpr-amount-placeholder'}>
+                    {fields.limit ? fmt(fields.limit, currency) : 'Sin límite'}
+                  </span>
+                  <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', marginLeft: 'auto' }} />
+                </button>
+              </>
+            )}
+
+            {/* No crédito: sobregiro */}
+            {fields.type !== 'credit' && (
+              <>
+                <div className="mpr-section-label">Sobregiro</div>
+                <div className="mpr-pill-row">
+                  {OVERDRAFT_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      className={`mpr-pill${(fields.overdraftPolicy ?? '') === opt.value ? ' on' : ''}`}
+                      style={(fields.overdraftPolicy ?? '') === opt.value ? { borderColor: fields.color, background: fields.color + '22', color: fields.color } : {}}
+                      onClick={() => patch('overdraftPolicy', (opt.value || undefined) as OverdraftPolicy | undefined)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Etiqueta + últimos 4 */}
+            <div className="mpr-field-row" style={{ marginTop: 4 }}>
+              <label className="mpr-field" style={{ flex: 1 }}>
+                <div className="mpr-section-label" style={{ marginBottom: 6 }}>Etiqueta</div>
+                <input className="mpr-input" value={fields.short} placeholder="Débito" onChange={e => patch('short', e.target.value)} />
+              </label>
+              <label className="mpr-field" style={{ flex: 1 }}>
+                <div className="mpr-section-label" style={{ marginBottom: 6 }}>Últimos 4</div>
+                <input className="mpr-input" maxLength={4} inputMode="numeric" value={fields.last4 ?? ''} placeholder="Opcional" onChange={e => patch('last4', e.target.value)} />
+              </label>
+            </div>
+
+            {/* Eliminar */}
+            {account && onDelete && (
+              !confirmDel ? (
+                <button className="mpr-del-btn" onClick={() => setConfirmDel(true)}>
+                  <Icon name="trash" size={16} /> Eliminar cuenta
+                </button>
+              ) : (
+                <div className="mpr-confirm-del">
+                  <p>¿Eliminar "{account.name}"? Esta acción no se puede deshacer.</p>
+                  <div>
+                    <button onClick={() => setConfirmDel(false)}>Cancelar</button>
+                    <button className="danger" onClick={() => onDelete(account)}>
+                      <Icon name="trash" size={16} /> Eliminar
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
 
-          {account && onDelete && (
-            !confirmDel ? (
-              <button className="mpr-del-btn" onClick={() => setConfirmDel(true)}>
-                <Icon name="trash" size={16} /> Eliminar cuenta
-              </button>
-            ) : (
-              <div className="mpr-confirm-del">
-                <p>¿Eliminar "{account.name}"? Esta acción no se puede deshacer.</p>
-                <div>
-                  <button onClick={() => setConfirmDel(false)}>Cancelar</button>
-                  <button className="danger" onClick={() => onDelete(account)}>
-                    <Icon name="trash" size={16} /> Eliminar
-                  </button>
-                </div>
-              </div>
-            )
-          )}
-        </div>
+          <div className="mpr-editor-actions">
+            <button className="mpr-btn-cancel" onClick={onClose}>Cancelar</button>
+            <button className="mpr-btn-save" style={{ background: fields.color }} onClick={() => onSave(fields)}>
+              {account ? 'Guardar' : 'Crear cuenta'}
+            </button>
+          </div>
+        </section>
+      </div>
 
-        <div className="mpr-editor-actions">
-          <button className="mpr-btn-cancel" onClick={onClose}>Cancelar</button>
-          <button className="mpr-btn-save" style={{ background: fields.color }} onClick={() => onSave(fields)}>
-            {account ? 'Guardar' : 'Crear'}
-          </button>
-        </div>
-      </section>
-    </div>
+      {amountSheet === 'balance' && (
+        <MobileAmountSheet
+          title="Balance inicial"
+          value={fields.balance}
+          currency={currency}
+          onDone={v => { patch('balance', v); setAmountSheet(null) }}
+          onClose={() => setAmountSheet(null)}
+        />
+      )}
+      {amountSheet === 'limit' && (
+        <MobileAmountSheet
+          title="Límite de crédito"
+          value={fields.limit ?? 0}
+          currency={currency}
+          onDone={v => { patch('limit', v || undefined); setAmountSheet(null) }}
+          onClose={() => setAmountSheet(null)}
+        />
+      )}
+    </>
   )
 }

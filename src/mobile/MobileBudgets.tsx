@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
-import { fmtCompact, txForMonth } from '@/data/helpers'
+import { fmt, fmtCompact, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { MobileAmountSheet } from './MobileAmountSheet'
 import type { Category, IconName, ViewProps } from '@/types'
 
 const COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b','#fb7185','#22c55e','#c084fc','#38bdf8']
@@ -196,15 +197,19 @@ function BudgetEditor({
   onSave: (f: { name: string; budget: number; color: string; icon: IconName }) => void
   onDelete?: (c: Category) => void
 }) {
+  const { currency } = useFinance()
   const [name,       setName]       = useState(category?.name ?? '')
-  const [budget,     setBudget]     = useState(String(category?.budget ?? ''))
+  const [budget,     setBudget]     = useState(category?.budget ?? 0)
   const [color,      setColor]      = useState(category?.color ?? COLORS[0])
   const [icon,       setIcon]       = useState<IconName>(category?.icon ?? 'cart')
   const [confirmDel, setConfirmDel] = useState(false)
+  const [budgetSheet, setBudgetSheet] = useState(false)
 
-  useMobileBackDismiss(true, onClose)
+  useMobileBackDismiss(budgetSheet, () => setBudgetSheet(false))
+  useMobileBackDismiss(!budgetSheet, onClose)
 
   return (
+    <>
     <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={category ? 'Edit category' : 'New category'} onClick={onClose}>
       <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -225,17 +230,15 @@ function BudgetEditor({
             />
           </label>
 
-          <label className="mbud-field">
-            <span>Monthly limit (0 = no limit)</span>
-            <input
-              className="mbud-input"
-              type="number"
-              inputMode="decimal"
-              value={budget}
-              placeholder="0"
-              onChange={e => setBudget(e.target.value)}
-            />
-          </label>
+          <div className="mbud-field">
+            <span>Límite mensual</span>
+            <button className="mdebt-amount-row" onClick={() => setBudgetSheet(true)}>
+              <span className={budget > 0 ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
+                {budget > 0 ? fmt(budget, currency) : 'Sin límite'}
+              </span>
+              <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
+            </button>
+          </div>
 
           <div className="mbud-field">
             <span>Color</span>
@@ -291,16 +294,27 @@ function BudgetEditor({
         </div>
 
         <div className="mbud-editor-actions">
-          <button className="mbud-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="mbud-btn-cancel" onClick={onClose}>Cancelar</button>
           <button
             className="mbud-btn-save"
             style={{ background: color }}
-            onClick={() => onSave({ name, budget: Number(budget) || 0, color, icon })}
+            onClick={() => onSave({ name, budget, color, icon })}
           >
-            {category ? 'Save' : 'Create'}
+            {category ? 'Guardar' : 'Crear'}
           </button>
         </div>
       </section>
     </div>
+
+    {budgetSheet && (
+      <MobileAmountSheet
+        title="Límite mensual"
+        value={budget}
+        currency={currency}
+        onDone={v => { setBudget(v); setBudgetSheet(false) }}
+        onClose={() => setBudgetSheet(false)}
+      />
+    )}
+    </>
   )
 }

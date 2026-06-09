@@ -116,6 +116,7 @@ export function MobileCreateFlow({
     return current.startsWith(mkey) ? current : `${mkey}-01`
   })
   const [formError, setFormError] = useState<string | null>(null)
+  const [triedSave, setTriedSave] = useState(false)
   const [shaking,   setShaking]   = useState(false)
   const [recurring, setRecurring] = useState(false)
   const [recurFreq, setRecurFreq] = useState<RecurrenceFrequency>('monthly')
@@ -136,18 +137,19 @@ export function MobileCreateFlow({
   const toAccountObj = accounts.find(a => a.id === toAccount)
   const validTransfer = mode === 'transfer' && !!fromAccount && !!toAccount && fromAccount !== toAccount
 
-  // Notas anteriores únicas para el modo actual (autocompletar)
+  // Notas anteriores únicas para el modo + categoría actual (autocompletar)
   const pastNotes = useMemo(() => {
     const seen = new Set<string>()
     const result: string[] = []
     for (const tx of transactions) {
       if (tx.type !== mode || !tx.note) continue
+      if (categoryId && tx.categoryId !== categoryId) continue
       const n = tx.note.trim()
       if (n && !seen.has(n)) { seen.add(n); result.push(n) }
       if (result.length >= 20) break
     }
     return result
-  }, [transactions, mode])
+  }, [transactions, mode, categoryId])
 
   // Save is only allowed when account is explicitly selected
   const canSave = amount > 0 && date && (
@@ -163,7 +165,7 @@ export function MobileCreateFlow({
   useMobileBackDismiss(datePicker, () => setDatePicker(false))
   useMobileBackDismiss(recurEndPicker, () => setRecurEndPicker(false))
 
-  const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null) }
+  const switchMode = (next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null); setTriedSave(false); setFormError(null) }
 
   const pressKey = (key: (typeof keypad)[number] | 'back') => {
     setFormError(null)
@@ -211,9 +213,11 @@ export function MobileCreateFlow({
               ? t('differentAccountsError')
               : t('fillAllError')
       setFormError(msg)
+      setTriedSave(true)
       triggerShake()
       return
     }
+    setTriedSave(false)
     setFormError(null)
     try {
       if (mode === 'transfer') {
@@ -306,12 +310,12 @@ export function MobileCreateFlow({
 
             {/* Category grid */}
             {visibleCategories.length ? (
-              <div className="mobile-category-grid">
+              <div className={`mobile-category-grid${triedSave && !activeCategory ? ' field-error' : ''}`}>
                 {visibleCategories.map(category => {
                   const selected = activeCategory?.id === category.id
                   return (
                     <button key={category.id} className={selected ? 'on' : ''} aria-pressed={selected}
-                      onClick={() => setCategoryId(category.id)}>
+                      onClick={() => { setCategoryId(category.id); setTriedSave(false) }}>
                       <span style={{ color: category.color, background: `color-mix(in oklab, ${category.color} 22%, transparent)` }}>
                         <Icon name={category.icon} size={20} />
                       </span>
@@ -421,7 +425,7 @@ export function MobileCreateFlow({
         <div className="mobile-create-quick-row">
           {mode !== 'transfer' && (
             <button
-              className={`mobile-quick-icon-btn${!activeAccount ? ' unset' : ''}`}
+              className={`mobile-quick-icon-btn${!activeAccount ? ' unset' : ''}${triedSave && !activeAccountId ? ' field-error' : ''}`}
               onClick={() => setAccountPicker(true)}
               aria-label={t('account')}
             >
@@ -454,7 +458,12 @@ export function MobileCreateFlow({
         {noteFocused && pastNotes.length > 0 && (
           <div className="mobile-note-chips">
             {pastNotes.map(n => (
-              <button key={n} className="mobile-note-chip" onClick={() => { setNote(n); noteInputRef.current?.blur() }}>
+              <button
+                key={n}
+                className="mobile-note-chip"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setNote(n); noteInputRef.current?.blur() }}
+              >
                 {n}
               </button>
             ))}
@@ -507,7 +516,7 @@ export function MobileCreateFlow({
                 {accounts.map(account => (
                   <button key={account.id}
                     className={`mobile-picker-row${account.id === activeAccountId ? ' active' : ''}`}
-                    onClick={() => { setAccountId(account.id); setAccountPicker(false) }}>
+                    onClick={() => { setAccountId(account.id); setAccountPicker(false); setTriedSave(false) }}>
                     <span style={{ color: account.color }}>
                       <Icon name={ACCT_ICONS[account.type] ?? 'wallet'} size={22} />
                     </span>
