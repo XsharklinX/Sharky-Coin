@@ -120,13 +120,22 @@ export async function exportExcel(state: FinanceState): Promise<void> {
     if (rows.length) addSheet(month.slice(0, 31), rows)
   })
 
-  const buffer = await wb.xlsx.writeBuffer()
-  const url = URL.createObjectURL(new Blob([buffer], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  }))
+  const buffer   = await wb.xlsx.writeBuffer()
+  const filename  = downloadName('sharky-finanzas', 'xlsx')
+  const mimeType  = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  const blob      = new Blob([buffer], { type: mimeType })
+  const isAndroid = /android/i.test(navigator.userAgent)
+  if (isAndroid && typeof navigator.share === 'function') {
+    const file = new File([blob], filename, { type: mimeType })
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: '$harky — Reporte completo' })
+      return
+    }
+  }
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = downloadName('sharky-finanzas', 'xlsx')
+  link.download = filename
   link.click()
   URL.revokeObjectURL(url)
 }
@@ -224,5 +233,15 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
     })
   }
 
-  doc.save(downloadName(`sharky-estado-${month}`, 'pdf'))
+  const filename  = downloadName(`sharky-estado-${month}`, 'pdf')
+  const isAndroid = /android/i.test(navigator.userAgent)
+  if (isAndroid && typeof navigator.share === 'function') {
+    const pdfBlob = doc.output('blob')
+    const file    = new File([pdfBlob], filename, { type: 'application/pdf' })
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: `$harky — Estado ${monthLabel(month)}` })
+      return
+    }
+  }
+  doc.save(filename)
 }

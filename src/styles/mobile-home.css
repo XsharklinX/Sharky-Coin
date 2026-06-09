@@ -1126,3 +1126,114 @@
   .mwh-name-error { color: #ff6b8a; font-size: 13px; margin: 0 0 12px; text-align: center; }
   .mwh-name-actions { align-items: center; display: flex; gap: 12px; margin-top: 20px; }
 
+  /* ── Slide illustrations ───────────────────────────────── */
+  .mwh-illus {
+    background: rgba(0,0,0,.45);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    width: 100%;
+    max-width: 280px;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Slide 1 – Register */
+  .mwh-illus-header { display: flex; gap: 6px; }
+  .mwh-illus-badge {
+    border-radius: 8px; font-size: 11px; font-weight: 800;
+    letter-spacing: .03em; padding: 4px 10px; text-transform: uppercase;
+  }
+  .mwh-illus-badge.expense { background: rgba(255,107,138,.18); color: #ff6b8a; }
+  .mwh-illus-badge.income  { background: rgba(53,208,162,.12);  color: rgba(53,208,162,.5); }
+  .mwh-illus-amount {
+    align-items: baseline; display: flex; font-size: 14px;
+    font-weight: 700; gap: 6px; letter-spacing: -.01em; padding: 4px 0 2px;
+  }
+  .mwh-illus-amount strong { font-size: 28px; font-weight: 900; letter-spacing: -.02em; }
+  .mwh-illus-cursor {
+    display: inline-block; width: 2px; height: 28px;
+    background: currentColor; border-radius: 2px; margin-left: 2px;
+    vertical-align: middle; animation: mwh-blink 1s step-end infinite;
+  }
+  @keyframes mwh-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .mwh-illus-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mwh-illus-cat {
+    border: 1.5px solid rgba(255,255,255,.12); border-radius: 8px;
+    color: #666; font-size: 11px; font-weight: 700; padding: 4px 10px;
+    background: rgba(255,255,255,.05);
+  }
+  .mwh-illus-cat.on {
+    background: color-mix(in oklab, var(--cc, #2dd4bf) 20%, transparent);
+    border-color: var(--cc, #2dd4bf);
+    color: var(--cc, #2dd4bf);
+  }
+  .mwh-illus-keypad {
+    display: grid; gap: 4px; grid-template-columns: repeat(4, 1fr);
+  }
+  .mwh-illus-key {
+    align-items: center; background: rgba(255,255,255,.08); border-radius: 8px;
+    color: #ccc; display: flex; font-size: 13px; font-weight: 700;
+    height: 28px; justify-content: center;
+  }
+  .mwh-illus-key.done { background: #35d0a2; color: #111; }
+
+  /* Slide 2 – Accounts */
+  .mwh-illus-balance-head {
+    align-items: center; border-bottom: 1px solid rgba(255,255,255,.08);
+    display: flex; justify-content: space-between; padding-bottom: 8px;
+  }
+  .mwh-illus-balance-head span { color: #777; font-size: 12px; font-weight: 600; }
+  .mwh-illus-balance-head strong { font-size: 16px; font-weight: 900; }
+  .mwh-illus-acc-list { display: flex; flex-direction: column; gap: 8px; }
+  .mwh-illus-acc-row {
+    align-items: center; display: flex; gap: 10px;
+    background: rgba(255,255,255,.05); border-radius: 10px; padding: 8px 10px;
+  }
+  .mwh-illus-acc-dot {
+    background: var(--cc, #35d0a2); border-radius: 50%;
+    flex-shrink: 0; height: 10px; width: 10px;
+  }
+  .mwh-illus-acc-info { display: flex; flex: 1; flex-direction: column; gap: 1px; }
+  .mwh-illus-acc-info b     { color: #e0e0e0; font-size: 12px; font-weight: 700; }
+  .mwh-illus-acc-info small { color: #666;    font-size: 10px; }
+  .mwh-illus-acc-row .pos { color: #35d0a2; font-size: 12px; font-weight: 800; }
+  .mwh-illus-acc-row .neg { color: #ff6b8a; font-size: 12px; font-weight: 800; }
+
+  /* Slide 3 – Budgets */
+  .mwh-illus-budget { display: flex; flex-direction: column; gap: 4px; }
+  .mwh-illus-budget-head { align-items: center; display: flex; justify-content: space-between; }
+  .mwh-illus-budget-head span:first-child { color: #ccc; font-size: 12px; font-weight: 700; }
+  .mwh-illus-track {
+    background: rgba(255,255,255,.1); border-radius: 99px; height: 6px; overflow: hidden;
+  }
+  .mwh-illus-fill { border-radius: 99px; height: 100%; transition: width .3s ease; }
+  .mwh-illus-budget-sub { color: #666; font-size: 10px; font-weight: 600; }
+  .mwh-illus-budget-sub span { color: #444; }
+  .mwh-illus-goal {
+    align-items: center; background: rgba(167,139,250,.1);
+    border: 1px solid rgba(167,139,250,.2); border-radius: 10px;
+    display: flex; gap: 10px; margin-top: 4px; padding: 10px;
+  }
+  .mwh-illus-goal-icon { color: #a78bfa; flex-shrink: 0; }
+  .mwh-illus-goal > div { display: flex; flex: 1; flex-direction: column; gap: 6px; }
+  .mwh-illus-goal b { color: #ccc; font-size: 12px; font-weight: 700; }
+
+  /* Slide 4 – Analytics */
+  .mwh-illus-chart {
+    align-items: flex-end; display: flex; gap: 5px; height: 72px;
+    border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 4px;
+  }
+  .mwh-illus-bar-col { align-items: center; display: flex; flex: 1; flex-direction: column; gap: 4px; }
+  .mwh-illus-bar {
+    background: linear-gradient(to top, #35d0a2, #5bc0ff);
+    border-radius: 4px 4px 0 0; width: 100%;
+  }
+  .mwh-illus-bar-col span { color: #555; font-size: 9px; font-weight: 700; }
+  .mwh-illus-stats { display: flex; gap: 4px; }
+  .mwh-illus-stat { background: rgba(255,255,255,.06); border-radius: 10px; display: flex; flex: 1; flex-direction: column; gap: 3px; padding: 8px; }
+  .mwh-illus-stat small  { color: #666; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .mwh-illus-stat strong { font-size: 11px; font-weight: 900; }
+
