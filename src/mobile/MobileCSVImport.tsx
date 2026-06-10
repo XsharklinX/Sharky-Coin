@@ -112,7 +112,7 @@ function buildTxs(rows: string[][], map: ColMap): ParsedTx[] {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function MobileCSVImport({ onClose }: { onClose: () => void }) {
-  const { accounts, currency, addTx } = useFinance()
+  const { accounts, addTx } = useFinance()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep]         = useState<'upload' | 'map' | 'confirm'>('upload')

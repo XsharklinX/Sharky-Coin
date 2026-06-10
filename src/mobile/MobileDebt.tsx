@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt, fmtCompact } from '@/data/helpers'
+import { fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
 import { useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'

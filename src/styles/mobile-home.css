@@ -4,7 +4,6 @@
     flex-direction: column;
     gap: 12px;
     padding: 0 0 24px;
-    overflow-y: auto;
   }
   .mhome-summary {
     background: var(--m-surface);

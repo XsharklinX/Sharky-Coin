@@ -2,10 +2,12 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
+import { ACCENT_COLORS } from '@/constants'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { useT } from '@/i18n'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
+import { recognizeReceipt } from '@/lib/receiptOcr'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -21,7 +23,7 @@ const keypad = [
 ] as const
 const OPERATORS = ['+', '−', '×', '÷'] as const
 type Operator = (typeof OPERATORS)[number]
-const CATEGORY_COLORS = ['#ffdd3d', '#35d0a2', '#5bc0ff', '#a78bfa', '#ff6b8a', '#f59e0b']
+const CATEGORY_COLORS = ACCENT_COLORS
 const CATEGORY_ICONS: IconName[] = [
   'cart', 'food', 'car', 'bolt', 'heart', 'home',
   'bag', 'book', 'wallet', 'laptop', 'trend', 'play',
@@ -99,6 +101,8 @@ export function MobileCreateFlow({
   const t = useT()
   const { accounts, categories, transactions, currency, addTx, transfer, addCategory } = useFinance()
   const noteInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<MobileTxMode>(initialMode ?? 'expense')
   const [amountText, setAmountText] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
@@ -122,6 +126,9 @@ export function MobileCreateFlow({
   const [recurFreq, setRecurFreq] = useState<RecurrenceFrequency>('monthly')
   const [recurEnd,  setRecurEnd]  = useState('')
   const [recurEndPicker, setRecurEndPicker] = useState(false)
+  const [scanMenuOpen, setScanMenuOpen] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scannedImage, setScannedImage] = useState<{ dataUrl: string; name: string } | null>(null)
 
   const amount = evaluateExpression(amountText)
   const hasOperator = OPERATORS.some(op => amountText.includes(op))
@@ -164,6 +171,7 @@ export function MobileCreateFlow({
   useMobileBackDismiss(accountPicker, () => setAccountPicker(false))
   useMobileBackDismiss(datePicker, () => setDatePicker(false))
   useMobileBackDismiss(recurEndPicker, () => setRecurEndPicker(false))
+  useMobileBackDismiss(scanMenuOpen, () => setScanMenuOpen(false))
 
   const switchMode = useCallback((next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null); setTriedSave(false); setFormError(null) }, [])
 
@@ -199,6 +207,36 @@ export function MobileCreateFlow({
   const triggerShake = () => {
     setShaking(true)
     setTimeout(() => setShaking(false), 420)
+  }
+
+  const scanReceiptFile = async (file: File) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    setScannedImage({ dataUrl, name: file.name })
+    setScanning(true)
+    try {
+      const result = await recognizeReceipt(file)
+      let found = false
+      if (result.amount !== null) {
+        setAmountText(String(result.amount))
+        toast(t('scanAmountFound').replace('{amount}', fmt(result.amount, currency)), { icon: 'check', type: 'ok' })
+        found = true
+      }
+      if (result.date !== null) {
+        setDate(result.date)
+        if (!found) toast(t('scanDateFound').replace('{date}', formatDateShort(result.date)), { icon: 'calendar', type: 'ok' })
+        found = true
+      }
+      if (!found) toast(t('scanNothingFound'), { icon: 'alert' })
+    } catch {
+      toast(t('scanFailed'), { icon: 'alert' })
+    } finally {
+      setScanning(false)
+    }
   }
 
   const save = () => {
@@ -286,6 +324,31 @@ export function MobileCreateFlow({
             )}
             <span className="mobile-create-receipt-hint">{t('receiptHint')}</span>
           </div>
+        )}
+
+        {/* Escanear recibo (cámara o galería) — solo si no llegó uno compartido desde otra app */}
+        {!receiptPreview && (
+          <>
+            {scannedImage ? (
+              <div className="mobile-create-receipt-preview">
+                <img src={scannedImage.dataUrl} alt={scannedImage.name} />
+                <span className="mobile-create-receipt-hint">
+                  {scanning ? t('scanningReceipt') : t('receiptHint')}
+                </span>
+              </div>
+            ) : (
+              <button className="mobile-receipt-scan-btn" onClick={() => setScanMenuOpen(true)}>
+                <Icon name="receipt" size={16} />
+                {t('scanReceipt')}
+              </button>
+            )}
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) scanReceiptFile(f); e.target.value = '' }} />
+            <input ref={galleryInputRef} type="file" accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) scanReceiptFile(f); e.target.value = '' }} />
+          </>
         )}
 
         {/* Mode tabs */}
@@ -563,13 +626,34 @@ export function MobileCreateFlow({
         </div>
       )}
 
+      {/* Receipt scan source picker */}
+      {scanMenuOpen && (
+        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setScanMenuOpen(false)}>
+          <section onClick={e => e.stopPropagation()}>
+            <header>
+              <span>{t('scanReceipt')}</span>
+              <button onClick={() => setScanMenuOpen(false)}><Icon name="close" size={18} /></button>
+            </header>
+            <div className="mobile-picker-list">
+              <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); cameraInputRef.current?.click() }}>
+                <Icon name="camera" size={20} />
+                <b>{t('scanReceiptCamera')}</b>
+              </button>
+              <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); galleryInputRef.current?.click() }}>
+                <Icon name="upload" size={20} />
+                <b>{t('scanReceiptGallery')}</b>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Date picker */}
       {datePicker && (
         <MobileDatePicker
           value={date}
           onChange={setDate}
           onClose={() => setDatePicker(false)}
-          mkey={mkey}
         />
       )}
 
@@ -579,7 +663,6 @@ export function MobileCreateFlow({
           value={recurEnd || date}
           onChange={v => setRecurEnd(v)}
           onClose={() => setRecurEndPicker(false)}
-          mkey={mkey}
         />
       )}
 

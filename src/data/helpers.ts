@@ -27,6 +27,10 @@ export function fmtCompact(n: number, currency: CurrencyCode): string {
 }
 
 // ── Fechas ────────────────────────────────────────────────
+export function dateLocale(lang: string): string {
+  return lang === 'en' ? 'en-US' : 'es-DO'
+}
+
 export function monthKey(dateStr: string): string { return dateStr.slice(0, 7) }
 
 export function currentMonthKey(now = new Date()): string {
@@ -75,9 +79,30 @@ export function byCategory(
 }
 
 export function monthKeys(txns: Transaction[]): string[] {
-  const set = new Set(txns.map(t => monthKey(t.date)))
-  set.add(currentMonthKey())
-  return Array.from(set).sort()
+  if (txns.length === 0) {
+    return [currentMonthKey()]
+  }
+
+  const allKeys = txns.map(t => monthKey(t.date))
+  allKeys.push(currentMonthKey())
+  allKeys.sort()
+
+  const minKey = allKeys[0]
+  const maxKey = allKeys[allKeys.length - 1]
+
+  const keys: string[] = []
+  let [currY, currM] = minKey.split('-').map(Number)
+  const [maxY, maxM] = maxKey.split('-').map(Number)
+
+  while (currY < maxY || (currY === maxY && currM <= maxM)) {
+    keys.push(`${currY}-${String(currM).padStart(2, '0')}`)
+    currM++
+    if (currM > 12) {
+      currM = 1
+      currY++
+    }
+  }
+  return keys
 }
 
 export function monthlySeries(txns: Transaction[], year: number): MonthSeries[] {

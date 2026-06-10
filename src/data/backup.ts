@@ -1,5 +1,7 @@
+import { z } from 'zod'
+import { CURRENCY_CODES } from '@/constants'
 import type { FinanceState } from '@/store/finance'
-import type { Account, Category, CurrencyCode, Goal, GoalContribution, Transaction } from '@/types'
+import type { Account, Category, CurrencyCode, Goal, GoalContribution, IconName, Transaction } from '@/types'
 
 export interface FinanceBackup {
   version: 1
@@ -29,92 +31,142 @@ export function createBackup(state: FinanceState): FinanceBackup {
   }
 }
 
+const nonEmptyText = z.string().refine(value => value.trim().length > 0, 'No puede estar vacío.')
+
+const dateSchema = z.string().refine(
+  value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00`)),
+  'Fecha inválida.',
+)
+
+const iconSchema = nonEmptyText.transform(value => value as IconName)
+
+const AccountSchema = z.object({
+  id: nonEmptyText,
+  name: nonEmptyText,
+  short: nonEmptyText,
+  type: z.enum(['debit', 'savings', 'credit', 'cash']),
+  color: nonEmptyText,
+  balance: z.number().finite(),
+  last4: z.string().nullable(),
+  limit: z.number().finite().nonnegative().optional(),
+  overdraftPolicy: z.enum(['block', 'warn', 'allow']).optional(),
+})
+
+const CategorySchema = z.object({
+  id: nonEmptyText,
+  name: nonEmptyText,
+  type: z.enum(['expense', 'income']),
+  color: nonEmptyText,
+  budget: z.number().finite().nonnegative(),
+  weeklyBudget: z.number().finite().nonnegative().optional(),
+  annualBudget: z.number().finite().nonnegative().optional(),
+  icon: iconSchema,
+})
+
+const GoalSchema = z.object({
+  id: nonEmptyText,
+  name: nonEmptyText,
+  target: z.number().finite().nonnegative(),
+  saved: z.number().finite().nonnegative(),
+  color: nonEmptyText,
+  icon: iconSchema,
+  deadline: dateSchema.optional(),
+})
+
+const TransactionSchema = z.object({
+  id: nonEmptyText,
+  type: z.enum(['income', 'expense', 'transfer']),
+  amount: z.number().finite().positive(),
+  date: dateSchema,
+  note: nonEmptyText,
+  categoryId: nonEmptyText.optional(),
+  accountId: nonEmptyText.optional(),
+  fromAccount: nonEmptyText.optional(),
+  toAccount: nonEmptyText.optional(),
+  recurring: z.enum(['weekly', 'monthly']).nullable().optional(),
+  recurringStart: dateSchema.optional(),
+  recurringEnd: dateSchema.optional(),
+  recurringNext: dateSchema.optional(),
+  tags: z.array(nonEmptyText).optional(),
+})
+
+const GoalContributionSchema = z.object({
+  id: nonEmptyText,
+  goalId: nonEmptyText,
+  amount: z.number().finite().positive(),
+  fromAccountId: nonEmptyText,
+  date: dateSchema,
+  note: z.string().optional(),
+})
+
+function assertUniqueIds(items: { id: string }[], label: string, ctx: z.RefinementCtx): void {
+  const ids = items.map(item => item.id)
+  if (new Set(ids).size !== ids.length) {
+    ctx.addIssue({ code: 'custom', message: `El backup contiene ${label} duplicadas o sin identificador.` })
+  }
+}
+
+const BackupDataSchema = z.object({
+  accounts: z.array(AccountSchema),
+  categories: z.array(CategorySchema),
+  goals: z.array(GoalSchema),
+  transactions: z.array(TransactionSchema),
+  goalContributions: z.array(GoalContributionSchema).optional().default([]),
+  currency: z.enum(CURRENCY_CODES),
+}).superRefine((data, ctx) => {
+  assertUniqueIds(data.accounts, 'cuentas', ctx)
+  assertUniqueIds(data.categories, 'categorías', ctx)
+  assertUniqueIds(data.goals, 'metas', ctx)
+  assertUniqueIds(data.transactions, 'transacciones', ctx)
+  assertUniqueIds(data.goalContributions, 'aportes a metas', ctx)
+
+  const accountIds = new Set(data.accounts.map(account => account.id))
+  const categoryIds = new Set(data.categories.map(category => category.id))
+  const goalIds = new Set(data.goals.map(goal => goal.id))
+
+  const transactionsValid = data.transactions.every(tx => tx.type === 'transfer'
+    ? !!tx.fromAccount && !!tx.toAccount && tx.fromAccount !== tx.toAccount
+        && accountIds.has(tx.fromAccount) && accountIds.has(tx.toAccount)
+    : !!tx.accountId && !!tx.categoryId && accountIds.has(tx.accountId) && categoryIds.has(tx.categoryId))
+  if (!transactionsValid) {
+    ctx.addIssue({ code: 'custom', message: 'El backup contiene transacciones inválidas o referencias inexistentes.' })
+  }
+
+  const contributionsValid = data.goalContributions.every(contribution =>
+    goalIds.has(contribution.goalId) && accountIds.has(contribution.fromAccountId))
+  if (!contributionsValid) {
+    ctx.addIssue({ code: 'custom', message: 'El backup contiene aportes a metas inválidos o referencias inexistentes.' })
+  }
+})
+
+const FinanceBackupSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string().optional(),
+  data: BackupDataSchema,
+})
+
 export function parseBackup(value: string): FinanceBackup['data'] {
-  let backup: Partial<FinanceBackup>
+  let backup: unknown
   try {
-    backup = JSON.parse(value) as Partial<FinanceBackup>
+    backup = JSON.parse(value)
   } catch {
     throw new Error('El archivo no es un JSON válido.')
   }
-  const data = backup.data
-  if (backup.version !== 1 || !data || !Array.isArray(data.accounts) || !Array.isArray(data.categories) || !Array.isArray(data.goals) || !Array.isArray(data.transactions)) {
+
+  const result = FinanceBackupSchema.safeParse(backup)
+  if (!result.success) {
+    const customIssue = result.error.issues.find(issue => issue.code === 'custom')
+    if (customIssue) throw new Error(customIssue.message)
+
+    const paths = new Set(result.error.issues.map(issue => issue.path[1]))
+    if (paths.has('accounts')) throw new Error('El backup contiene cuentas inválidas.')
+    if (paths.has('categories')) throw new Error('El backup contiene categorías inválidas.')
+    if (paths.has('goals')) throw new Error('El backup contiene metas inválidas.')
+    if (paths.has('transactions')) throw new Error('El backup contiene transacciones inválidas o referencias inexistentes.')
+    if (paths.has('goalContributions')) throw new Error('El backup contiene aportes a metas inválidos o referencias inexistentes.')
+    if (paths.has('currency')) throw new Error('El backup contiene una moneda no compatible.')
     throw new Error('El archivo no es un backup válido de $harky.')
   }
-  if (!['DOP', 'USD', 'EUR'].includes(data.currency)) throw new Error('El backup contiene una moneda no compatible.')
-  data.goalContributions ??= []
-  if (!Array.isArray(data.goalContributions)) throw new Error('El backup contiene aportes a metas inválidos.')
-  assertUniqueIds(data.accounts, 'cuentas')
-  assertUniqueIds(data.categories, 'categorías')
-  assertUniqueIds(data.goals, 'metas')
-  assertUniqueIds(data.transactions, 'transacciones')
-  assertUniqueIds(data.goalContributions, 'aportes a metas')
-  if (!data.accounts.every(account => isText(account.id) && isText(account.name) && isText(account.short)
-    && ['debit', 'savings', 'credit', 'cash'].includes(account.type) && isText(account.color)
-    && isFiniteNumber(account.balance) && (account.last4 === null || typeof account.last4 === 'string')
-    && (account.limit === undefined || isNonNegativeNumber(account.limit))
-    && (account.overdraftPolicy === undefined || ['block', 'warn', 'allow'].includes(account.overdraftPolicy)))) {
-    throw new Error('El backup contiene cuentas inválidas.')
-  }
-  if (!data.categories.every(category => isText(category.id) && isText(category.name)
-    && ['expense', 'income'].includes(category.type) && isText(category.color)
-    && isNonNegativeNumber(category.budget) && isText(category.icon)
-    && (category.weeklyBudget === undefined || isNonNegativeNumber(category.weeklyBudget))
-    && (category.annualBudget === undefined || isNonNegativeNumber(category.annualBudget)))) {
-    throw new Error('El backup contiene categorías inválidas.')
-  }
-  if (!data.goals.every(goal => isText(goal.id) && isText(goal.name) && isText(goal.color) && isText(goal.icon)
-    && isNonNegativeNumber(goal.target) && isNonNegativeNumber(goal.saved)
-    && (goal.deadline === undefined || isDate(goal.deadline)))) {
-    throw new Error('El backup contiene metas inválidas.')
-  }
-  const accountIds = new Set(data.accounts.map(account => account.id))
-  const categoryIds = new Set(data.categories.map(category => category.id))
-  if (!data.transactions.every(tx => isValidTransaction(tx, accountIds, categoryIds))) {
-    throw new Error('El backup contiene transacciones inválidas o referencias inexistentes.')
-  }
-  const goalIds = new Set(data.goals.map(goal => goal.id))
-  if (!data.goalContributions.every(contribution => isText(contribution.id)
-    && goalIds.has(contribution.goalId) && accountIds.has(contribution.fromAccountId)
-    && isFiniteNumber(contribution.amount) && contribution.amount > 0 && isDate(contribution.date)
-    && (contribution.note === undefined || typeof contribution.note === 'string'))) {
-    throw new Error('El backup contiene aportes a metas inválidos o referencias inexistentes.')
-  }
-  return data
-}
 
-function assertUniqueIds(items: { id: string }[], label: string): void {
-  const ids = items.map(item => item.id)
-  if (ids.some(id => !isText(id)) || new Set(ids).size !== ids.length) {
-    throw new Error(`El backup contiene ${label} duplicadas o sin identificador.`)
-  }
-}
-
-function isValidTransaction(tx: Transaction, accounts: Set<string>, categories: Set<string>): boolean {
-  if (!isText(tx.id) || !['income', 'expense', 'transfer'].includes(tx.type)
-    || !isFiniteNumber(tx.amount) || tx.amount <= 0 || !isDate(tx.date) || !isText(tx.note)
-    || (tx.tags !== undefined && (!Array.isArray(tx.tags) || !tx.tags.every(isText)))
-    || (tx.recurring !== undefined && tx.recurring !== null && !['weekly', 'monthly'].includes(tx.recurring))
-    || ![tx.recurringStart, tx.recurringEnd, tx.recurringNext].every(value => value === undefined || isDate(value))) return false
-  if (tx.type === 'transfer') {
-    return isText(tx.fromAccount) && isText(tx.toAccount) && tx.fromAccount !== tx.toAccount
-      && accounts.has(tx.fromAccount) && accounts.has(tx.toAccount)
-  }
-  return isText(tx.accountId) && isText(tx.categoryId)
-    && accounts.has(tx.accountId) && categories.has(tx.categoryId)
-}
-
-function isText(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
-function isNonNegativeNumber(value: unknown): value is number {
-  return isFiniteNumber(value) && value >= 0
-}
-
-function isDate(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00`))
+  return result.data.data
 }

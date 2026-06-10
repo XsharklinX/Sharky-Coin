@@ -4,6 +4,7 @@ import { getAuthRedirectUrl } from '@/lib/authRedirect'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { isTauri } from '@/hooks/useTauri'
 import { toast } from '@/components/ui/Toast'
+import { log } from '@/lib/logger'
 
 const LOCAL_USER_KEY = 'sharky-user-v1'
 const LOCAL_SESSION_KEY = 'sharky-session-v1'
@@ -126,7 +127,7 @@ async function attachRuntimeDeepLinkListener(setUser: (user: AuthUser) => void):
       if (error) throw new Error(error.message)
       if (data.session?.user) setUser(mapCloudUser(data.session.user))
     } catch (error) {
-      console.error('No se pudo completar el enlace de autenticación.', error)
+      log.error('No se pudo completar el enlace de autenticación', error)
       toast('No se pudo iniciar sesión. Intenta de nuevo.', { icon: 'alert', type: 'warn', duration: 5000 })
     }
   })
@@ -162,11 +163,11 @@ export const useAuth = create<AuthState>((set, get) => ({
       await attachRuntimeDeepLinkListener(user => set({ user, initialized: true, recoveryMode: false }))
       await consumeInitialAuthDeepLink()
     } catch (error) {
-      console.error('No se pudo completar el enlace de autenticación.', error)
+      log.error('No se pudo completar el enlace de autenticación', error)
     }
 
     const { data, error } = await supabase.auth.getSession()
-    if (error) console.error('No se pudo restaurar la sesión cloud.', error)
+    if (error) log.error('No se pudo restaurar la sesión cloud', error)
     const cloudUser = data.session?.user ? mapCloudUser(data.session.user) : null
     set({ user: cloudUser ?? readLocalSession(), initialized: true })
   },

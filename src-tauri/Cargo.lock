@@ -460,10 +460,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "serde",
- "wasm-bindgen",
  "windows-link 0.2.1",
 ]
 
@@ -3224,19 +3222,22 @@ dependencies = [
 
 [[package]]
 name = "sharky"
-version = "1.6.0"
+version = "1.6.2"
 dependencies = [
  "base64 0.22.1",
- "chrono",
  "keyring",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-plugin-bank-notifications",
  "tauri-plugin-biometric",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
+ "tauri-plugin-keystore",
+ "tauri-plugin-local-reminders",
+ "tauri-plugin-mlkit-ocr",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
 ]
@@ -3627,6 +3628,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-bank-notifications"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "tauri-plugin-biometric"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3702,6 +3714,39 @@ dependencies = [
  "thiserror 2.0.18",
  "toml 1.1.2+spec-1.1.0",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-keystore"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tauri-plugin-local-reminders"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tauri-plugin-mlkit-ocr"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

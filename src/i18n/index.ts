@@ -48,6 +48,14 @@ const en = {
   categoryCreated: 'Category "{name}" created',
   addMovement: 'Add movement', movementType: 'Movement type',
   egIncomeCategory: 'e.g. Bonus', egExpenseCategory: 'e.g. Pets',
+  scanReceipt: 'Scan receipt', scanReceiptCamera: 'Take photo', scanReceiptGallery: 'Choose from gallery',
+  scanningReceipt: 'Reading receipt…',
+  scanReceiptDownloading: 'Downloading OCR engine (first time only)…',
+  scanAmountFound: 'Amount detected: {amount}', scanDateFound: 'Date detected: {date}',
+  scanNothingFound: "Couldn't read the receipt. Try a clearer photo.",
+  scanFailed: 'Receipt scan failed',
+  quickAddExpense: 'Add expense', quickAddIncome: 'Add income',
+  moreOptions: 'More options',
 } satisfies Record<string, string>
 
 export type LangKey = keyof typeof en
@@ -101,6 +109,14 @@ const es: Record<LangKey, string> = {
   categoryCreated: 'Categoría "{name}" creada',
   addMovement: 'Agregar movimiento', movementType: 'Tipo de movimiento',
   egIncomeCategory: 'p. ej. Bono', egExpenseCategory: 'p. ej. Mascotas',
+  scanReceipt: 'Escanear recibo', scanReceiptCamera: 'Tomar foto', scanReceiptGallery: 'Elegir de galería',
+  scanningReceipt: 'Leyendo recibo…',
+  scanReceiptDownloading: 'Descargando motor OCR (solo la primera vez)…',
+  scanAmountFound: 'Monto detectado: {amount}', scanDateFound: 'Fecha detectada: {date}',
+  scanNothingFound: 'No se pudo leer el recibo. Intenta con una foto más clara.',
+  scanFailed: 'Error al escanear el recibo',
+  quickAddExpense: 'Agregar gasto', quickAddIncome: 'Agregar ingreso',
+  moreOptions: 'Más opciones',
 }
 
 const DICTS: Record<Language, Record<LangKey, string>> = { en, es }

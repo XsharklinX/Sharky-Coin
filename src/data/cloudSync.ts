@@ -324,6 +324,18 @@ async function synchronize(): Promise<{ lastSyncAt: string; conflicts: SyncConfl
   return { lastSyncAt, conflicts }
 }
 
+const SYNC_TABLES: SyncTable[] = ['accounts', 'categories', 'goals', 'transactions', 'goal_contributions']
+
+/** Borra permanentemente todas las filas del usuario en las tablas cloud y su metadata local de sincronización. */
+export async function wipeCloudData(userId: string): Promise<void> {
+  if (!supabase) return
+  for (const table of SYNC_TABLES) {
+    const { error } = await supabase.from(table).delete().eq('user_id', userId)
+    if (error) throw new Error(error.message)
+  }
+  localStorage.removeItem(metadataKey(userId))
+}
+
 export const useCloudSync = create<CloudSyncState>((set) => ({
   busy: false,
   pending: false,

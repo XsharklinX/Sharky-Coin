@@ -28,86 +28,97 @@ async function tauriOpenDialog(opts: { filters?: Array<{ name: string; extension
 // ── API pública ────────────────────────────────────────────
 
 /**
- * Guarda un backup en la carpeta de documentos de la app (solo Tauri Android).
- * Devuelve la ruta donde se guardó el archivo.
- */
-export async function saveBackupAuto(json: string): Promise<string> {
-  return tauriInvoke<string>('save_backup_auto', { json })
-}
-
-export interface AutoBackupEntry {
-  name: string
-  path: string
-  content: string
-}
-
-/** Lista los backups guardados internamente (solo Tauri). Vacío en browser/PWA. */
-export async function listAutoBackups(): Promise<AutoBackupEntry[]> {
-  if (!isTauri()) return []
-  return tauriInvoke<AutoBackupEntry[]>('list_auto_backups')
-}
-
-/** Comparte un backup interno vía el menú nativo de Android. */
-export async function shareAutoBackup(entry: AutoBackupEntry): Promise<void> {
-  const file = new File([entry.content], entry.name, { type: 'application/json' })
-  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: '$harky backup' })
-  }
-}
-
-/**
- * Guarda un backup JSON permitiendo al usuario elegir la ubicación.
+ * Guarda un archivo de forma unificada (JSON, PDF, Excel).
  * - Tauri desktop: diálogo nativo de guardado
  * - Chrome/Android Chrome/WebView: showSaveFilePicker (selector de carpeta real)
  * - Fallback: Web Share API → el usuario elige la app destino (Descargas, Drive…)
  * - Último recurso: descarga automática del navegador
  */
-export async function saveBackup(json: string): Promise<void> {
-  const filename = `sharky-backup-${new Date().toISOString().slice(0, 10)}.json`
+export async function saveFile(blob: Blob, filename: string, title: string, extensions: string[]): Promise<boolean> {
   const isAndroid = /android/i.test(navigator.userAgent)
+
+  // Tauri Android: Simular diálogo Guardar usando confirm y guardado directo
+  if (isAndroid && isTauri()) {
+    const { confirm, message } = await import('@tauri-apps/plugin-dialog')
+    const yes = await confirm(`¿Guardar "${filename}" en tu carpeta pública de Descargas?`, { title: 'Guardar archivo', kind: 'info' })
+    if (!yes) return false
+
+    const buffer = await blob.arrayBuffer()
+    const contents = Array.from(new Uint8Array(buffer))
+    const savedPath = await tauriInvoke<string>('save_to_downloads', { filename, contents })
+    
+    await message(`Archivo guardado con éxito en:\n${savedPath}`, { title: 'Exportación completada', kind: 'info' })
+    return true
+  }
 
   // Tauri desktop: diálogo nativo
   if (isTauri() && !isAndroid) {
     const path = await tauriSaveDialog({
       defaultPath: filename,
-      filters: [{ name: 'JSON', extensions: ['json'] }],
+      filters: [{ name: title, extensions }],
     })
-    if (!path) return
-    await tauriInvoke('write_backup', { path, json })
-    return
+    if (!path) return false
+    const buffer = await blob.arrayBuffer()
+    const contents = Array.from(new Uint8Array(buffer))
+    await tauriInvoke('write_file', { path, contents })
+    return true
   }
 
   // File System Access API: selector de carpeta nativo (Chrome 86+, Android Chrome, WebView)
-  // Permite elegir exactamente dónde guardar el archivo.
   type SaveFilePickerFn = (opts: {
     suggestedName: string
     types: Array<{ description: string; accept: Record<string, string[]> }>
-  }) => Promise<{ createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }>
+  }) => Promise<{ createWritable: () => Promise<{ write: (d: Blob) => Promise<void>; close: () => Promise<void> }> }>
   const showSaveFilePicker = (window as unknown as { showSaveFilePicker?: SaveFilePickerFn }).showSaveFilePicker
   if (typeof showSaveFilePicker === 'function') {
-    const handle = await showSaveFilePicker({
-      suggestedName: filename,
-      types: [{ description: 'Backup de $harky', accept: { 'application/json': ['.json'] } }],
-    })
-    const writable = await handle.createWritable()
-    await writable.write(json)
-    await writable.close()
-    return
+    try {
+      const accept: Record<string, string[]> = {}
+      if (blob.type) accept[blob.type] = extensions.map(e => `.${e}`)
+      const handle = await showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: title, accept }],
+      })
+      const writable = await handle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+      return true
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return false
+      throw err
+    }
   }
 
-  // Android PWA fallback: share sheet nativo (usuario elige app destino)
-  const file = new File([json], filename, { type: 'application/json' })
-  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: '$harky backup' })
-    return
+  // Android PWA fallback: share sheet nativo
+  if (isAndroid && typeof navigator.share === 'function') {
+    const file = new File([blob], filename, { type: blob.type })
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title })
+        return true
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return false
+        throw err
+      }
+    }
   }
 
   // Último recurso: descarga programática del navegador
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
-  const a   = Object.assign(document.createElement('a'), { href: url, download: filename })
+  const url = URL.createObjectURL(blob)
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename })
   a.click()
   URL.revokeObjectURL(url)
+  return true
 }
+
+/**
+ * Guarda un backup JSON permitiendo al usuario elegir la ubicación.
+ */
+export async function saveBackup(json: string): Promise<boolean> {
+  const filename = `sharky-backup-${new Date().toISOString().slice(0, 10)}.json`
+  const blob = new Blob([json], { type: 'application/json' })
+  return saveFile(blob, filename, 'Backup de $harky', ['json'])
+}
+
 
 /**
  * Envía una notificación nativa del sistema operativo (Android/desktop).

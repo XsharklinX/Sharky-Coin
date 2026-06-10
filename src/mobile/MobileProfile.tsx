@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt, fmtCompact } from '@/data/helpers'
+import { fmt } from '@/data/helpers'
+import { ACCENT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -12,7 +13,7 @@ import { MobileTextSheet } from './MobileTextSheet'
 import { MobileDigitSheet } from './MobileDigitSheet'
 import type { Account, AccountType, OverdraftPolicy, ViewId, ViewProps } from '@/types'
 
-const COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b']
+const COLORS = ACCENT_COLORS
 
 const EMPTY_ACCOUNT: Omit<Account, 'id'> = {
   name: '', short: '', type: 'debit', color: COLORS[1], balance: 0, last4: null,

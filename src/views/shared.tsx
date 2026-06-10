@@ -2,8 +2,9 @@ import type { CSSProperties, ReactNode } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { AreaLine } from '@/components/ui/charts'
-import { fmtCompact, getAccount, getCategory } from '@/data/helpers'
+import { dateLocale, fmtCompact, getAccount, getCategory } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import type { Category, IconName, Transaction } from '@/types'
 
 export function Card({ title, sub, action, children, style }: {
@@ -27,7 +28,8 @@ export function CatBadge({ category, size = 38 }: { category?: Category; size?: 
 
 export function TxRow({ tx, onClick }: { tx: Transaction; onClick?: () => void }) {
   const { accounts, categories, currency } = useFinance()
-  const day = new Date(`${tx.date}T00:00:00`).toLocaleDateString('es-DO', { day: '2-digit', month: 'short' })
+  const lang = useSettings(s => s.language)
+  const day = new Date(`${tx.date}T00:00:00`).toLocaleDateString(dateLocale(lang), { day: '2-digit', month: 'short' })
   if (tx.type === 'transfer') {
     return <div className="txrow" onClick={onClick}><Icon name="cards" size={20} style={{ color: 'var(--accent)' }} />
       <div style={{ flex: 1 }}><b>Transferencia</b><small>{getAccount(tx.fromAccount, accounts)?.name} → {getAccount(tx.toAccount, accounts)?.name}</small></div>

@@ -37,6 +37,11 @@ function cloudWorkspaceKey(userId: string): string {
   return `${CLOUD_WORKSPACE_PREFIX}${userId}`
 }
 
+/** Borra el cache local del workspace cloud de un usuario (tras eliminar sus datos remotos). */
+export function clearCloudWorkspaceCache(userId: string): void {
+  localStorage.removeItem(cloudWorkspaceKey(userId))
+}
+
 export function useCloudWorkspace(): void {
   const user = useAuth(state => state.user)
   const activeCloudUser = useRef<string | null>(null)

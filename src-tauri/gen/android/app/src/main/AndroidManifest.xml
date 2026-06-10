@@ -18,6 +18,7 @@
             android:launchMode="singleTask"
             android:label="@string/main_activity_title"
             android:name=".MainActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <!-- Accesos directos al mantener presionado el ícono (ver res/xml/shortcuts.xml).
                  NOTA: este directorio se regenera con `tauri android init` — si eso ocurre,
@@ -50,9 +51,6 @@
                     android:scheme="sharky"
                     android:host="shortcut" />
             </intent-filter>
-            <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
-
-            <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
 
             <!-- Compartir hacia $harky: recibos (foto/PDF) desde Galería, Drive, WhatsApp, etc.
                  NOTA: este directorio se regenera con `tauri android init` — si eso ocurre,
@@ -63,6 +61,9 @@
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
+            <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
+            
+            <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
         </activity>
 
         <provider
@@ -74,5 +75,19 @@
             android:name="android.support.FILE_PROVIDER_PATHS"
             android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Plugin bank-notifications: acceso especial de notificaciones para
+             detectar transacciones bancarias (NotificationListenerService).
+             NOTA: este directorio se regenera con `tauri android init` — si eso
+             ocurre, hay que volver a agregar este <service>. -->
+        <service
+            android:name="com.sharky.finanzas.banknotifications.BankNotificationListenerService"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

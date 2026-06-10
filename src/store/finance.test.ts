@@ -28,8 +28,17 @@ describe('assertAvailableBalance', () => {
     expect(() => assertAvailableBalance(accounts, 'cash', 501)).toThrow('Saldo insuficiente')
   })
 
-  it('permite movimientos desde cuentas de credito', () => {
+  it('permite movimientos desde cuentas de credito dentro del limite', () => {
     expect(() => assertAvailableBalance(accounts, 'credit', 800)).not.toThrow()
+  })
+
+  it('rechaza movimientos que exceden el limite de credito', () => {
+    expect(() => assertAvailableBalance(accounts, 'credit', 901)).toThrow('Límite de crédito excedido')
+  })
+
+  it('permite movimientos en cuentas de credito sin limite definido', () => {
+    const noLimit: Account[] = [{ id: 'credit2', name: 'Tarjeta', short: 'Cred', type: 'credit', color: '#fff', balance: -100, last4: '1234' }]
+    expect(() => assertAvailableBalance(noLimit, 'credit2', 999999)).not.toThrow()
   })
 
   it('rechaza cuentas inexistentes y montos invalidos', () => {

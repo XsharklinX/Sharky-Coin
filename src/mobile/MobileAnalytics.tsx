@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
-import { byCategory, currentMonthKey, fmtCompact, monthlySeries, totals, txForMonth, weeklySeries } from '@/data/helpers'
+import { byCategory, currentMonthKey, monthlySeries, totals, txForMonth, weeklySeries } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'

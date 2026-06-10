@@ -1,4 +1,4 @@
-package com.sharky.finanzas
+package com.sharky.miapp
 
 import android.content.Intent
 import android.graphics.Color

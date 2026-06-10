@@ -4,7 +4,7 @@ import { authenticateBiometric, checkBiometric } from '@/lib/biometric'
 
 type GateState = 'checking' | 'prompting' | 'error' | 'done'
 
-export function MobileBiometricGate({ onUnlocked }: { onUnlocked: () => void }) {
+export function MobileBiometricGate({ onUnlocked, onUnavailable }: { onUnlocked: () => void; onUnavailable: () => void }) {
   const [state, setState]   = useState<GateState>('checking')
   const [error, setError]   = useState('')
   const [icon,  setIcon]    = useState<'fingerprint' | 'faceId'>('fingerprint')
@@ -13,11 +13,11 @@ export function MobileBiometricGate({ onUnlocked }: { onUnlocked: () => void }) 
     setState('prompting')
     setError('')
     try {
-      await authenticateBiometric('Unlock $harky')
+      await authenticateBiometric('Desbloquear $harky')
       setState('done')
       onUnlocked()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      setError(err instanceof Error ? err.message : 'No se pudo verificar tu identidad')
       setState('error')
     }
   }
@@ -25,7 +25,11 @@ export function MobileBiometricGate({ onUnlocked }: { onUnlocked: () => void }) 
   useEffect(() => {
     checkBiometric().then(status => {
       if (!status.available) {
-        onUnlocked()
+        // La biometría dejó de estar disponible (ej. se borraron las huellas del
+        // dispositivo) — no se puede pedir biometría, pero NO se debe desbloquear
+        // la app sin verificación. Cede el paso al PIN/patrón, que siempre está
+        // configurado cuando requireBiometric está activo.
+        onUnavailable()
         return
       }
       setIcon(status.biometryType === 'faceId' ? 'faceId' : 'fingerprint')
@@ -42,11 +46,16 @@ export function MobileBiometricGate({ onUnlocked }: { onUnlocked: () => void }) 
           <Icon name={icon === 'faceId' ? 'user' : 'lock'} size={48} />
         </div>
         <h2>$harky</h2>
-        <p>{state === 'error' ? error : 'Verifying identity…'}</p>
+        <p>{state === 'error' ? error : 'Verificando identidad…'}</p>
         {state === 'error' && (
-          <button className="mbio-retry" onClick={tryAuth}>
-            <Icon name="refresh" size={16} /> Try again
-          </button>
+          <>
+            <button className="mbio-retry" onClick={tryAuth}>
+              <Icon name="refresh" size={16} /> Reintentar
+            </button>
+            <button className="mbio-fallback" onClick={onUnavailable}>
+              Usar PIN o patrón
+            </button>
+          </>
         )}
       </div>
     </div>

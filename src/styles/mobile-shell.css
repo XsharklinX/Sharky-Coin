@@ -1,4 +1,4 @@
-﻿  /* Native mobile architecture */
+  /* Native mobile architecture */
   .mobile-app {
     /* Alias themed CSS vars → --m-* so all mobile elements respond to theme */
     --m-bg:      var(--bg,      #121212);
@@ -28,8 +28,8 @@
     color: var(--m-text);
     display: flex;
     flex-direction: column;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: 100%;
+    max-height: 100%;
     overflow: hidden;
     width: 100%;
     -webkit-tap-highlight-color: transparent;

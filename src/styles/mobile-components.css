@@ -532,6 +532,8 @@
     display: flex;
     flex-direction: column;
     left: 0;
+    max-height: 92dvh;
+    overflow: hidden;
     position: fixed;
     right: 0;
     width: 100%;
@@ -584,7 +586,12 @@
   .mpr-editor-body {
     display: flex;
     flex-direction: column;
+    flex: 1;
     gap: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 12px 16px 10px;
   }
 
@@ -1047,6 +1054,44 @@
     height: 56px;
   }
   .mpin-keypad button:active { background: color-mix(in oklab, var(--accent, #ffdd3d) 16%, var(--m-surface)); }
+
+  .mbio-fallback {
+    background: transparent; border: 0;
+    color: var(--m-muted); font-size: 14px; font-weight: 700;
+    margin-top: 4px; padding: 8px;
+  }
+
+/* -- Pattern lock (PatternPad) ------------------------------ */
+  .mpattern-pad {
+    aspect-ratio: 1; display: grid; gap: 0;
+    grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    position: relative; touch-action: none; width: min(76vw, 280px);
+  }
+  .mpattern-svg {
+    height: 100%; left: 0; pointer-events: none;
+    position: absolute; top: 0; width: 100%;
+  }
+  .mpattern-dot {
+    align-items: center; display: flex; justify-content: center;
+  }
+  .mpattern-dot::after {
+    background: var(--m-surface); border: 1px solid var(--m-border);
+    border-radius: 50%; content: ''; height: 18px;
+    transition: background .15s, border-color .15s, transform .15s; width: 18px;
+  }
+  .mpattern-dot.on::after {
+    background: var(--accent, #ffdd3d); border-color: var(--accent, #ffdd3d);
+    transform: scale(1.25);
+  }
+  .mpattern-dot.on.err::after { background: #ff6b8a; border-color: #ff6b8a; }
+  .mpattern-pad.err { animation: mpattern-shake .38s; }
+
+  @keyframes mpattern-shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+  }
 
 /* -- Smart Insights (MobileHome) --------------------------- */
   .mhome-smart-insights { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }

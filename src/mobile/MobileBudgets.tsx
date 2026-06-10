@@ -3,12 +3,13 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { fmt, fmtCompact, txForMonth } from '@/data/helpers'
+import { CAT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import type { Category, IconName, ViewProps } from '@/types'
 
-const COLORS = ['#ffdd3d','#35d0a2','#5bc0ff','#a78bfa','#ff6b8a','#f59e0b','#fb7185','#22c55e','#c084fc','#38bdf8']
+const COLORS = CAT_COLORS
 
 const ALL_ICONS: IconName[] = [
   'cart','food','car','bolt','heart','home','bag','book','wallet','laptop','trend','play',

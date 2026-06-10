@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { getMobileAlerts } from '@/data/alerts'
-import { currentMonthKey, fmt, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
+import { currentMonthKey, dateLocale, fmt, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
 import { notificationActionTypeId, sendNativeNotification } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -18,11 +18,15 @@ function prevMonthKey(key: string): string {
 
 export function MobileHome({
   mkey,
+  visibleMonth,
+  onVisibleMonthChange,
   onAdd,
   onEditTx,
   onDeleteTx,
 }: {
   mkey: string
+  visibleMonth: string
+  onVisibleMonthChange: (mk: string) => void
   onAdd: () => void
   onEditTx: (tx: Transaction) => void
   onDeleteTx?: (id: string) => void
@@ -40,14 +44,19 @@ export function MobileHome({
   useEffect(() => { setExtraMonths([]) }, [mkey])
 
   const monthTx = txForMonth(transactions, mkey)
-  const summary = totals(monthTx)
+  const visibleMonthTx = txForMonth(transactions, visibleMonth)
+  const summary = totals(visibleMonthTx)
   const isCurrent = mkey === currentMonthKey()
 
   // Balance total de todas las cuentas (no el net mensual)
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
   const balancePositive = totalBalance >= 0
 
-  const alerts = useMemo(() => getMobileAlerts(transactions, categories, currency), [transactions, categories, currency])
+  const lang = useSettings(s => s.language)
+  const alerts = useMemo(
+    () => getMobileAlerts(transactions, categories, currency, undefined, dateLocale(lang)),
+    [transactions, categories, currency, lang],
+  )
   const visibleAlerts = isCurrent ? alerts.filter(a => !dismissedAlerts.includes(a.id)) : []
 
   useEffect(() => {
@@ -65,6 +74,39 @@ export function MobileHome({
   const oldestLoaded = extraMonths.length ? extraMonths[extraMonths.length - 1] : mkey
   const prevKey = prevMonthKey(oldestLoaded)
   const prevHasTx = transactions.some(tx => tx.date.startsWith(prevKey))
+
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.mobile-content')
+    if (!scrollContainer) return
+
+    let pending: ReturnType<typeof setTimeout> | null = null
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find(e => e.isIntersecting)
+        if (visible) {
+          const mk = visible.target.getAttribute('data-month')
+          if (mk) {
+            if (pending) clearTimeout(pending)
+            pending = setTimeout(() => onVisibleMonthChange(mk), 120)
+          }
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '-60px 0px -85% 0px',
+        threshold: 0,
+      }
+    )
+
+    const elements = scrollContainer.querySelectorAll('[data-month]')
+    elements.forEach(el => observer.observe(el))
+
+    return () => {
+      observer.disconnect()
+      if (pending) clearTimeout(pending)
+    }
+  }, [mkey, extraMonths, onVisibleMonthChange])
 
   const loadPrevMonth = () => setExtraMonths(ms => [...ms, prevKey])
 
@@ -123,7 +165,7 @@ export function MobileHome({
       )}
 
       {/* ─── Movimientos del mes actual ─── */}
-      <div className="mhome-movements mhome-stagger-2">
+      <div className="mhome-movements mhome-stagger-2" data-month={mkey}>
         {monthTx.length ? (
           <MobileTransactionList
             transactions={monthTx}
@@ -142,7 +184,7 @@ export function MobileHome({
         {extraMonths.map(mk => {
           const mkTx = txForMonth(transactions, mk)
           return (
-            <div key={mk} className="mhome-prev-month">
+            <div key={mk} data-month={mk} className="mhome-prev-month">
               <div className="mhome-prev-month-header">
                 <Icon name="calendar" size={13} />
                 <span>{monthLabel(mk)}</span>

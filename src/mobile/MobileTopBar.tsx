@@ -16,6 +16,7 @@ export function MobileTopBar({
   onSettings,
   onCurrency,
   onCalendar,
+  onSearch,
 }: {
   route:        MobileRoute
   mkey:         string
@@ -27,6 +28,7 @@ export function MobileTopBar({
   onSettings:   () => void
   onCurrency:   () => void
   onCalendar?:  () => void
+  onSearch:     () => void
 }) {
   const { currency } = useFinance()
   const meta = getCurrencyMeta(currency)
@@ -62,6 +64,9 @@ export function MobileTopBar({
               <Icon name="calendar" size={21} />
             </button>
           )}
+          <button className="mobile-icon-btn" aria-label="Buscar" onClick={onSearch}>
+            <Icon name="search" size={21} />
+          </button>
           <button className="mobile-icon-btn" aria-label={t('settings')} onClick={onSettings}>
             <Icon name="settings" size={21} />
           </button>

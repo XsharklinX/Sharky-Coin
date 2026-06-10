@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ThemeName, DensityName, OverdraftPolicy } from '@/types'
+import { isAndroidTauri } from '@/lib/secureBlob'
+import { saveAppLock } from '@/lib/appLockStorage'
 
 interface SettingsState {
   theme:             ThemeName
@@ -18,12 +20,14 @@ interface SettingsState {
   language: 'en' | 'es'
   requireBiometric: boolean
   appPin: string | null
+  appPattern: string | null
   soundsEnabled: boolean
   soundVolume: number
   compactNumbers: boolean
   dismissedAlerts: string[]
   notifiedAlerts: string[]
   hasSeenOnboarding: boolean
+  remindersEnabled: boolean
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -40,12 +44,14 @@ interface SettingsState {
   setLanguage: (v: 'en' | 'es') => void
   setRequireBiometric: (v: boolean) => void
   setAppPin: (v: string | null) => void
+  setAppPattern: (v: string | null) => void
   setSoundsEnabled: (v: boolean) => void
   setSoundVolume: (v: number) => void
   setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
   markAlertNotified: (id: string) => void
   markOnboardingSeen: () => void
+  setRemindersEnabled: (v: boolean) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -66,12 +72,14 @@ export const useSettings = create<SettingsState>()(
       language: 'es',
       requireBiometric: false,
       appPin: null,
+      appPattern: null,
       soundsEnabled: true,
       soundVolume: 1,
       compactNumbers: false,
       dismissedAlerts: [],
       notifiedAlerts: [],
       hasSeenOnboarding: false,
+      remindersEnabled: true,
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -87,7 +95,24 @@ export const useSettings = create<SettingsState>()(
       setDisplayName: (displayName) => set({ displayName }),
       setLanguage: (language) => set({ language }),
       setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
-      setAppPin: (appPin) => set({ appPin }),
+      setAppPin: (appPin) => set(state => {
+        const appPattern = appPin ? null : state.appPattern
+        void saveAppLock(appPin, appPattern)
+        return {
+          appPin,
+          appPattern,
+          requireBiometric: state.requireBiometric && !!(appPin || appPattern),
+        }
+      }),
+      setAppPattern: (appPattern) => set(state => {
+        const appPin = appPattern ? null : state.appPin
+        void saveAppLock(appPin, appPattern)
+        return {
+          appPattern,
+          appPin,
+          requireBiometric: state.requireBiometric && !!(appPattern || appPin),
+        }
+      }),
       setSoundsEnabled: (soundsEnabled) => set({ soundsEnabled }),
       setSoundVolume: (soundVolume) => set({ soundVolume: Math.min(1, Math.max(0, soundVolume)) }),
       setCompactNumbers: (compactNumbers) => set({ compactNumbers }),
@@ -96,14 +121,25 @@ export const useSettings = create<SettingsState>()(
       markAlertNotified: (id) => set(state =>
         state.notifiedAlerts.includes(id) ? state : { notifiedAlerts: [...state.notifiedAlerts, id] }),
       markOnboardingSeen: () => set({ hasSeenOnboarding: true }),
+      setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
     }),
     {
       name:    'sharky-settings-v2',
       storage: createJSONStorage(() => localStorage),
+      // En Android, el PIN/patrón se cifran por separado vía Android Keystore
+      // (ver src/lib/appLockStorage.ts) y no deben quedar en texto plano aquí.
+      partialize: (state) => {
+        if (!isAndroidTauri()) return state
+        const { appPin: _appPin, appPattern: _appPattern, ...rest } = state
+        return rest as SettingsState
+      },
       merge: (persisted, current) => {
         const p = persisted as Partial<SettingsState>
         const oldDark = ['midnight', 'slate', 'carbon']
-        const theme = oldDark.includes(p.theme as string) ? 'dark' : (p.theme === 'light' ? 'light' : current.theme)
+        const validThemes: ThemeName[] = ['dark', 'light', 'system']
+        const theme = oldDark.includes(p.theme as string)
+          ? 'dark'
+          : validThemes.includes(p.theme as ThemeName) ? (p.theme as ThemeName) : current.theme
         return { ...current, ...p, theme }
       },
     },

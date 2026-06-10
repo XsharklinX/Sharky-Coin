@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.6.0'
+export const APP_VERSION = '1.6.1'
 
 export interface ReleaseNote {
   version: string
@@ -8,6 +8,16 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: '1.6.1',
+    date: '2026-06-10',
+    title: 'Privacidad y eliminacion de datos en la nube',
+    items: [
+      '"Eliminar todos los datos" ahora tambien borra tu copia sincronizada en Supabase, no solo los datos locales.',
+      'Politica de privacidad y terminos de uso publicados como paginas web publicas.',
+      'Correcciones de inicio de sesion con Google.',
+    ],
+  },
   {
     version: '1.6.0',
     date: '2026-06-04',

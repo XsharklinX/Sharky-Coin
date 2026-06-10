@@ -3,7 +3,7 @@
 **Gestion de finanzas personales para Windows.**  
 $harky ayuda a registrar movimientos, controlar presupuestos, seguir metas de ahorro, importar estados bancarios dominicanos y generar reportes profesionales desde una app desktop local-first.
 
-![Version](https://img.shields.io/badge/version-1.6.0-3b82f6)
+![Version](https://img.shields.io/badge/version-1.6.1-3b82f6)
 ![Platform](https://img.shields.io/badge/platform-Windows-111827)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Tauri-22c55e)
 ![Status](https://img.shields.io/badge/status-active-2563eb)

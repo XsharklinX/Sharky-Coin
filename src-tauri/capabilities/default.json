@@ -7,6 +7,12 @@
     "core:default",
     "notification:default",
     "opener:allow-open-url",
-    "opener:allow-default-urls"
+    "opener:allow-default-urls",
+    "dialog:default",
+    "biometric:default",
+    "mlkit-ocr:default",
+    "local-reminders:default",
+    "bank-notifications:default",
+    "keystore:default"
   ]
 }

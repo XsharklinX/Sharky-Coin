@@ -10,57 +10,39 @@ fn write_backup(path: String, json: String) -> Result<(), String> {
     std::fs::write(&path, json).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, contents).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_to_downloads(filename: String, contents: Vec<u8>) -> Result<String, String> {
+    let download_dir = "/storage/emulated/0/Download";
+    let mut path = std::path::PathBuf::from(download_dir);
+    path.push(&filename);
+    
+    // Si el archivo ya existe, añadir sufijo para no sobreescribir
+    let mut final_path = path.clone();
+    let mut counter = 1;
+    while final_path.exists() {
+        let name = path.file_stem().unwrap().to_string_lossy();
+        let ext = path.extension().unwrap_or_default().to_string_lossy();
+        final_path = std::path::PathBuf::from(download_dir);
+        final_path.push(format!("{}_{}.{}", name, counter, ext));
+        counter += 1;
+    }
+    
+    std::fs::write(&final_path, contents).map_err(|e| e.to_string())?;
+    Ok(final_path.to_string_lossy().into_owned())
+}
+
 /// Lee un backup desde una ruta específica.
 #[tauri::command]
 fn read_backup(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
-}
-
-/// Guarda un backup en la carpeta de documentos de la app (sin diálogo, ideal para Android).
-/// Devuelve la ruta donde se guardó el archivo.
-#[tauri::command]
-fn save_backup_auto(app: tauri::AppHandle, json: String) -> Result<String, String> {
-    let doc_dir = app.path().document_dir().map_err(|e: tauri::Error| e.to_string())?;
-    let backup_dir = doc_dir.join("backups");
-    std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    let filename = format!("sharky-backup-{}.json", today);
-    let path = backup_dir.join(&filename);
-    std::fs::write(&path, &json).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
-}
-
-/// Lista los backups guardados automáticamente en la carpeta interna de la app.
-/// Devuelve [{name, path, content}] ordenados por fecha (más reciente primero).
-#[derive(serde::Serialize)]
-struct AutoBackupEntry {
-    name: String,
-    path: String,
-    content: String,
-}
-
-#[tauri::command]
-fn list_auto_backups(app: tauri::AppHandle) -> Result<Vec<AutoBackupEntry>, String> {
-    let doc_dir = app.path().document_dir().map_err(|e: tauri::Error| e.to_string())?;
-    let backup_dir = doc_dir.join("backups");
-    if !backup_dir.exists() {
-        return Ok(vec![]);
-    }
-    let mut entries: Vec<AutoBackupEntry> = std::fs::read_dir(&backup_dir)
-        .map_err(|e| e.to_string())?
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path().extension().and_then(|x| x.to_str()) == Some("json")
-        })
-        .filter_map(|e| {
-            let path = e.path();
-            let name = path.file_name()?.to_string_lossy().to_string();
-            let content = std::fs::read_to_string(&path).ok()?;
-            Some(AutoBackupEntry { name, path: path.to_string_lossy().to_string(), content })
-        })
-        .collect();
-    entries.sort_by(|a, b| b.name.cmp(&a.name));
-    Ok(entries)
 }
 
 /// Archivo (foto/PDF de recibo) recibido vía "Compartir" desde otra app.
@@ -113,7 +95,6 @@ fn take_pending_shared_file(app: tauri::AppHandle) -> Result<Option<SharedFile>,
 }
 
 const SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas";
-extern crate chrono;
 const DESKTOP_PWA_CACHE_RESET_SCRIPT: &str = r#"
 (async () => {
   const resetKey = "sharky-desktop-pwa-reset-v1";
@@ -181,22 +162,37 @@ fn secure_storage_remove(key: String) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_biometric::init())
-        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_notification::init());
+
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_biometric::init());
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(tauri_plugin_mlkit_ocr::init());
+        builder = builder.plugin(tauri_plugin_local_reminders::init());
+        builder = builder.plugin(tauri_plugin_bank_notifications::init());
+        builder = builder.plugin(tauri_plugin_keystore::init());
+    }
+
+    builder
         .setup(|app| register_desktop_deep_links(app))
         .on_page_load(|webview, _| {
             let _ = webview.eval(DESKTOP_PWA_CACHE_RESET_SCRIPT);
         })
         .invoke_handler(tauri::generate_handler![
             write_backup,
+            write_file,
+            save_to_downloads,
             read_backup,
-            save_backup_auto,
-            list_auto_backups,
             secure_storage_set,
             secure_storage_get,
             secure_storage_remove,

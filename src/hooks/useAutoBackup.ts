@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
+import { BACKUP_DEBOUNCE_MS } from '@/constants'
 import { createRecoverySnapshot } from '@/data/recovery'
 import { useFinance } from '@/store/finance'
-
-const DEBOUNCE_MS = 1_200
 
 export function useAutoBackup() {
   useEffect(() => {
@@ -12,7 +11,7 @@ export function useAutoBackup() {
     snapshot()
     const unsubscribe = useFinance.subscribe(() => {
       clearTimeout(timer)
-      timer = setTimeout(snapshot, DEBOUNCE_MS)
+      timer = setTimeout(snapshot, BACKUP_DEBOUNCE_MS)
     })
 
     return () => {

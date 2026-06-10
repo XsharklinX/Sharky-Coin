@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { ACCENT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
 import type { Account, IconName } from '@/types'
 
@@ -12,7 +13,7 @@ const TYPES: Array<{ id: AccountType; label: string; icon: IconName; desc: strin
   { id: 'credit',  label: 'Crédito',   icon: 'cards',  desc: 'Tarjeta de crédito',       color: '#a78bfa' },
 ]
 
-const COLORS = ['#ffdd3d', '#35d0a2', '#5bc0ff', '#a78bfa', '#ff6b8a', '#f59e0b']
+const COLORS = ACCENT_COLORS
 
 export function MobileOnboarding({ onDone }: { onDone: () => void }) {
   const addAccount = useFinance(s => s.addAccount)

@@ -103,7 +103,12 @@ export function assertAvailableBalance(accounts: Account[], accountId: string, a
   const account = accounts.find(a => a.id === accountId)
   if (!account) throw new Error('La cuenta seleccionada no existe.')
   if (!Number.isFinite(amount) || amount <= 0) throw new Error('El monto debe ser mayor que cero.')
-  if (account.type !== 'credit' && account.balance < amount) throw new Error(`Saldo insuficiente en ${account.name}.`)
+  if (account.type === 'credit') {
+    if (account.limit !== undefined && account.balance - amount < -account.limit)
+      throw new Error(`Límite de crédito excedido en ${account.name}.`)
+    return
+  }
+  if (account.balance < amount) throw new Error(`Saldo insuficiente en ${account.name}.`)
 }
 
 export function canDeleteAccount(accountId: string, txns: Transaction[]): boolean {

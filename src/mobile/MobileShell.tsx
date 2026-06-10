@@ -9,10 +9,12 @@ import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
 import { MobileCurrencySheet } from './MobileCurrencySheet'
 import { MobileCalendar } from './MobileCalendar'
+import { MobileGlobalSearch } from './MobileGlobalSearch'
 import { MobileHome } from './MobileHome'
 import { MobileProfile } from './MobileProfile'
 import { MobileReports } from './MobileReports'
 import { MobileDebt } from './MobileDebt'
+import { MobileQuickAddSheet } from './MobileQuickAddSheet'
 import { MobileSubscriptions } from './MobileSubscriptions'
 const MobileCSVImport = lazy(() => import('./MobileCSVImport').then(m => ({ default: m.MobileCSVImport })))
 import { MobileTopBar } from './MobileTopBar'
@@ -75,11 +77,16 @@ export function MobileShell({
 }) {
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
+  const [quickAddSheet, setQuickAddSheet] = useState<'expense' | 'income' | null>(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
   const [createKey, setCreateKey] = useState(0)
   const prevIsAdd = useRef(false)
-  const mIdx = keys.indexOf(mkey)
+  const [visibleMonth, setVisibleMonth] = useState(mkey)
+  useEffect(() => { setVisibleMonth(mkey) }, [mkey])
+  const activeMkey = route === 'home' ? visibleMonth : mkey
+  const mIdx = keys.indexOf(activeMkey)
 
   // Remount MobileCreateFlow each time the add route is entered so state resets
   useEffect(() => {
@@ -102,12 +109,13 @@ export function MobileShell({
     setQuickAddMode('expense')
     setRoute('add')
   }, [sharedReceipt])
-  // Accesos directos del ícono (mantener presionado — ver res/xml/shortcuts.xml)
+  // Accesos directos del ícono (mantener presionado — ver res/xml/shortcuts.xml):
+  // abre la mini ventana de captura rápida sobre la pantalla actual, sin
+  // navegar al flujo completo de "agregar".
   useEffect(() => {
     if (!appShortcut) return
     if (appShortcut === 'add-expense' || appShortcut === 'add-income') {
-      setQuickAddMode(appShortcut === 'add-expense' ? 'expense' : 'income')
-      setRoute('add')
+      setQuickAddSheet(appShortcut === 'add-expense' ? 'expense' : 'income')
     } else if (appShortcut === 'reports') {
       setRoute('reports')
       setView('reports')
@@ -144,6 +152,8 @@ export function MobileShell({
       return (
         <MobileHome
           mkey={mkey}
+          visibleMonth={visibleMonth}
+          onVisibleMonthChange={setVisibleMonth}
           onAdd={() => setRoute('add')}
           onEditTx={onEditTx}
           onDeleteTx={viewProps.onDeleteTx}
@@ -198,9 +208,18 @@ export function MobileShell({
         </Suspense>
       )}
       {currencyOpen && <MobileCurrencySheet onClose={() => setCurrencyOpen(false)} />}
+      {searchOpen && (
+        <MobileGlobalSearch
+          onClose={() => setSearchOpen(false)}
+          onEditTx={onEditTx}
+          onGotoAccounts={() => setRoute('profile')}
+          onGotoCategories={() => { setRoute('reports'); setView('budgets') }}
+          onGotoGoals={() => { setRoute('reports'); setView('goals') }}
+        />
+      )}
       <MobileTopBar
         route={route}
-        mkey={mkey}
+        mkey={activeMkey}
         title={route === 'reports' ? INTERNAL_TITLES[view] : undefined}
         canGoBack={mIdx > 0}
         canGoForward={mIdx >= 0 && mIdx < keys.length - 1}
@@ -209,6 +228,7 @@ export function MobileShell({
         onSettings={onSettings}
         onCurrency={() => setCurrencyOpen(true)}
         onCalendar={route === 'home' ? () => { setRoute('reports'); setView('calendar') } : undefined}
+        onSearch={() => setSearchOpen(true)}
       />
       {route === 'add' ? (
         renderMain()
@@ -220,6 +240,18 @@ export function MobileShell({
           <MobileBottomNav route={route} onRoute={goRoute}
             onQuickAdd={mode => { setQuickAddMode(mode); setRoute('add') }} />
         </>
+      )}
+      {quickAddSheet && (
+        <MobileQuickAddSheet
+          mode={quickAddSheet}
+          onClose={() => setQuickAddSheet(null)}
+          onSaved={() => setQuickAddSheet(null)}
+          onOpenFull={() => {
+            setQuickAddMode(quickAddSheet)
+            setQuickAddSheet(null)
+            setRoute('add')
+          }}
+        />
       )}
     </main>
   )

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { useFinance } from '@/store/finance'
 import { useDialogs } from '@/components/ui/DialogProvider'
-import { currentMonthKey, fmt } from '@/data/helpers'
+import { useSettings } from '@/store/settings'
+import { dateLocale, fmt } from '@/data/helpers'
 import { playKeySound, playBackspaceSound, playDoneSound } from '@/lib/sound'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Goal, IconName, ViewProps } from '@/types'
@@ -118,7 +119,10 @@ function GoalForm({
   const [showNumpad, setShowNumpad] = useState(false)
   const [showDate, setShowDate]     = useState(false)
 
+  const lang = useSettings(s => s.language)
   const prefix = currencyPrefix(currency)
+  const today = new Date().toISOString().slice(0, 10)
+  const deadlinePast = !!deadline && deadline < today
 
   useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : showDate ? () => setShowDate(false) : onClose)
 
@@ -157,7 +161,7 @@ function GoalForm({
   }
 
   const deadlineLabel = deadline
-    ? new Date(deadline).toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? new Date(`${deadline}T00:00:00`).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
     : 'Sin fecha límite'
 
   return (
@@ -193,10 +197,18 @@ function GoalForm({
 
               <div className="mgl-field">
                 <span>Fecha límite <em>(opcional)</em></span>
-                <button className="mgl-amount-tap" onClick={() => setShowDate(true)}>
-                  <span>{deadlineLabel}</span>
+                <button
+                  className={`mgl-amount-tap${deadlinePast ? ' warn' : ''}`}
+                  onClick={() => setShowDate(true)}
+                >
+                  <span style={deadlinePast ? { color: 'var(--m-warn, #f59e0b)' } : undefined}>{deadlineLabel}</span>
                   <Icon name="calendar" size={14} style={{ opacity: .4 }} />
                 </button>
+                {deadlinePast && (
+                  <small style={{ color: 'var(--m-warn, #f59e0b)', marginTop: 4, display: 'block', fontSize: 11 }}>
+                    Esta fecha ya pasó — la meta se mostrará como vencida
+                  </small>
+                )}
               </div>
 
               <div className="mgl-field">
@@ -249,7 +261,6 @@ function GoalForm({
           value={deadline || new Date().toISOString().slice(0, 10)}
           onChange={v => { setDeadline(v); setShowDate(false) }}
           onClose={() => setShowDate(false)}
-          mkey={currentMonthKey()}
         />
       )}
     </div>

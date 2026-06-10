@@ -25,13 +25,13 @@ export async function checkBiometric(): Promise<BiometricStatus> {
 }
 
 /** Prompts the user for biometric authentication. Throws on failure or cancellation. */
-export async function authenticateBiometric(reason = 'Verify your identity'): Promise<void> {
+export async function authenticateBiometric(reason = 'Verificar tu identidad'): Promise<void> {
   if (!isTauri()) throw new Error('Biometric not available outside Tauri')
   const { authenticate } = await import('@tauri-apps/plugin-biometric')
   await authenticate(reason, {
     title: '$harky',
     subtitle: reason,
-    cancelTitle: 'Cancel',
-    fallbackTitle: 'Use PIN',
+    cancelTitle: 'Cancelar',
+    fallbackTitle: 'Usar PIN o patrón',
   })
 }

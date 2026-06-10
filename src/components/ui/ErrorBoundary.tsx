@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { APP_VERSION } from '@/data/release'
 import { captureErrorReport } from '@/data/telemetry'
+import { log } from '@/lib/logger'
 
 interface Props {
   children: ReactNode
@@ -32,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
       componentStack: info.componentStack ?? undefined,
       appVersion: APP_VERSION,
     })
-    console.error('Unhandled application error', error, info)
+    log.error('Unhandled application error', { error, info })
   }
 
   copyDiagnostic = async () => {
@@ -80,7 +81,7 @@ export class ViewErrorBoundary extends Component<Props & { resetKey: string }, S
       componentStack: info.componentStack ?? undefined,
       appVersion: APP_VERSION,
     })
-    console.error('Unhandled view error', error, info)
+    log.error('Unhandled view error', { error, info })
   }
 
   copyDiagnostic = async () => {

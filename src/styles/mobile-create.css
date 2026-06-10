@@ -361,6 +361,13 @@
   .mobile-create-receipt-file span { font-size: 14px; font-weight: 750; }
   .mobile-create-receipt-hint { color: var(--m-muted); font-size: 12px; font-weight: 700; text-align: center; }
 
+  .mobile-receipt-scan-btn {
+    align-items: center; background: var(--m-surface); border: 1px dashed rgba(255,255,255,.2);
+    border-radius: 12px; color: var(--m-text); display: flex; font-size: 14px; font-weight: 800;
+    gap: 8px; justify-content: center; margin-bottom: 12px; padding: 12px; width: 100%;
+  }
+  .mobile-receipt-scan-btn:active { background: var(--m-surface-2); }
+
   .mobile-segment {
     background: var(--m-surface);
     border: 1px solid rgba(255,255,255,.18);
@@ -599,6 +606,72 @@
   .mobile-category-grid button:active { background: rgba(255,255,255,.06); }
   .mobile-section-card header button:active,
   .mobile-hero-card button:active { filter: brightness(.92); }
+
+  /* ── MobileQuickAddSheet (accesos directos del ícono) ── */
+  .mobile-quickadd-sheet {
+    background: var(--m-bg, #121212);
+    border-radius: 24px 24px 0 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    left: 0;
+    max-height: 92dvh;
+    overflow: hidden;
+    padding: 16px 16px calc(12px + env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    width: 100%;
+  }
+  .mobile-quickadd-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mobile-quickadd-header > span {
+    color: var(--m-text);
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+  .mobile-quickadd-header button {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    border: 1px solid var(--m-border);
+    border-radius: 999px;
+    color: var(--m-text);
+    display: grid;
+    height: 38px;
+    place-items: center;
+    width: 38px;
+  }
+  .mobile-quickadd-categories {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-quickadd-account-name {
+    color: var(--m-text);
+    flex: 1;
+    font-size: 13px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-quickadd-more {
+    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-primary) 20%, transparent);
+    border-radius: 999px;
+    color: var(--m-primary);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 850;
+    padding: 7px 12px;
+    white-space: nowrap;
+  }
 
   /* ── MobileAmountSheet ── */
   .mamt-sheet {

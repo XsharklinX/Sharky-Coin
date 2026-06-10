@@ -4,8 +4,9 @@ import { useAuth } from '@/store/auth'
 import { useFinance } from '@/store/finance'
 import { toast } from '@/components/ui/Toast'
 
+import { SYNC_DEBOUNCE_MS } from '@/constants'
+
 const DIRTY_PREFIX = 'sharky-cloud-dirty-v1:'
-const SYNC_DELAY_MS = 1800
 const SYNC_ERROR_TOAST_THROTTLE_MS = 60_000
 
 let lastSyncErrorToastAt = 0
@@ -46,7 +47,7 @@ export function useAutoCloudSync(): void {
 
     const schedule = () => {
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => void run(), SYNC_DELAY_MS)
+      timer = setTimeout(() => void run(), SYNC_DEBOUNCE_MS)
     }
 
     const markDirty = () => {

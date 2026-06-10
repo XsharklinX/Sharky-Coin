@@ -4,13 +4,14 @@ import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
-import { fmtCompact } from '@/data/helpers'
+import { dateLocale, fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import type { Goal, ViewProps } from '@/types'
 import { Card, Empty, MiniStat } from './shared'
 
 /** Estima cuándo se alcanzará la meta basado en el ritmo actual de aportes */
-function estimateCompletion(goal: Goal, transactions: import('@/types').Transaction[]): string | null {
+function estimateCompletion(goal: Goal, transactions: import('@/types').Transaction[], locale = 'es-DO'): string | null {
   const remaining = goal.target - goal.saved
   if (remaining <= 0) return null
 
@@ -37,12 +38,14 @@ function estimateCompletion(goal: Goal, transactions: import('@/types').Transact
 
   const monthsLeft = Math.ceil(remaining / avgMonthly)
   const targetDate = new Date(now.getFullYear(), now.getMonth() + monthsLeft, 1)
-  return targetDate.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' })
+  return targetDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 }
 
 export function Goals({ createRequest }: ViewProps) {
   const { goals, accounts, currency, transactions, goalContributions, addGoal, updateGoal, deleteGoal, contribute } = useFinance()
   const { confirm } = useDialogs()
+  const lang = useSettings(s => s.language)
+  const locale = dateLocale(lang)
   const [createOpen, setCreateOpen] = useState(false)
   const [name,       setName]       = useState('')
   const [target,     setTarget]     = useState('')
@@ -144,7 +147,7 @@ export function Goals({ createRequest }: ViewProps) {
         {goals.map(goal => {
           const progress   = Math.min(100, goal.saved / goal.target * 100)
           const done       = goal.saved >= goal.target
-          const estimated  = done ? null : estimateCompletion(goal, transactions)
+          const estimated  = done ? null : estimateCompletion(goal, transactions, locale)
 
           return (
             <article className="card goal-card" key={goal.id}>
@@ -161,7 +164,7 @@ export function Goals({ createRequest }: ViewProps) {
                       : estimated
                         ? `Estimado: ${estimated}`
                         : goal.deadline
-                          ? `Límite: ${new Date(goal.deadline + 'T00:00:00').toLocaleDateString('es-DO', { month: 'short', year: 'numeric' })}`
+                          ? `Límite: ${new Date(goal.deadline + 'T00:00:00').toLocaleDateString(locale, { month: 'short', year: 'numeric' })}`
                           : 'Sin fecha límite'}
                   </small>
                 </div>

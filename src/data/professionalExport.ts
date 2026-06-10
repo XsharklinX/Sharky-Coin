@@ -1,5 +1,6 @@
 import { byCategory, fmt, getAccount, getCategory, monthLabel, monthlySeries, totals, txForMonth } from './helpers'
 import type { FinanceState } from '@/store/finance'
+import { saveFile } from '@/hooks/useTauri'
 
 const downloadName = (prefix: string, extension: string) => `${prefix}-${new Date().toISOString().slice(0, 10)}.${extension}`
 
@@ -124,20 +125,7 @@ export async function exportExcel(state: FinanceState): Promise<void> {
   const filename  = downloadName('sharky-finanzas', 'xlsx')
   const mimeType  = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   const blob      = new Blob([buffer], { type: mimeType })
-  const isAndroid = /android/i.test(navigator.userAgent)
-  if (isAndroid && typeof navigator.share === 'function') {
-    const file = new File([blob], filename, { type: mimeType })
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: '$harky — Reporte completo' })
-      return
-    }
-  }
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+  await saveFile(blob, filename, 'Reporte de $harky', ['xlsx'])
 }
 
 export async function exportMonthlyPdf(state: FinanceState, month: string, ownerName: string): Promise<void> {
@@ -234,14 +222,6 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
   }
 
   const filename  = downloadName(`sharky-estado-${month}`, 'pdf')
-  const isAndroid = /android/i.test(navigator.userAgent)
-  if (isAndroid && typeof navigator.share === 'function') {
-    const pdfBlob = doc.output('blob')
-    const file    = new File([pdfBlob], filename, { type: 'application/pdf' })
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: `$harky — Estado ${monthLabel(month)}` })
-      return
-    }
-  }
-  doc.save(filename)
+  const pdfBlob = doc.output('blob')
+  await saveFile(pdfBlob, filename, 'Estado Financiero $harky', ['pdf'])
 }

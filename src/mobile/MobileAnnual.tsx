@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { byCategory, fmtCompact, monthlySeries, totals } from '@/data/helpers'
+import { byCategory, monthlySeries, totals } from '@/data/helpers'
 import { exportElementPng } from '@/data/imageExport'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'

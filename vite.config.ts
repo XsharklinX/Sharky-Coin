@@ -16,6 +16,7 @@ export default defineConfig({
           if (id.includes('node_modules/html2canvas')) return 'vendor-capture'
           if (id.includes('node_modules/recharts')) return 'vendor-charts'
           if (id.includes('node_modules/lucide-react')) return 'vendor-icons'
+          if (id.includes('node_modules/tesseract.js')) return 'vendor-ocr'
         },
       },
     },
@@ -61,7 +62,7 @@ export default defineConfig({
         // cachear todos los assets estáticos
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // no cachear los chunks de exportación grandes (se cargan on-demand)
-        globIgnores: ['**/vendor-pdf*', '**/vendor-capture*', '**/vendor-excel*', '**/vendor-charts*', '**/imageExport*'],
+        globIgnores: ['**/vendor-pdf*', '**/vendor-capture*', '**/vendor-excel*', '**/vendor-charts*', '**/vendor-ocr*', '**/imageExport*'],
         runtimeCaching: [
           {
             // fonts de Google
@@ -70,6 +71,17 @@ export default defineConfig({
             options: {
               cacheName: 'google-fonts',
               expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+          {
+            // motor y modelos de OCR (tesseract.js) — se descargan una vez y
+            // quedan cacheados para usarse sin conexión después
+            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/(tesseract\.js|tesseract\.js-core|@tesseract\.js-data)\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tesseract-ocr',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],

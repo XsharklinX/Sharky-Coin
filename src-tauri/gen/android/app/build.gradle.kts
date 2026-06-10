@@ -22,10 +22,10 @@ val signingProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    namespace = "com.sharky.finanzas"
+    namespace = "com.sharky.miapp"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.sharky.finanzas"
+        applicationId = "com.sharky.miapp"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
@@ -64,6 +64,9 @@ android {
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
                     .toList().toTypedArray()
             )
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
     }
     kotlinOptions {

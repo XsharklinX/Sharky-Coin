@@ -1,4 +1,5 @@
 import { isTauri } from '@/hooks/useTauri'
+import { decryptSecure, encryptSecure, isAndroidTauri, type SecureBlob } from '@/lib/secureBlob'
 
 interface AuthStorage {
   getItem: (key: string) => Promise<string | null> | string | null
@@ -36,12 +37,31 @@ const tauriCredentialStorage: AuthStorage = {
 }
 
 // El crate `keyring` solo trae backend nativo para Windows (ver Cargo.toml,
-// feature "windows-native"). En Android no hay Keystore configurado:
-// secure_storage_get/set fallan en tiempo de ejecución, lo que rompe el
-// round-trip del code_verifier PKCE (Google login queda colgado en silencio).
-const isAndroid = isTauri() && /android/i.test(navigator.userAgent)
+// feature "windows-native"). En Android no hay backend de `keyring`, así que
+// secure_storage_get/set se reemplazan por almacenamiento cifrado con
+// Android Keystore (ver src/lib/secureBlob.ts).
+const SECURE_PREFIX = 'sb-secure-'
 
-export const usesNativeCredentialStorage = isTauri() && !isAndroid
+const androidKeystoreStorage: AuthStorage = {
+  getItem: async (key) => {
+    const raw = hasBrowserStorage ? localStorage.getItem(SECURE_PREFIX + key) : null
+    if (!raw) return null
+    try {
+      return await decryptSecure(JSON.parse(raw) as SecureBlob)
+    } catch {
+      return null
+    }
+  },
+  setItem: async (key, value) => {
+    const blob = await encryptSecure(value)
+    if (blob && hasBrowserStorage) localStorage.setItem(SECURE_PREFIX + key, JSON.stringify(blob))
+  },
+  removeItem: (key) => {
+    if (hasBrowserStorage) localStorage.removeItem(SECURE_PREFIX + key)
+  },
+}
+
+export const usesNativeCredentialStorage = isTauri()
 
 if (usesNativeCredentialStorage && hasBrowserStorage) {
   Object.keys(localStorage)
@@ -49,6 +69,8 @@ if (usesNativeCredentialStorage && hasBrowserStorage) {
     .forEach(key => localStorage.removeItem(key))
 }
 
-export const secureAuthStorage: AuthStorage = usesNativeCredentialStorage
-  ? tauriCredentialStorage
-  : browserStorage
+export const secureAuthStorage: AuthStorage = isAndroidTauri()
+  ? androidKeystoreStorage
+  : usesNativeCredentialStorage
+    ? tauriCredentialStorage
+    : browserStorage

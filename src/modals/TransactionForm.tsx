@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
-import { fmt } from '@/data/helpers'
+import { dateLocale, fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
@@ -22,8 +22,8 @@ const ACCT_ICONS: Record<string, IconName> = {
   cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
 }
 
-function fmtDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' })
+function fmtDate(iso: string, locale: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function TransactionForm({ value, mkey, onClose, onDelete }: {
@@ -32,8 +32,10 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   onClose: () => void
   onDelete?: (id: string) => void
 }) {
-  const { accounts, categories, transactions, currency, addTx, updateTx, deleteTx } = useFinance()
-  const overdraftPolicy = useSettings(s => s.overdraftPolicy)
+  const { accounts, categories, currency, addTx, updateTx, deleteTx } = useFinance()
+  const settings = useSettings()
+  const overdraftPolicy = settings.overdraftPolicy
+  const locale = dateLocale(settings.language)
   const { confirm } = useDialogs()
   const editing = value !== 'new'
 
@@ -204,7 +206,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             <button className="mpr-form-row" onClick={() => setSub('date')}>
               <Icon name="calendar" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
               <span className="mpr-form-row-label">Fecha</span>
-              <span className="mpr-form-row-val">{fmtDate(date)}</span>
+              <span className="mpr-form-row-val">{fmtDate(date, locale)}</span>
               {arrow}
             </button>
           </div>
@@ -241,7 +243,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
                 <Icon name="calendar" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
                 <span className="mpr-form-row-label">Hasta</span>
                 <span className={recurringEnd ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
-                  {recurringEnd ? fmtDate(recurringEnd) : 'Sin fin'}
+                  {recurringEnd ? fmtDate(recurringEnd, locale) : 'Sin fin'}
                 </span>
                 {arrow}
               </button>
@@ -289,7 +291,6 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       {sub === 'date' && (
         <MobileDatePicker
           value={date}
-          mkey={mkey}
           onChange={v => { setDate(v); setSub(null) }}
           onClose={() => setSub(null)}
         />
@@ -298,7 +299,6 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       {sub === 'recurEnd' && (
         <MobileDatePicker
           value={recurringEnd || date}
-          mkey={mkey}
           onChange={v => { setRecurringEnd(v); setSub(null) }}
           onClose={() => setSub(null)}
         />

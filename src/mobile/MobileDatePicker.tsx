@@ -15,12 +15,10 @@ export function MobileDatePicker({
   value,
   onChange,
   onClose,
-  mkey,
 }: {
   value: string       // YYYY-MM-DD
   onChange: (v: string) => void
   onClose: () => void
-  mkey: string        // YYYY-MM — restrict to this month if needed
 }) {
   const parsed = parseDate(value)
   const [viewYear, setViewYear]   = useState(parsed.year)

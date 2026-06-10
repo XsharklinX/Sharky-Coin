@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt } from '@/data/helpers'
+import { dateLocale, fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import type { Account, Category, CurrencyCode, Transaction } from '@/types'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-function nextLabel(tx: Transaction): string {
+function nextLabel(tx: Transaction, locale: string): string {
   const next = tx.recurringNext ?? tx.date
-  return new Date(`${next}T00:00:00`).toLocaleDateString('es-DO', { month: 'short', day: 'numeric' })
+  return new Date(`${next}T00:00:00`).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
 }
 
 function freqLabel(tx: Transaction) {
@@ -25,6 +26,8 @@ type SheetMode = { tx: Transaction; confirm: boolean } | null
 
 export function MobileSubscriptions() {
   const { transactions, categories, accounts, currency, updateTx, deleteTx } = useFinance()
+  const lang = useSettings(s => s.language)
+  const locale = dateLocale(lang)
   const [sheet, setSheet] = useState<SheetMode>(null)
 
   useMobileBackDismiss(!!sheet, () => setSheet(null))
@@ -72,12 +75,12 @@ export function MobileSubscriptions() {
       {/* Monthly group */}
       {monthly.length > 0 && (
         <Section title="Mensual" txs={monthly} categories={categories} accounts={accounts}
-          currency={currency} onOpen={tx => setSheet({ tx, confirm: false })} />
+          currency={currency} locale={locale} onOpen={tx => setSheet({ tx, confirm: false })} />
       )}
 
       {weekly.length > 0 && (
         <Section title="Semanal" txs={weekly} categories={categories} accounts={accounts}
-          currency={currency} onOpen={tx => setSheet({ tx, confirm: false })} />
+          currency={currency} locale={locale} onOpen={tx => setSheet({ tx, confirm: false })} />
       )}
 
       {/* Action sheet */}
@@ -94,7 +97,7 @@ export function MobileSubscriptions() {
                 <span>{freqLabel(sheet.tx)}</span>
               </div>
               <div className="msub-sheet-meta">
-                Próximo: <strong>{nextLabel(sheet.tx)}</strong>
+                Próximo: <strong>{nextLabel(sheet.tx, locale)}</strong>
               </div>
 
               {!sheet.confirm ? (
@@ -124,12 +127,13 @@ export function MobileSubscriptions() {
   )
 }
 
-function Section({ title, txs, categories, accounts, currency, onOpen }: {
+function Section({ title, txs, categories, accounts, currency, locale, onOpen }: {
   title: string
   txs: Transaction[]
   categories: Category[]
   accounts: Account[]
   currency: CurrencyCode
+  locale: string
   onOpen: (tx: Transaction) => void
 }) {
   const sectionTotal = txs.reduce((s, tx) => s + tx.amount, 0)
@@ -152,7 +156,7 @@ function Section({ title, txs, categories, accounts, currency, onOpen }: {
             <div className="msub-row-info">
               <b>{tx.note || cat?.name || '—'}</b>
               <small>
-                Próx: {nextLabel(tx)}
+                Próx: {nextLabel(tx, locale)}
                 {isPast && <span className="msub-overdue"> · vencido</span>}
                 {acct && <> · <span style={{ color: acct.color }}>●</span> {acct.short}</>}
               </small>

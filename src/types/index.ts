@@ -2,7 +2,7 @@
 export type AccountType  = 'debit' | 'savings' | 'credit' | 'cash'
 export type TxType       = 'income' | 'expense' | 'transfer'
 export type CurrencyCode = 'DOP' | 'USD' | 'EUR' | 'MXN' | 'GBP' | 'COP' | 'ARS' | 'BRL' | 'CAD'
-export type ThemeName    = 'dark' | 'light'
+export type ThemeName    = 'dark' | 'light' | 'system'
 export type DensityName  = 'compact' | 'regular' | 'comfy'
 export type OverdraftPolicy = 'block' | 'warn' | 'allow'
 export type RecurrenceFrequency = 'weekly' | 'monthly'

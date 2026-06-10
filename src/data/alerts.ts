@@ -17,6 +17,7 @@ export function getMobileAlerts(
   categories: Category[],
   currency: CurrencyCode,
   todayStr = new Date().toISOString().slice(0, 10),
+  locale = 'es-DO',
 ): MobileAlert[] {
   const mkey = currentMonthKey()
   const monthTx = txForMonth(transactions, mkey)
@@ -56,7 +57,7 @@ export function getMobileAlerts(
     if (template.recurringEnd && next > template.recurringEnd) return
     const when = next === todayStr
       ? 'hoy'
-      : new Date(`${next}T00:00:00`).toLocaleDateString('es-DO', { day: 'numeric', month: 'short' })
+      : new Date(`${next}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
     alerts.push({
       id:    `recurring:${template.id}:${next}`,
       level: 'warn',

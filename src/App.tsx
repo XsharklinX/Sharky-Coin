@@ -10,14 +10,18 @@ import { TransactionForm } from '@/modals/TransactionForm'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useNotificationActions } from '@/hooks/useNotificationActions'
+import { useLocalReminders } from '@/hooks/useLocalReminders'
 import { useSharedReceipt } from '@/hooks/useSharedReceipt'
+import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { useAppShortcut } from '@/hooks/useAppShortcut'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { useLiveExchangeRates } from '@/hooks/useLiveExchangeRates'
+import { useAppLockHydration } from '@/hooks/useAppLockHydration'
 import { MobileBiometricGate } from '@/mobile/MobileBiometricGate'
 import { MobilePinGate } from '@/mobile/MobilePinGate'
+import { MobilePatternGate } from '@/mobile/MobilePatternGate'
 import { MobileShell } from '@/mobile/MobileShell'
 import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
@@ -26,15 +30,17 @@ import { MobileGoals } from '@/mobile/MobileGoals'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
-const Goals        = lazy(() => import('@/views/Goals').then(m => ({ default: m.Goals })))
 const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default: m.Calendar })))
 
 export default function App() {
   const s = useSettings()
-  const { transactions, accounts, currency, setCurrency, addTx, deleteTx } = useFinance()
+  const { transactions, addTx, deleteTx } = useFinance()
 
+  const { hydrated } = useAppLockHydration()
+
+  const hasAppLock = !!(s.appPin || s.appPattern)
   const [bioUnlocked, setBioUnlocked]  = useState(!s.requireBiometric)
-  const [pinUnlocked, setPinUnlocked]  = useState(!s.appPin)
+  const [credUnlocked, setCredUnlocked] = useState(!hasAppLock)
   const [splashDone,   setSplashDone]   = useState(false)
   const [view,         setView]         = useState<ViewId>('dashboard')
   const [mkey,         setMkey]         = useState(currentMonthKey())
@@ -44,9 +50,17 @@ export default function App() {
   const initializeAuth = useAuth(state => state.initialize)
   useEffect(() => { initializeAuth() }, [initializeAuth])
 
+  // Tras hidratar el PIN/patrón cifrados (Android), re-bloquear si corresponde:
+  // `credUnlocked` se inicializó antes de conocer el valor real de `hasAppLock`.
+  useEffect(() => {
+    if (hydrated && hasAppLock) setCredUnlocked(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated])
+
   useRecurring()
   useNotifications()
   useNotificationActions()
+  useLocalReminders()
   const [sharedReceipt, consumeSharedReceipt] = useSharedReceipt()
   const [appShortcut, consumeAppShortcut] = useAppShortcut()
   useAutoBackup()
@@ -60,21 +74,29 @@ export default function App() {
     else if (txForm) setTxForm(null)
   })
 
+  const resolvedTheme = useResolvedTheme()
   const themeProps = {
-    'data-theme':   s.theme,
+    'data-theme':   resolvedTheme,
     'data-density': s.density,
     style: { '--accent': s.accent, fontFamily: `"${s.font}", system-ui, sans-serif` } as React.CSSProperties,
   }
 
+  if (!hydrated) return <div className="app mobile-app" {...themeProps} />
+
   if (s.requireBiometric && !bioUnlocked) return (
     <div className="app mobile-app" {...themeProps}>
-      <MobileBiometricGate onUnlocked={() => setBioUnlocked(true)} />
+      <MobileBiometricGate
+        onUnlocked={() => setBioUnlocked(true)}
+        onUnavailable={() => setBioUnlocked(true)}
+      />
     </div>
   )
 
-  if (s.appPin && !pinUnlocked) return (
+  if (hasAppLock && !credUnlocked) return (
     <div className="app mobile-app" {...themeProps}>
-      <MobilePinGate pin={s.appPin} onUnlocked={() => setPinUnlocked(true)} />
+      {s.appPattern
+        ? <MobilePatternGate pattern={s.appPattern} onUnlocked={() => setCredUnlocked(true)} />
+        : <MobilePinGate pin={s.appPin!} onUnlocked={() => setCredUnlocked(true)} />}
     </div>
   )
 
@@ -85,7 +107,6 @@ export default function App() {
   )
 
   const keys = monthKeys(transactions)
-  const mIdx = keys.indexOf(mkey)
 
   const handleDeleteTx = (id: string) => {
     const tx = transactions.find(t => t.id === id)
