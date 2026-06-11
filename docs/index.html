@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>$harky - Gestion de Finanzas</title>
+    <title>$harky - Finanzas personales para Android</title>
     <meta
       name="description"
-      content="$harky es una app de finanzas personales para Windows con presupuestos, metas, importacion bancaria, reportes profesionales y sincronizacion opcional."
+      content="$harky es una app de finanzas personales para Android: controla gastos, presupuestos, metas y cuentas, escanea recibos, importa estados bancarios y mantén tus datos privados."
     />
     <meta name="theme-color" content="#0b1220" />
-    <meta property="og:title" content="$harky - Gestion de Finanzas" />
-    <meta property="og:description" content="Controla gastos, presupuestos, metas y reportes desde una app local-first para Windows." />
+    <meta property="og:title" content="$harky - Finanzas personales para Android" />
+    <meta property="og:description" content="Controla gastos, presupuestos, metas y reportes desde una app local-first para Android." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="./assets/icon.svg" />
     <link rel="icon" href="./assets/icon.svg" />
@@ -109,12 +109,12 @@
       h1 {
         margin: 22px 0 18px;
         font-size: clamp(42px, 7vw, 76px);
-        line-height: 0.92;
+        line-height: 0.96;
         letter-spacing: -0.07em;
       }
 
       .hero p {
-        max-width: 620px;
+        max-width: 560px;
         color: var(--muted);
         font-size: 18px;
         line-height: 1.7;
@@ -123,7 +123,8 @@
 
       .actions {
         display: flex;
-        gap: 12px;
+        align-items: center;
+        gap: 14px;
         flex-wrap: wrap;
         margin-top: 28px;
       }
@@ -151,127 +152,167 @@
         color: #dbeafe;
       }
 
+      .play-badge img {
+        height: 54px;
+        display: block;
+      }
+
       .meta {
         display: flex;
         gap: 16px;
         flex-wrap: wrap;
-        margin-top: 24px;
+        margin-top: 26px;
         color: #8da0bc;
         font-size: 13px;
       }
 
-      .app-card {
-        position: relative;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(8, 13, 24, 0.92));
-        border-radius: 30px;
-        padding: 18px;
-        box-shadow: var(--shadow);
-        overflow: hidden;
+      .meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
       }
 
-      .app-card::before {
+      .meta span::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--accent-2);
+      }
+
+      /* --- Phone mockup --- */
+      .phone-stage {
+        display: flex;
+        justify-content: center;
+        position: relative;
+      }
+
+      .phone-stage::before {
         content: "";
         position: absolute;
-        inset: -30% -30% auto auto;
-        width: 280px;
-        height: 280px;
+        inset: 6% 14%;
         border-radius: 50%;
-        background: rgba(59, 130, 246, 0.2);
-        filter: blur(44px);
+        background: rgba(59, 130, 246, 0.22);
+        filter: blur(60px);
+        z-index: 0;
       }
 
-      .mock-window {
+      .phone {
         position: relative;
-        border-radius: 22px;
-        overflow: hidden;
-        background: #0d1422;
-        border: 1px solid rgba(148, 163, 184, 0.17);
-      }
-
-      .mock-top {
-        height: 42px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 14px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.13);
-      }
-
-      .dot { width: 10px; height: 10px; border-radius: 999px; background: #334155; }
-      .dot:nth-child(1) { background: #fb7185; }
-      .dot:nth-child(2) { background: #fbbf24; }
-      .dot:nth-child(3) { background: #34d399; }
-
-      .mock-body {
-        display: grid;
-        grid-template-columns: 112px 1fr;
-        min-height: 420px;
-      }
-
-      .mock-side {
-        border-right: 1px solid rgba(148, 163, 184, 0.13);
+        width: min(290px, 78vw);
+        border-radius: 42px;
         padding: 14px;
-        display: grid;
-        align-content: start;
-        gap: 10px;
+        background: linear-gradient(160deg, #1b2436, #0a0e16 60%);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: var(--shadow);
+        z-index: 1;
       }
 
-      .side-row, .bar, .chip, .line {
+      .phone-screen {
+        position: relative;
+        background: #0a0e16;
+        border-radius: 30px;
+        overflow: hidden;
+        padding: 30px 14px 18px;
+        min-height: 560px;
+        border: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .phone-notch {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 84px;
+        height: 18px;
         border-radius: 999px;
-        background: rgba(148, 163, 184, 0.16);
+        background: #050810;
       }
 
-      .side-row { height: 28px; }
-      .side-row.active { background: rgba(59, 130, 246, 0.28); }
-
-      .mock-main {
-        padding: 20px;
+      .ph-balance {
+        margin-top: 14px;
       }
 
-      .mock-grid {
+      .ph-balance .line { background: rgba(148, 163, 184, 0.2); }
+
+      .ph-balance b {
+        display: block;
+        margin-top: 10px;
+        font-size: 30px;
+        letter-spacing: -0.03em;
+      }
+
+      .ph-balance b.up { color: var(--accent-2); font-size: 13px; font-weight: 800; margin-top: 6px; }
+
+      .ph-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
         margin: 18px 0;
       }
 
-      .metric {
-        min-height: 88px;
-        padding: 16px;
+      .ph-card {
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: rgba(15, 23, 42, 0.85);
+        border-radius: 16px;
+        padding: 12px;
+      }
+
+      .ph-card b { display: block; margin-top: 8px; font-size: 17px; }
+
+      .ph-panel {
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: rgba(15, 23, 42, 0.65);
         border-radius: 18px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.14);
+        padding: 14px;
       }
 
-      .metric b {
-        display: block;
-        margin-top: 12px;
-        font-size: 22px;
-      }
+      .ph-rows { display: grid; gap: 10px; margin-top: 12px; }
 
-      .panel {
-        border: 1px solid rgba(148, 163, 184, 0.14);
-        background: rgba(15, 23, 42, 0.7);
-        border-radius: 20px;
-        padding: 16px;
-      }
-
-      .chart {
-        height: 140px;
+      .ph-row {
         display: flex;
-        align-items: end;
+        align-items: center;
         gap: 10px;
-        margin-top: 16px;
       }
 
-      .chart i {
-        flex: 1;
-        border-radius: 999px 999px 8px 8px;
-        background: linear-gradient(180deg, #3b82f6, rgba(59, 130, 246, 0.22));
+      .ph-dot {
+        width: 30px;
+        height: 30px;
+        border-radius: 11px;
+        flex-shrink: 0;
+        background: rgba(34, 197, 94, 0.16);
       }
 
-      .chart i:nth-child(2n) { background: linear-gradient(180deg, #22c55e, rgba(34, 197, 94, 0.18)); }
+      .ph-dot.b { background: rgba(59, 130, 246, 0.18); }
+      .ph-dot.r { background: rgba(251, 113, 133, 0.16); }
+
+      .ph-row-lines { flex: 1; display: grid; gap: 6px; }
+
+      .line { border-radius: 999px; background: rgba(148, 163, 184, 0.16); }
+
+      .ph-tabbar {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        height: 54px;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        padding: 0 10px;
+      }
+
+      .ph-tab {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        background: rgba(148, 163, 184, 0.14);
+      }
+
+      .ph-tab.active { background: var(--accent); }
 
       .section {
         padding: 58px 0;
@@ -300,7 +341,7 @@
         gap: 16px;
       }
 
-      .feature, .download-card, .release-card {
+      .feature, .download-card, .release-card, .legal-card {
         border: 1px solid var(--line);
         background: var(--panel);
         border-radius: 22px;
@@ -308,13 +349,13 @@
         box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
       }
 
-      .feature strong, .download-card strong, .release-card strong {
+      .feature strong, .download-card strong, .release-card strong, .legal-card strong {
         display: block;
         font-size: 17px;
         margin-bottom: 8px;
       }
 
-      .feature p, .download-card p, .release-card p {
+      .feature p, .download-card p, .release-card p, .legal-card p {
         margin: 0;
         color: var(--muted);
         line-height: 1.65;
@@ -331,15 +372,19 @@
         background: rgba(59, 130, 246, 0.14);
         color: #bfdbfe;
         font-weight: 900;
+        font-size: 13px;
       }
 
       .download-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1.1fr 0.9fr;
         gap: 16px;
+        align-items: stretch;
       }
 
-      .download-card .btn { margin-top: 18px; }
+      .download-card { display: flex; flex-direction: column; }
+      .download-card .btn, .download-card .play-badge { margin-top: 18px; }
+      .download-card .play-badge { display: inline-flex; }
 
       .status {
         display: inline-flex;
@@ -355,6 +400,46 @@
         margin-bottom: 14px;
       }
 
+      .release-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .release-card {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .release-card .tag {
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: 0.04em;
+        color: #93c5fd;
+        text-transform: uppercase;
+      }
+
+      .legal-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+
+      .legal-card {
+        transition: border-color 0.15s, transform 0.15s;
+      }
+
+      .legal-card:hover {
+        border-color: rgba(59, 130, 246, 0.4);
+        transform: translateY(-2px);
+      }
+
+      .legal-card span.arrow {
+        color: var(--accent);
+        font-weight: 900;
+      }
+
       .footer {
         border-top: 1px solid var(--line);
         color: var(--muted);
@@ -366,6 +451,8 @@
         flex-wrap: wrap;
       }
 
+      .footer a:hover { color: var(--text); }
+
       code {
         color: #dbeafe;
         background: rgba(148, 163, 184, 0.12);
@@ -375,18 +462,17 @@
       }
 
       @media (max-width: 900px) {
-        .hero, .features, .download-grid { grid-template-columns: 1fr; }
+        .hero, .features, .legal-grid { grid-template-columns: 1fr; }
+        .download-grid { grid-template-columns: 1fr; }
+        .legal-grid { grid-template-columns: repeat(2, 1fr); }
         .nav-links { display: none; }
-        .mock-body { grid-template-columns: 82px 1fr; }
-        .mock-grid { grid-template-columns: 1fr; }
+        .release-card { grid-template-columns: 1fr; }
       }
 
       @media (max-width: 560px) {
         .shell { width: min(100% - 24px, 1120px); }
         .hero { padding-top: 30px; }
-        .mock-body { min-height: 360px; }
-        .mock-side { display: none; }
-        .mock-body { grid-template-columns: 1fr; }
+        .legal-grid { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -398,8 +484,9 @@
       </a>
       <nav class="nav-links" aria-label="Navegacion">
         <a href="#features">Funciones</a>
+        <a href="#novedades">Novedades</a>
         <a href="#download">Descargar</a>
-        <a href="#roadmap">Roadmap</a>
+        <a href="#legal">Legal</a>
         <a href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">GitHub</a>
       </nav>
     </header>
@@ -407,60 +494,79 @@
     <main id="top">
       <section class="shell hero">
         <div>
-      <span class="eyebrow">v1.6.1 para Windows - local-first</span>
-          <h1>Gestiona tu dinero con claridad.</h1>
+          <span class="eyebrow">App para Android · funciona sin conexión</span>
+          <h1>Tus finanzas, claras y bajo tu control.</h1>
           <p>
-            $harky es una app de finanzas personales para registrar movimientos,
-            controlar presupuestos, seguir metas, importar CSV bancarios dominicanos
-            y exportar reportes profesionales sin depender de hojas sueltas.
+            $harky es una app de finanzas personales para Android. Registra tus
+            movimientos, controla presupuestos y metas de ahorro, escanea recibos
+            y mantén tus datos en tu teléfono — con sincronización en la nube
+            totalmente opcional.
           </p>
           <div class="actions">
-            <a class="btn primary" href="#download">Ver descargas</a>
-            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">Ver repositorio</a>
+            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.sharky.miapp" rel="noreferrer" aria-label="Disponible en Google Play">
+              <img src="https://play.google.com/intl/en_us/badges/static/images/badges/es-419_badge_web_generic.png" alt="Disponible en Google Play" />
+            </a>
+            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">Ver el codigo</a>
           </div>
           <div class="meta">
-            <span>React + TypeScript</span>
-            <span>Tauri desktop</span>
-            <span>Supabase opcional</span>
+            <span>Presupuestos y metas</span>
+            <span>Escaneo de recibos</span>
+            <span>PIN y huella</span>
             <span>PDF, Excel, CSV, JSON</span>
           </div>
         </div>
 
-        <div class="app-card" aria-label="Vista previa de $harky">
-          <div class="mock-window">
-            <div class="mock-top">
-              <span class="dot"></span>
-              <span class="dot"></span>
-              <span class="dot"></span>
-            </div>
-            <div class="mock-body">
-              <aside class="mock-side">
-                <div class="side-row active"></div>
-                <div class="side-row"></div>
-                <div class="side-row"></div>
-                <div class="side-row"></div>
-                <div class="side-row"></div>
-              </aside>
-              <section class="mock-main">
-                <div class="line" style="width: 44%; height: 18px"></div>
-                <div class="mock-grid">
-                  <div class="metric"><span class="line" style="display:block;width:60%;height:10px"></span><b>RD$ 206k</b></div>
-                  <div class="metric"><span class="line" style="display:block;width:66%;height:10px"></span><b>53%</b></div>
-                  <div class="metric"><span class="line" style="display:block;width:52%;height:10px"></span><b>RD$ 84k</b></div>
+        <div class="phone-stage">
+          <div class="phone" aria-label="Vista previa de $harky en Android">
+            <div class="phone-screen">
+              <div class="phone-notch"></div>
+              <div class="ph-balance">
+                <span class="line" style="display:block;width:40%;height:10px"></span>
+                <b>RD$ 128,450</b>
+                <b class="up">+ 6.2% vs. mes anterior</b>
+              </div>
+              <div class="ph-grid">
+                <div class="ph-card">
+                  <span class="line" style="display:block;width:55%;height:9px"></span>
+                  <b>RD$ 64,200</b>
                 </div>
-                <div class="panel">
-                  <div class="line" style="width: 38%; height: 14px"></div>
-                  <div class="chart">
-                    <i style="height: 42%"></i>
-                    <i style="height: 72%"></i>
-                    <i style="height: 56%"></i>
-                    <i style="height: 88%"></i>
-                    <i style="height: 64%"></i>
-                    <i style="height: 76%"></i>
-                    <i style="height: 50%"></i>
+                <div class="ph-card">
+                  <span class="line" style="display:block;width:55%;height:9px"></span>
+                  <b>RD$ 41,750</b>
+                </div>
+              </div>
+              <div class="ph-panel">
+                <span class="line" style="display:block;width:46%;height:11px"></span>
+                <div class="ph-rows">
+                  <div class="ph-row">
+                    <span class="ph-dot"></span>
+                    <span class="ph-row-lines">
+                      <span class="line" style="width:60%;height:9px"></span>
+                      <span class="line" style="width:35%;height:7px"></span>
+                    </span>
+                  </div>
+                  <div class="ph-row">
+                    <span class="ph-dot b"></span>
+                    <span class="ph-row-lines">
+                      <span class="line" style="width:48%;height:9px"></span>
+                      <span class="line" style="width:30%;height:7px"></span>
+                    </span>
+                  </div>
+                  <div class="ph-row">
+                    <span class="ph-dot r"></span>
+                    <span class="ph-row-lines">
+                      <span class="line" style="width:54%;height:9px"></span>
+                      <span class="line" style="width:28%;height:7px"></span>
+                    </span>
                   </div>
                 </div>
-              </section>
+              </div>
+              <div class="ph-tabbar">
+                <span class="ph-tab active"></span>
+                <span class="ph-tab"></span>
+                <span class="ph-tab"></span>
+                <span class="ph-tab"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -470,91 +576,159 @@
         <div class="section-head">
           <h2>Lo importante en una sola app.</h2>
           <p>
-            La prioridad es que el usuario entienda que pasa con su dinero y pueda
-            tomar accion sin pelear con archivos o formulas.
+            La prioridad es que entiendas qué pasa con tu dinero y puedas actuar
+            al momento, sin pelear con hojas de cálculo ni formularios largos.
           </p>
         </div>
         <div class="features">
           <article class="feature">
             <span class="icon">$</span>
             <strong>Transacciones y cuentas</strong>
-            <p>Registra ingresos, gastos, transferencias, tarjetas, efectivo y cuentas con balances claros.</p>
+            <p>Registra ingresos, gastos y transferencias entre cuentas de efectivo, débito, ahorro y tarjetas de crédito, con balances siempre claros.</p>
           </article>
           <article class="feature">
             <span class="icon">%</span>
             <strong>Presupuestos y metas</strong>
-            <p>Control mensual por categoria, objetivos de ahorro y seguimiento de progreso.</p>
+            <p>Define un presupuesto mensual por categoría con alertas, y crea metas de ahorro con seguimiento de aportes y progreso.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">CAM</span>
+            <strong>Escaneo de recibos</strong>
+            <p>Toma una foto del recibo y $harky reconoce el monto y la fecha automáticamente para que solo confirmes y guardes.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">NOTI</span>
+            <strong>Detección desde notificaciones</strong>
+            <p>Activa la lectura de notificaciones de tu banco para que las transacciones se registren solas, sin escribir nada manualmente.</p>
           </article>
           <article class="feature">
             <span class="icon">CSV</span>
-            <strong>Importacion bancaria</strong>
-            <p>Parser configurable para Popular, BHD, Banreservas y Scotiabank, con deteccion de duplicados.</p>
-          </article>
-          <article class="feature">
-            <span class="icon">AI</span>
-            <strong>Inteligencia financiera</strong>
-            <p>Detecta suscripciones, gastos atipicos y tendencias para convertirlas en acciones.</p>
+            <strong>Importación bancaria</strong>
+            <p>Sube el estado de cuenta de Banco Popular, BHD, Banreservas o Scotiabank: $harky detecta columnas, evita duplicados y aprende reglas de categorización.</p>
           </article>
           <article class="feature">
             <span class="icon">PDF</span>
-            <strong>Reportes profesionales</strong>
-            <p>Exporta estados PDF, Excel con multiples hojas, CSV y backup JSON completo.</p>
+            <strong>Reportes y respaldo</strong>
+            <p>Genera reportes mensuales y anuales en PDF, exporta a Excel con hojas por categoría y cuenta, y haz backup completo en JSON.</p>
           </article>
           <article class="feature">
-            <span class="icon">OK</span>
-            <strong>Local-first</strong>
-            <p>Funciona localmente, con autenticacion y sincronizacion cloud opcional para varios dispositivos.</p>
+            <span class="icon">PIN</span>
+            <strong>Privacidad por diseño</strong>
+            <p>Funciona sin conexión y guarda tus datos en el dispositivo. El PIN o patrón de acceso se cifra con Android Keystore.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">+</span>
+            <strong>Accesos directos</strong>
+            <p>Mantén presionado el ícono de $harky para abrir una mini ventana y registrar un gasto o ingreso al instante, sin entrar a la app.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">SYNC</span>
+            <strong>Sincronización opcional</strong>
+            <p>Inicia sesión con tu cuenta de Google si quieres respaldar y sincronizar tu información entre varios dispositivos. Es completamente opcional.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="shell section" id="novedades">
+        <div class="section-head">
+          <h2>Lo último que mejoramos.</h2>
+          <p>
+            $harky se actualiza con frecuencia, sobre todo en seguridad y en los
+            detalles del día a día.
+          </p>
+        </div>
+        <div class="release-list">
+          <article class="release-card">
+            <span class="tag">v1.6.2</span>
+            <div>
+              <strong>Inicio de sesión con Google más estable</strong>
+              <p>La sesión ahora se guarda cifrada con Android Keystore, así que iniciar sesión con Google ya no se interrumpe ni te pide volver a entrar al reabrir la app.</p>
+            </div>
+          </article>
+          <article class="release-card">
+            <span class="tag">v1.6.2</span>
+            <div>
+              <strong>Accesos directos del ícono</strong>
+              <p>Mantén presionado el ícono de $harky para agregar un gasto o un ingreso desde una mini ventana, sin tener que abrir el menú principal.</p>
+            </div>
+          </article>
+          <article class="release-card">
+            <span class="tag">v1.6.1</span>
+            <div>
+              <strong>Más control sobre tus datos</strong>
+              <p>"Eliminar todos los datos" ahora borra también tu copia en la nube si usas sincronización con Google, además de tus datos locales.</p>
+            </div>
+          </article>
+          <article class="release-card">
+            <span class="tag">v1.6.1</span>
+            <div>
+              <strong>Detalles de uso diario</strong>
+              <p>Se desactivó el zoom accidental con gestos, y se corrigió la pantalla de edición de cuentas que aparecía cortada en algunos casos.</p>
+            </div>
           </article>
         </div>
       </section>
 
       <section class="shell section" id="download">
         <div class="section-head">
-          <h2>Descarga para Windows.</h2>
+          <h2>Descarga $harky.</h2>
           <p>
-            Sube los binarios a GitHub Releases y cambia estos enlaces por la URL real
-            de tu release mas reciente.
+            La forma recomendada de instalar $harky es desde Google Play, donde
+            recibirás las actualizaciones automáticamente.
           </p>
         </div>
         <div class="download-grid">
           <article class="download-card">
             <span class="status">Recomendado</span>
-            <strong>Instalador EXE</strong>
-            <p>Instala $harky en Windows con acceso normal desde el menu de inicio.</p>
-            <a class="btn primary" href="https://github.com/XsharklinX/Sharky-Coin/releases/latest" rel="noreferrer">Descargar instalador</a>
+            <strong>Google Play</strong>
+            <p>Instala $harky desde la Play Store y mantente al día con las últimas mejoras y correcciones de seguridad.</p>
+            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.sharky.miapp" rel="noreferrer" aria-label="Disponible en Google Play">
+              <img src="https://play.google.com/intl/en_us/badges/static/images/badges/es-419_badge_web_generic.png" alt="Disponible en Google Play" />
+            </a>
           </article>
           <article class="download-card">
-            <span class="status">Sin instalacion</span>
-            <strong>Portable EXE</strong>
-            <p>Ejecuta la app directamente. Ideal para probarla antes de instalar.</p>
-            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin/releases/latest" rel="noreferrer">Descargar portable</a>
+            <span class="status">Código abierto</span>
+            <strong>Repositorio en GitHub</strong>
+            <p>El código fuente de $harky es público. Puedes revisarlo, reportar un problema o seguir el desarrollo desde GitHub.</p>
+            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">Ver repositorio</a>
           </article>
         </div>
       </section>
 
-      <section class="shell section" id="roadmap">
+      <section class="shell section" id="legal">
         <div class="section-head">
-          <h2>Estado del proyecto.</h2>
+          <h2>Legal y soporte.</h2>
           <p>
-            La version actual refuerza recuperacion de datos, backups y validacion antes de avanzar a sync publico.
+            Información sobre cómo manejamos tus datos y cómo contactarnos.
           </p>
         </div>
-        <article class="release-card">
-          <strong>v1.6.0 - UX profesional completa</strong>
-          <p>
-            Dialogos propios para confirmaciones destructivas, filtros guardados
-            sin prompts nativos y restores con copy consistente.
-          </p>
-        </article>
+        <div class="legal-grid">
+          <a class="legal-card" href="./privacy.html">
+            <strong>Política de privacidad <span class="arrow">→</span></strong>
+            <p>Qué datos recolectamos, cómo los usamos y con quién los compartimos.</p>
+          </a>
+          <a class="legal-card" href="./terms.html">
+            <strong>Términos de uso <span class="arrow">→</span></strong>
+            <p>Las condiciones para usar $harky y la app de Android.</p>
+          </a>
+          <a class="legal-card" href="./delete-account.html">
+            <strong>Eliminar mi cuenta <span class="arrow">→</span></strong>
+            <p>Cómo borrar tus datos locales, tu cuenta y tu información en la nube.</p>
+          </a>
+          <a class="legal-card" href="mailto:contactosharklin@gmail.com">
+            <strong>Soporte <span class="arrow">→</span></strong>
+            <p>¿Dudas, errores o sugerencias? Escríbenos a contactosharklin@gmail.com.</p>
+          </a>
+        </div>
       </section>
     </main>
 
     <footer class="shell footer">
-      <span>$harky Gestion de Finanzas</span>
+      <span>$harky · Finanzas personales</span>
       <span>
-        <a href="./privacy.html">Privacy Policy</a> · <a href="./terms.html">Terms of Use</a>
+        <a href="./privacy.html">Privacidad</a> · <a href="./terms.html">Términos</a> · <a href="./delete-account.html">Eliminar cuenta</a>
       </span>
-      <span>Hecho con React, TypeScript y Tauri.</span>
+      <span>contactosharklin@gmail.com</span>
     </footer>
   </body>
 </html>
