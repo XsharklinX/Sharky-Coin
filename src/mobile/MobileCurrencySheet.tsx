@@ -2,32 +2,36 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { CURRENCIES, convertCurrency, getCurrencyMeta } from '@/data/currencies'
 import { useFinance } from '@/store/finance'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 import type { CurrencyCode } from '@/types'
 
 export function MobileCurrencySheet({ onClose }: { onClose: () => void }) {
+  const t = useT()
   const { currency, setCurrency } = useFinance()
   useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   const select = (code: CurrencyCode) => {
     if (code === currency) { onClose(); return }
     setCurrency(code)
-    toast(`Moneda cambiada a ${code}`, { icon: 'dollar', type: 'ok' })
+    toast(t('currencyChanged').replace('{code}', code), { icon: 'dollar', type: 'ok' })
     onClose()
   }
 
   const current = getCurrencyMeta(currency)
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mcur-sheet" onClick={e => e.stopPropagation()}>
         <header>
-          <span>Moneda</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <span>{t('currency')}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <p className="mcur-subtitle">
-          1 {current.symbol} ({currency}) equivale a:
+          1 {current.symbol} ({currency}) {t('equivalentTo')}
         </p>
 
         <div className="mcur-list">
@@ -55,7 +59,7 @@ export function MobileCurrencySheet({ onClose }: { onClose: () => void }) {
                           : `${c.symbol}${equivalent.toFixed(4)}`}
                     </span>
                   ) : (
-                    <span className="mcur-current">Actual</span>
+                    <span className="mcur-current">{t('currentLabel')}</span>
                   )}
                   {selected && <Icon name="check" size={16} style={{ color: 'var(--accent)' }} />}
                 </div>
@@ -65,7 +69,7 @@ export function MobileCurrencySheet({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="mcur-note">
-          <Icon name="info" size={12} /> Tasas de referencia aproximadas. Los saldos existentes no se convierten.
+          <Icon name="info" size={12} /> {t('approxRatesNote')}
         </p>
       </section>
     </div>

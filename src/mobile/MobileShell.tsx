@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { useT } from '@/i18n'
 import type { AppShortcut } from '@/hooks/useAppShortcut'
 import type { SharedReceipt } from '@/hooks/useTauri'
 import type { Transaction, ViewId, ViewProps } from '@/types'
@@ -34,14 +35,16 @@ function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
   return 'dashboard'
 }
 
-const INTERNAL_TITLES: Partial<Record<ViewId, string>> = {
-  annual:        'Informe anual',
-  calendar:      'Calendario',
-  budgets:       'Presupuestos',
-  goals:         'Metas',
-  reports:       'Reportes',
-  subscriptions: 'Suscripciones',
-  debt:          'Calculadora de deudas',
+function internalTitles(t: ReturnType<typeof useT>): Partial<Record<ViewId, string>> {
+  return {
+    annual:        t('annualReport'),
+    calendar:      t('calendarLabel'),
+    budgets:       t('budgets'),
+    goals:         t('goals'),
+    reports:       t('reports'),
+    subscriptions: t('subscriptions'),
+    debt:          t('debtCalculator'),
+  }
 }
 
 export function MobileShell({
@@ -75,6 +78,7 @@ export function MobileShell({
   appShortcut?: AppShortcut | null
   onConsumeAppShortcut?: () => void
 }) {
+  const t = useT()
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
   const [quickAddSheet, setQuickAddSheet] = useState<'expense' | 'income' | null>(null)
@@ -220,7 +224,7 @@ export function MobileShell({
       <MobileTopBar
         route={route}
         mkey={activeMkey}
-        title={route === 'reports' ? INTERNAL_TITLES[view] : undefined}
+        title={route === 'reports' ? internalTitles(t)[view] : undefined}
         canGoBack={mIdx > 0}
         canGoForward={mIdx >= 0 && mIdx < keys.length - 1}
         onPrevMonth={() => mIdx > 0 && onMonth(keys[mIdx - 1])}

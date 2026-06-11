@@ -2,21 +2,22 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { ACCENT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
+import { useT } from '@/i18n'
 import type { Account, IconName } from '@/types'
 
 type AccountType = Account['type']
 
-const TYPES: Array<{ id: AccountType; label: string; icon: IconName; desc: string; color: string }> = [
-  { id: 'cash',    label: 'Efectivo',  icon: 'wallet', desc: 'Dinero en mano',          color: '#ffdd3d' },
-  { id: 'debit',   label: 'Débito',    icon: 'cards',  desc: 'Cuenta bancaria',          color: '#35d0a2' },
-  { id: 'savings', label: 'Ahorros',   icon: 'piggy',  desc: 'Fondo de emergencia',      color: '#5bc0ff' },
-  { id: 'credit',  label: 'Crédito',   icon: 'cards',  desc: 'Tarjeta de crédito',       color: '#a78bfa' },
-]
-
 const COLORS = ACCENT_COLORS
 
-export function MobileOnboarding({ onDone }: { onDone: () => void }) {
+export function MobileOnboarding({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const addAccount = useFinance(s => s.addAccount)
+  const t = useT()
+  const TYPES: Array<{ id: AccountType; label: string; icon: IconName; desc: string; color: string }> = [
+    { id: 'cash',    label: t('cash'),    icon: 'wallet', desc: t('accountTypeCashDesc'),    color: '#ffdd3d' },
+    { id: 'debit',   label: t('debit'),   icon: 'cards',  desc: t('accountTypeDebitDesc'),   color: '#35d0a2' },
+    { id: 'savings', label: t('savings'), icon: 'piggy',  desc: t('accountTypeSavingsDesc'), color: '#5bc0ff' },
+    { id: 'credit',  label: t('credit'),  icon: 'cards',  desc: t('accountTypeCreditDesc'),  color: '#a78bfa' },
+  ]
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [type, setType]     = useState<AccountType>('cash')
   const [name, setName]     = useState('')
@@ -24,7 +25,7 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
   const [color, setColor]   = useState('#ffdd3d')
   const [error, setError]   = useState('')
 
-  const selectedType = TYPES.find(t => t.id === type)!
+  const selectedType = TYPES.find(opt => opt.id === type)!
 
   const goStep2 = () => {
     setName(selectedType.label)
@@ -33,7 +34,7 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
   }
 
   const goStep3 = () => {
-    if (!name.trim()) { setError('Escribe un nombre para la cuenta'); return }
+    if (!name.trim()) { setError(t('onboardNameError')); return }
     setError('')
     setStep(3)
   }
@@ -62,37 +63,44 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
       {step === 1 && (
         <div className="mob-onboard-step">
           <div className="mob-onboard-header">
-            <h2>¿Qué tipo de cuenta tienes?</h2>
-            <p>Puedes agregar más después</p>
+            <h2>{t('onboardAccountTypeTitle')}</h2>
+            <p>{t('onboardAccountTypeHint')}</p>
           </div>
           <div className="mob-onboard-types">
-            {TYPES.map(t => (
+            {TYPES.map(opt => (
               <button
-                key={t.id}
-                className={`mob-onboard-type${type === t.id ? ' on' : ''}`}
-                onClick={() => setType(t.id)}
-                style={{ '--type-color': t.color } as React.CSSProperties}
+                key={opt.id}
+                className={`mob-onboard-type${type === opt.id ? ' on' : ''}`}
+                onClick={() => setType(opt.id)}
+                style={{ '--type-color': opt.color } as React.CSSProperties}
               >
                 <span className="mob-onboard-type-icon">
-                  <Icon name={t.icon} size={28} />
+                  <Icon name={opt.icon} size={28} />
                 </span>
-                <strong>{t.label}</strong>
-                <small>{t.desc}</small>
+                <strong>{opt.label}</strong>
+                <small>{opt.desc}</small>
               </button>
             ))}
           </div>
-          <button className="mob-onboard-next" onClick={goStep2}>
-            Continuar
-            <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
-          </button>
+          <div className="mob-onboard-nav">
+            {onBack && (
+              <button className="mob-onboard-back" onClick={onBack}>
+                <Icon name="arrowUp" size={16} style={{ transform: 'rotate(-90deg)' }} /> {t('back')}
+              </button>
+            )}
+            <button className="mob-onboard-next" onClick={goStep2}>
+              {t('continueBtn')}
+              <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
+            </button>
+          </div>
         </div>
       )}
 
       {step === 2 && (
         <div className="mob-onboard-step">
           <div className="mob-onboard-header">
-            <h2>Nombra tu cuenta</h2>
-            <p>Ej. BHD, Caja chica, Visa Banco Popular</p>
+            <h2>{t('onboardNameAccountTitle')}</h2>
+            <p>{t('onboardNameAccountHint')}</p>
           </div>
           <input
             className="mob-onboard-input"
@@ -116,10 +124,10 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
           </div>
           <div className="mob-onboard-nav">
             <button className="mob-onboard-back" onClick={() => setStep(1)}>
-              <Icon name="arrowUp" size={16} style={{ transform: 'rotate(-90deg)' }} /> Atrás
+              <Icon name="arrowUp" size={16} style={{ transform: 'rotate(-90deg)' }} /> {t('back')}
             </button>
             <button className="mob-onboard-next" onClick={goStep3}>
-              Continuar
+              {t('continueBtn')}
               <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
             </button>
           </div>
@@ -129,8 +137,8 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
       {step === 3 && (
         <div className="mob-onboard-step">
           <div className="mob-onboard-header">
-            <h2>¿Cuánto tienes ahora?</h2>
-            <p>El saldo actual de "{name || selectedType.label}"</p>
+            <h2>{t('onboardBalanceTitle')}</h2>
+            <p>{t('onboardBalanceHint').replace('{name}', name || selectedType.label)}</p>
           </div>
           <div className="mob-onboard-balance-wrap">
             <span className="mob-onboard-balance-symbol">RD$</span>
@@ -144,13 +152,13 @@ export function MobileOnboarding({ onDone }: { onDone: () => void }) {
               onKeyDown={e => e.key === 'Enter' && finish()}
             />
           </div>
-          <p className="mob-onboard-skip-hint">Puedes dejarlo en 0 si no lo sabes ahora</p>
+          <p className="mob-onboard-skip-hint">{t('onboardBalanceSkipHint')}</p>
           <div className="mob-onboard-nav">
             <button className="mob-onboard-back" onClick={() => setStep(2)}>
-              <Icon name="arrowUp" size={16} style={{ transform: 'rotate(-90deg)' }} /> Atrás
+              <Icon name="arrowUp" size={16} style={{ transform: 'rotate(-90deg)' }} /> {t('back')}
             </button>
             <button className="mob-onboard-next" onClick={finish}>
-              <Icon name="check" size={16} /> Listo
+              <Icon name="check" size={16} /> {t('done')}
             </button>
           </div>
         </div>

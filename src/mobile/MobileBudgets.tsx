@@ -5,7 +5,10 @@ import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { fmt, fmtCompact, txForMonth } from '@/data/helpers'
 import { CAT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { translateCategoryName, useCategoryName, useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import type { Category, IconName, ViewProps } from '@/types'
 
@@ -21,6 +24,8 @@ const ALL_ICONS: IconName[] = [
 
 export function MobileBudgets({ txns, mkey }: ViewProps) {
   const { categories, currency, addCategory, updateCategory, deleteCategory } = useFinance()
+  const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const [editing, setEditing] = useState<Category | 'new' | null>(null)
 
   const monthTx = txForMonth(txns, mkey)
@@ -39,13 +44,13 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const overCount   = cats.filter(c => (spent[c.id] ?? 0) > c.budget && c.budget > 0).length
 
   const save = (fields: { name: string; budget: number; color: string; icon: IconName }) => {
-    if (!fields.name.trim()) { toast('Write a category name.', { icon: 'alert' }); return }
+    if (!fields.name.trim()) { toast(t('enterCategoryName'), { icon: 'alert' }); return }
     if (editing === 'new') {
       addCategory({ name: fields.name.trim(), type: 'expense', budget: fields.budget, color: fields.color, icon: fields.icon })
-      toast('Category created', { icon: 'check', type: 'ok' })
+      toast(t('categoryCreatedSimple'), { icon: 'check', type: 'ok' })
     } else if (editing) {
       updateCategory(editing.id, { name: fields.name.trim(), budget: fields.budget, color: fields.color, icon: fields.icon })
-      toast('Category updated', { icon: 'check', type: 'ok' })
+      toast(t('categoryUpdated'), { icon: 'check', type: 'ok' })
     }
     setEditing(null)
   }
@@ -53,10 +58,10 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const remove = (cat: Category) => {
     try {
       deleteCategory(cat.id)
-      toast('Category deleted', { icon: 'trash' })
+      toast(t('categoryDeleted'), { icon: 'trash' })
       setEditing(null)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Could not delete.', { icon: 'alert' })
+      toast(e instanceof Error ? e.message : t('couldNotDelete'), { icon: 'alert' })
     }
   }
 
@@ -67,13 +72,13 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
       <div className="mbud-summary">
         <div className="mbud-summary-top">
           <div>
-            <span className="mbud-summary-label">Total budget</span>
+            <span className="mbud-summary-label">{t('totalBudgetLabel')}</span>
             <strong className="mbud-summary-total">
               <AnimatedMoney value={totalBudget} compact />
             </strong>
           </div>
           <button className="mbud-add-btn" onClick={() => setEditing('new')}>
-            <Icon name="plus" size={18} /> New
+            <Icon name="plus" size={18} /> {t('new')}
           </button>
         </div>
 
@@ -94,7 +99,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
             <Icon name="arrowUp" size={13} style={{ color: '#ff6b8a' }} />
             <div>
               <strong><AnimatedMoney value={totalSpent} compact /></strong>
-              <small>Spent</small>
+              <small>{t('spentLabel')}</small>
             </div>
           </div>
           <div className="mbud-pill-sep" />
@@ -102,7 +107,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
             <Icon name="target" size={13} style={{ color: '#35d0a2' }} />
             <div>
               <strong className={totalLeft < 0 ? 'over' : ''}><AnimatedMoney value={Math.abs(totalLeft)} compact /></strong>
-              <small>{totalLeft < 0 ? 'Over budget' : 'Available'}</small>
+              <small>{totalLeft < 0 ? t('overBudgetLabel') : t('availableLabel')}</small>
             </div>
           </div>
           {overCount > 0 && (
@@ -112,7 +117,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                 <Icon name="alert" size={13} style={{ color: '#f59e0b' }} />
                 <div>
                   <strong style={{ color: '#f59e0b' }}>{overCount}</strong>
-                  <small>Over limit</small>
+                  <small>{t('overLimitLabel')}</small>
                 </div>
               </div>
             </>
@@ -124,10 +129,10 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
         {cats.length === 0 ? (
           <div className="mbud-empty">
             <span><Icon name="target" size={32} /></span>
-            <strong>No budgets yet</strong>
-            <p>Create expense categories with a monthly limit</p>
+            <strong>{t('noBudgetsYet')}</strong>
+            <p>{t('createExpenseCategoriesHint')}</p>
             <button onClick={() => setEditing('new')}>
-              <Icon name="plus" size={16} /> Create first category
+              <Icon name="plus" size={16} /> {t('createFirstCategory')}
             </button>
           </div>
         ) : (
@@ -146,9 +151,9 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                 </span>
                 <div className="mbud-row-body">
                   <div className="mbud-row-top">
-                    <span className="mbud-row-name">{cat.name}</span>
+                    <span className="mbud-row-name">{translateCategoryName(cat, lang)}</span>
                     <span className={`mbud-row-pct${over ? ' over' : pct >= 80 ? ' warn' : ''}`}>
-                      {cat.budget > 0 ? `${Math.round(pct)}%` : 'No limit'}
+                      {cat.budget > 0 ? `${Math.round(pct)}%` : t('noLimitLabel')}
                     </span>
                   </div>
                   {cat.budget > 0 && (
@@ -160,10 +165,12 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                     </div>
                   )}
                   <div className="mbud-row-meta">
-                    <span>{fmtCompact(s, currency)} spent</span>
+                    <span>{t('spentAmount').replace('{amount}', fmtCompact(s, currency))}</span>
                     {cat.budget > 0 && (
                       <span className={over ? 'over' : ''}>
-                        {over ? `+${fmtCompact(Math.abs(left), currency)} over` : `${fmtCompact(left, currency)} free`}
+                        {over
+                          ? t('overAmount').replace('{amount}', fmtCompact(Math.abs(left), currency))
+                          : t('freeAmount').replace('{amount}', fmtCompact(left, currency))}
                       </span>
                     )}
                   </div>
@@ -199,7 +206,9 @@ function BudgetEditor({
   onDelete?: (c: Category) => void
 }) {
   const { currency } = useFinance()
-  const [name,       setName]       = useState(category?.name ?? '')
+  const t = useT()
+  const initialName = useCategoryName(category ?? { id: '', name: '' })
+  const [name,       setName]       = useState(category ? initialName : '')
   const [budget,     setBudget]     = useState(category?.budget ?? 0)
   const [color,      setColor]      = useState(category?.color ?? COLORS[0])
   const [icon,       setIcon]       = useState<IconName>(category?.icon ?? 'cart')
@@ -208,47 +217,48 @@ function BudgetEditor({
 
   useMobileBackDismiss(budgetSheet, () => setBudgetSheet(false))
   useMobileBackDismiss(!budgetSheet, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !budgetSheet)
 
   return (
     <>
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={category ? 'Edit category' : 'New category'} onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={category ? t('editCategory') : t('newCategory')} onClick={onClose}>
       <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
         <header>
-          <span>{category ? 'Edit category' : 'New category'}</span>
-          <button aria-label="Close" onClick={onClose}><Icon name="close" size={18} /></button>
+          <span>{category ? t('editCategory') : t('newCategory')}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mbud-editor-body">
           <label className="mbud-field">
-            <span>Name</span>
+            <span>{t('name')}</span>
             <input
               className="mbud-input"
               type="text"
               value={name}
-              placeholder="e.g. Food, Gas"
+              placeholder={t('egCategoryName')}
               autoCapitalize="words"
               onChange={e => setName(e.target.value)}
             />
           </label>
 
           <div className="mbud-field">
-            <span>Límite mensual</span>
+            <span>{t('monthlyBudget')}</span>
             <button className="mdebt-amount-row" onClick={() => setBudgetSheet(true)}>
               <span className={budget > 0 ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
-                {budget > 0 ? fmt(budget, currency) : 'Sin límite'}
+                {budget > 0 ? fmt(budget, currency) : t('noLimitLabel')}
               </span>
               <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
             </button>
           </div>
 
           <div className="mbud-field">
-            <span>Color</span>
+            <span>{t('color')}</span>
             <div className="mbud-color-strip">
               {COLORS.map(c => (
                 <button
                   key={c}
                   className={`mbud-color-dot${color === c ? ' on' : ''}`}
-                  aria-label={`Color ${c}`}
+                  aria-label={t('colorOption').replace('{c}', c)}
                   aria-pressed={color === c}
                   style={{ background: c }}
                   onClick={() => setColor(c)}
@@ -258,13 +268,13 @@ function BudgetEditor({
           </div>
 
           <div className="mbud-field">
-            <span>Icon</span>
+            <span>{t('icon')}</span>
             <div className="mbud-icon-grid-sheet">
               {ALL_ICONS.map(ic => (
                 <button
                   key={ic}
                   className={`mbud-icon-btn-sheet${icon === ic ? ' on' : ''}`}
-                  aria-label={`Icon ${ic}`}
+                  aria-label={t('iconOption').replace('{ic}', ic)}
                   aria-pressed={icon === ic}
                   style={icon === ic ? { color, background: `color-mix(in oklab, ${color} 18%, transparent)` } : {}}
                   onClick={() => setIcon(ic)}
@@ -278,15 +288,15 @@ function BudgetEditor({
           {category && onDelete && (
             !confirmDel ? (
               <button className="mbud-del-btn" onClick={() => setConfirmDel(true)}>
-                <Icon name="trash" size={16} /> Delete category
+                <Icon name="trash" size={16} /> {t('deleteCategory')}
               </button>
             ) : (
               <div className="mbud-confirm-del">
-                <p>Delete "{category.name}"? This cannot be undone.</p>
+                <p>{t('deleteCategoryConfirm').replace('{name}', initialName)}</p>
                 <div>
-                  <button onClick={() => setConfirmDel(false)}>Cancel</button>
+                  <button onClick={() => setConfirmDel(false)}>{t('cancel')}</button>
                   <button className="danger" onClick={() => onDelete(category)}>
-                    <Icon name="trash" size={16} /> Delete
+                    <Icon name="trash" size={16} /> {t('delete')}
                   </button>
                 </div>
               </div>
@@ -295,13 +305,13 @@ function BudgetEditor({
         </div>
 
         <div className="mbud-editor-actions">
-          <button className="mbud-btn-cancel" onClick={onClose}>Cancelar</button>
+          <button className="mbud-btn-cancel" onClick={onClose}>{t('cancel')}</button>
           <button
             className="mbud-btn-save"
             style={{ background: color }}
             onClick={() => onSave({ name, budget, color, icon })}
           >
-            {category ? 'Guardar' : 'Crear'}
+            {category ? t('save') : t('create')}
           </button>
         </div>
       </section>
@@ -309,7 +319,7 @@ function BudgetEditor({
 
     {budgetSheet && (
       <MobileAmountSheet
-        title="Límite mensual"
+        title={t('monthlyBudget')}
         value={budget}
         currency={currency}
         onDone={v => { setBudget(v); setBudgetSheet(false) }}

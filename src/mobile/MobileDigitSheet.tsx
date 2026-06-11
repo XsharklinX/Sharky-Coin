@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { playBackspaceSound, playDoneSound, playKeySound } from '@/lib/sound'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 const DIGIT_KEYS = ['1','2','3','4','5','6','7','8','9','0'] as const
 
@@ -18,9 +20,11 @@ export function MobileDigitSheet({
   onDone: (value: string) => void
   onClose: () => void
 }) {
+  const t = useT()
   const [digits, setDigits] = useState(value)
 
   useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   const press = (d: string) => {
     if (digits.length >= maxDigits) return
@@ -42,11 +46,11 @@ export function MobileDigitSheet({
   const display = digits.padEnd(maxDigits, '·')
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mamt-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <span>{title}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mamt-amount-display">

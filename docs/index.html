@@ -152,6 +152,25 @@
         color: #dbeafe;
       }
 
+      .lang-toggle {
+        cursor: pointer;
+        font-family: inherit;
+        min-height: 38px;
+        padding: 0 14px;
+        font-size: 13px;
+        gap: 6px;
+      }
+
+      .lang-toggle .lang-opt {
+        opacity: 0.45;
+        transition: opacity 0.15s;
+      }
+
+      .lang-toggle .lang-opt.active {
+        opacity: 1;
+        color: var(--accent);
+      }
+
       .play-badge img {
         height: 54px;
         display: block;
@@ -478,52 +497,57 @@
   </head>
   <body>
     <header class="shell nav">
-      <a class="brand" href="#top" aria-label="$harky inicio">
+      <a class="brand" href="#top" aria-label="$harky inicio" data-i18n-aria="brandHomeAria">
         <img src="./assets/icon.svg" alt="" />
         <strong><span>$</span>harky</strong>
       </a>
-      <nav class="nav-links" aria-label="Navegacion">
-        <a href="#features">Funciones</a>
-        <a href="#novedades">Novedades</a>
-        <a href="#download">Descargar</a>
-        <a href="#legal">Legal</a>
+      <nav class="nav-links" aria-label="Navegacion" data-i18n-aria="navLabel">
+        <a href="#features" data-i18n="navFeatures">Funciones</a>
+        <a href="#novedades" data-i18n="navNews">Novedades</a>
+        <a href="#download" data-i18n="navDownload">Descargar</a>
+        <a href="#legal" data-i18n="navLegal">Legal</a>
         <a href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">GitHub</a>
       </nav>
+      <button id="langToggle" class="btn secondary lang-toggle" type="button" aria-label="Cambiar idioma / Switch language" data-i18n-aria="langToggleAria">
+        <span class="lang-opt" data-lang-opt="es">ES</span>
+        <span aria-hidden="true">/</span>
+        <span class="lang-opt" data-lang-opt="en">EN</span>
+      </button>
     </header>
 
     <main id="top">
       <section class="shell hero">
         <div>
-          <span class="eyebrow">App para Android · funciona sin conexión</span>
-          <h1>Tus finanzas, claras y bajo tu control.</h1>
-          <p>
+          <span class="eyebrow" data-i18n="heroEyebrow">App para Android · funciona sin conexión</span>
+          <h1 data-i18n="heroTitle">Tus finanzas, claras y bajo tu control.</h1>
+          <p data-i18n="heroBody">
             $harky es una app de finanzas personales para Android. Registra tus
             movimientos, controla presupuestos y metas de ahorro, escanea recibos
             y mantén tus datos en tu teléfono — con sincronización en la nube
             totalmente opcional.
           </p>
           <div class="actions">
-            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.sharky.miapp" rel="noreferrer" aria-label="Disponible en Google Play">
-              <img src="https://play.google.com/intl/en_us/badges/static/images/badges/es-419_badge_web_generic.png" alt="Disponible en Google Play" />
+            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.sharky.miapp" rel="noreferrer" aria-label="Disponible en Google Play" data-i18n-aria="playBadgeAria">
+              <img src="https://play.google.com/intl/en_us/badges/static/images/badges/es-419_badge_web_generic.png" alt="Disponible en Google Play" data-i18n-alt="playBadgeAlt" />
             </a>
-            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">Ver el codigo</a>
+            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer" data-i18n="viewCode">Ver el codigo</a>
           </div>
           <div class="meta">
-            <span>Presupuestos y metas</span>
-            <span>Escaneo de recibos</span>
-            <span>PIN y huella</span>
+            <span data-i18n="metaBudgetsGoals">Presupuestos y metas</span>
+            <span data-i18n="metaReceiptScan">Escaneo de recibos</span>
+            <span data-i18n="metaPinFingerprint">PIN y huella</span>
             <span>PDF, Excel, CSV, JSON</span>
           </div>
         </div>
 
         <div class="phone-stage">
-          <div class="phone" aria-label="Vista previa de $harky en Android">
+          <div class="phone" aria-label="Vista previa de $harky en Android" data-i18n-aria="phonePreviewAria">
             <div class="phone-screen">
               <div class="phone-notch"></div>
               <div class="ph-balance">
                 <span class="line" style="display:block;width:40%;height:10px"></span>
                 <b>RD$ 128,450</b>
-                <b class="up">+ 6.2% vs. mes anterior</b>
+                <b class="up" data-i18n="phoneVsLastMonth">+ 6.2% vs. mes anterior</b>
               </div>
               <div class="ph-grid">
                 <div class="ph-card">
@@ -574,8 +598,8 @@
 
       <section class="shell section" id="features">
         <div class="section-head">
-          <h2>Lo importante en una sola app.</h2>
-          <p>
+          <h2 data-i18n="featuresTitle">Lo importante en una sola app.</h2>
+          <p data-i18n="featuresBody">
             La prioridad es que entiendas qué pasa con tu dinero y puedas actuar
             al momento, sin pelear con hojas de cálculo ni formularios largos.
           </p>
@@ -583,87 +607,124 @@
         <div class="features">
           <article class="feature">
             <span class="icon">$</span>
-            <strong>Transacciones y cuentas</strong>
-            <p>Registra ingresos, gastos y transferencias entre cuentas de efectivo, débito, ahorro y tarjetas de crédito, con balances siempre claros.</p>
+            <strong data-i18n="featTxTitle">Transacciones y cuentas</strong>
+            <p data-i18n="featTxBody">Registra ingresos, gastos y transferencias entre cuentas de efectivo, débito, ahorro y tarjetas de crédito, con balances siempre claros.</p>
           </article>
           <article class="feature">
             <span class="icon">%</span>
-            <strong>Presupuestos y metas</strong>
-            <p>Define un presupuesto mensual por categoría con alertas, y crea metas de ahorro con seguimiento de aportes y progreso.</p>
+            <strong data-i18n="featBudgetsTitle">Presupuestos y metas</strong>
+            <p data-i18n="featBudgetsBody">Define un presupuesto mensual por categoría con alertas, y crea metas de ahorro con seguimiento de aportes y progreso.</p>
           </article>
           <article class="feature">
             <span class="icon">CAM</span>
-            <strong>Escaneo de recibos</strong>
-            <p>Toma una foto del recibo y $harky reconoce el monto y la fecha automáticamente para que solo confirmes y guardes.</p>
+            <strong data-i18n="featScanTitle">Escaneo de recibos</strong>
+            <p data-i18n="featScanBody">Toma una foto del recibo y $harky reconoce el monto y la fecha automáticamente para que solo confirmes y guardes.</p>
           </article>
           <article class="feature">
             <span class="icon">NOTI</span>
-            <strong>Detección desde notificaciones</strong>
-            <p>Activa la lectura de notificaciones de tu banco para que las transacciones se registren solas, sin escribir nada manualmente.</p>
+            <strong data-i18n="featNotiTitle">Detección desde notificaciones</strong>
+            <p data-i18n="featNotiBody">Activa la lectura de notificaciones de tu banco para que las transacciones se registren solas, sin escribir nada manualmente.</p>
           </article>
           <article class="feature">
             <span class="icon">CSV</span>
-            <strong>Importación bancaria</strong>
-            <p>Sube el estado de cuenta de Banco Popular, BHD, Banreservas o Scotiabank: $harky detecta columnas, evita duplicados y aprende reglas de categorización.</p>
+            <strong data-i18n="featCsvTitle">Importación bancaria</strong>
+            <p data-i18n="featCsvBody">Sube el estado de cuenta de Banco Popular, BHD, Banreservas o Scotiabank en CSV, OFX o TXT: $harky detecta columnas, evita duplicados y aprende reglas de categorización.</p>
           </article>
           <article class="feature">
             <span class="icon">PDF</span>
-            <strong>Reportes y respaldo</strong>
-            <p>Genera reportes mensuales y anuales en PDF, exporta a Excel con hojas por categoría y cuenta, y haz backup completo en JSON.</p>
+            <strong data-i18n="featReportsTitle">Reportes y respaldo</strong>
+            <p data-i18n="featReportsBody">Genera reportes mensuales y anuales en PDF, exporta a Excel con hojas por categoría y cuenta, y haz backup completo en JSON.</p>
           </article>
           <article class="feature">
             <span class="icon">PIN</span>
-            <strong>Privacidad por diseño</strong>
-            <p>Funciona sin conexión y guarda tus datos en el dispositivo. El PIN o patrón de acceso se cifra con Android Keystore.</p>
+            <strong data-i18n="featPrivacyTitle">Privacidad por diseño</strong>
+            <p data-i18n="featPrivacyBody">Funciona sin conexión y guarda tus datos en el dispositivo. El PIN o patrón de acceso se cifra con Android Keystore.</p>
           </article>
           <article class="feature">
             <span class="icon">+</span>
-            <strong>Accesos directos</strong>
-            <p>Mantén presionado el ícono de $harky para abrir una mini ventana y registrar un gasto o ingreso al instante, sin entrar a la app.</p>
+            <strong data-i18n="featShortcutsTitle">Accesos directos</strong>
+            <p data-i18n="featShortcutsBody">Mantén presionado el ícono de $harky para abrir una mini ventana y registrar un gasto o ingreso al instante, sin entrar a la app.</p>
           </article>
           <article class="feature">
             <span class="icon">SYNC</span>
-            <strong>Sincronización opcional</strong>
-            <p>Inicia sesión con tu cuenta de Google si quieres respaldar y sincronizar tu información entre varios dispositivos. Es completamente opcional.</p>
+            <strong data-i18n="featSyncTitle">Sincronización opcional</strong>
+            <p data-i18n="featSyncBody">Inicia sesión con tu cuenta de Google si quieres respaldar y sincronizar tu información entre varios dispositivos. Es completamente opcional.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">DEUDA</span>
+            <strong data-i18n="featDebtTitle">Calculadora de deudas</strong>
+            <p data-i18n="featDebtBody">Arma un plan de pago con los métodos bola de nieve o avalancha, y mira cuánto tiempo y cuántos intereses te ahorras según el orden en que pagues.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">SUSC</span>
+            <strong data-i18n="featSubsTitle">Pagos recurrentes y suscripciones</strong>
+            <p data-i18n="featSubsBody">$harky detecta automáticamente tus suscripciones y pagos recurrentes, calcula tu gasto fijo mensual y te avisa antes del próximo cobro.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">CAL</span>
+            <strong data-i18n="featCalendarTitle">Calendario financiero</strong>
+            <p data-i18n="featCalendarBody">Revisa tus movimientos día a día en un calendario que muestra cuánto llevas gastado frente a tu presupuesto diario.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">ANUAL</span>
+            <strong data-i18n="featAnnualTitle">Reportes anuales</strong>
+            <p data-i18n="featAnnualBody">Compara tus finanzas año contra año, identifica tus meses más fuertes y exporta el resumen como imagen para compartir.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">BUSCAR</span>
+            <strong data-i18n="featSearchTitle">Búsqueda global</strong>
+            <p data-i18n="featSearchBody">Encuentra cualquier transacción, categoría o cuenta al instante con la búsqueda global, desde cualquier pantalla de la app.</p>
+          </article>
+          <article class="feature">
+            <span class="icon">ES/EN</span>
+            <strong data-i18n="featLangTitle">App en español e inglés</strong>
+            <p data-i18n="featLangBody">Cambia el idioma de $harky entre español e inglés cuando quieras, con fechas, meses y montos adaptados automáticamente.</p>
           </article>
         </div>
       </section>
 
       <section class="shell section" id="novedades">
         <div class="section-head">
-          <h2>Lo último que mejoramos.</h2>
-          <p>
+          <h2 data-i18n="newsTitle">Lo último que mejoramos.</h2>
+          <p data-i18n="newsBody">
             $harky se actualiza con frecuencia, sobre todo en seguridad y en los
             detalles del día a día.
           </p>
         </div>
         <div class="release-list">
           <article class="release-card">
-            <span class="tag">v1.6.2</span>
+            <span class="tag">v1.7.0</span>
             <div>
-              <strong>Inicio de sesión con Google más estable</strong>
-              <p>La sesión ahora se guarda cifrada con Android Keystore, así que iniciar sesión con Google ya no se interrumpe ni te pide volver a entrar al reabrir la app.</p>
+              <strong data-i18n="relV170Title">App completamente bilingüe y nuevas herramientas</strong>
+              <p data-i18n="relV170Body">$harky ahora funciona en español e inglés, e incorpora calculadora de deudas, detección de pagos recurrentes, calendario financiero, reportes anuales y búsqueda global.</p>
             </div>
           </article>
           <article class="release-card">
             <span class="tag">v1.6.2</span>
             <div>
-              <strong>Accesos directos del ícono</strong>
-              <p>Mantén presionado el ícono de $harky para agregar un gasto o un ingreso desde una mini ventana, sin tener que abrir el menú principal.</p>
+              <strong data-i18n="relV162aTitle">Inicio de sesión con Google más estable</strong>
+              <p data-i18n="relV162aBody">La sesión ahora se guarda cifrada con Android Keystore, así que iniciar sesión con Google ya no se interrumpe ni te pide volver a entrar al reabrir la app.</p>
+            </div>
+          </article>
+          <article class="release-card">
+            <span class="tag">v1.6.2</span>
+            <div>
+              <strong data-i18n="relV162bTitle">Accesos directos del ícono</strong>
+              <p data-i18n="relV162bBody">Mantén presionado el ícono de $harky para agregar un gasto o un ingreso desde una mini ventana, sin tener que abrir el menú principal.</p>
             </div>
           </article>
           <article class="release-card">
             <span class="tag">v1.6.1</span>
             <div>
-              <strong>Más control sobre tus datos</strong>
-              <p>"Eliminar todos los datos" ahora borra también tu copia en la nube si usas sincronización con Google, además de tus datos locales.</p>
+              <strong data-i18n="relV161aTitle">Más control sobre tus datos</strong>
+              <p data-i18n="relV161aBody">"Eliminar todos los datos" ahora borra también tu copia en la nube si usas sincronización con Google, además de tus datos locales.</p>
             </div>
           </article>
           <article class="release-card">
             <span class="tag">v1.6.1</span>
             <div>
-              <strong>Detalles de uso diario</strong>
-              <p>Se desactivó el zoom accidental con gestos, y se corrigió la pantalla de edición de cuentas que aparecía cortada en algunos casos.</p>
+              <strong data-i18n="relV161bTitle">Detalles de uso diario</strong>
+              <p data-i18n="relV161bBody">Se desactivó el zoom accidental con gestos, y se corrigió la pantalla de edición de cuentas que aparecía cortada en algunos casos.</p>
             </div>
           </article>
         </div>
@@ -671,64 +732,291 @@
 
       <section class="shell section" id="download">
         <div class="section-head">
-          <h2>Descarga $harky.</h2>
-          <p>
+          <h2 data-i18n="downloadTitle">Descarga $harky.</h2>
+          <p data-i18n="downloadBody">
             La forma recomendada de instalar $harky es desde Google Play, donde
             recibirás las actualizaciones automáticamente.
           </p>
         </div>
         <div class="download-grid">
           <article class="download-card">
-            <span class="status">Recomendado</span>
+            <span class="status" data-i18n="statusRecommended">Recomendado</span>
             <strong>Google Play</strong>
-            <p>Instala $harky desde la Play Store y mantente al día con las últimas mejoras y correcciones de seguridad.</p>
-            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.sharky.miapp" rel="noreferrer" aria-label="Disponible en Google Play">
-              <img src="https://play.google.com/intl/en_us/badges/static/images/badges/es-419_badge_web_generic.png" alt="Disponible en Google Play" />
+            <p data-i18n="downloadPlayBody">Instala $harky desde la Play Store y mantente al día con las últimas mejoras y correcciones de seguridad.</p>
+            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.sharky.miapp" rel="noreferrer" aria-label="Disponible en Google Play" data-i18n-aria="playBadgeAria">
+              <img src="https://play.google.com/intl/en_us/badges/static/images/badges/es-419_badge_web_generic.png" alt="Disponible en Google Play" data-i18n-alt="playBadgeAlt" />
             </a>
           </article>
           <article class="download-card">
-            <span class="status">Código abierto</span>
-            <strong>Repositorio en GitHub</strong>
-            <p>El código fuente de $harky es público. Puedes revisarlo, reportar un problema o seguir el desarrollo desde GitHub.</p>
-            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer">Ver repositorio</a>
+            <span class="status" data-i18n="statusOpenSource">Código abierto</span>
+            <strong data-i18n="downloadRepoTitle">Repositorio en GitHub</strong>
+            <p data-i18n="downloadRepoBody">El código fuente de $harky es público. Puedes revisarlo, reportar un problema o seguir el desarrollo desde GitHub.</p>
+            <a class="btn secondary" href="https://github.com/XsharklinX/Sharky-Coin" rel="noreferrer" data-i18n="viewRepo">Ver repositorio</a>
           </article>
         </div>
       </section>
 
       <section class="shell section" id="legal">
         <div class="section-head">
-          <h2>Legal y soporte.</h2>
-          <p>
+          <h2 data-i18n="legalTitle">Legal y soporte.</h2>
+          <p data-i18n="legalBody">
             Información sobre cómo manejamos tus datos y cómo contactarnos.
           </p>
         </div>
         <div class="legal-grid">
           <a class="legal-card" href="./privacy.html">
-            <strong>Política de privacidad <span class="arrow">→</span></strong>
-            <p>Qué datos recolectamos, cómo los usamos y con quién los compartimos.</p>
+            <strong><span data-i18n="legalPrivacyTitle">Política de privacidad</span> <span class="arrow">→</span></strong>
+            <p data-i18n="legalPrivacyBody">Qué datos recolectamos, cómo los usamos y con quién los compartimos.</p>
           </a>
           <a class="legal-card" href="./terms.html">
-            <strong>Términos de uso <span class="arrow">→</span></strong>
-            <p>Las condiciones para usar $harky y la app de Android.</p>
+            <strong><span data-i18n="legalTermsTitle">Términos de uso</span> <span class="arrow">→</span></strong>
+            <p data-i18n="legalTermsBody">Las condiciones para usar $harky y la app de Android.</p>
           </a>
           <a class="legal-card" href="./delete-account.html">
-            <strong>Eliminar mi cuenta <span class="arrow">→</span></strong>
-            <p>Cómo borrar tus datos locales, tu cuenta y tu información en la nube.</p>
+            <strong><span data-i18n="legalDeleteTitle">Eliminar mi cuenta</span> <span class="arrow">→</span></strong>
+            <p data-i18n="legalDeleteBody">Cómo borrar tus datos locales, tu cuenta y tu información en la nube.</p>
           </a>
           <a class="legal-card" href="mailto:contactosharklin@gmail.com">
-            <strong>Soporte <span class="arrow">→</span></strong>
-            <p>¿Dudas, errores o sugerencias? Escríbenos a contactosharklin@gmail.com.</p>
+            <strong><span data-i18n="legalSupportTitle">Soporte</span> <span class="arrow">→</span></strong>
+            <p data-i18n="legalSupportBody">¿Dudas, errores o sugerencias? Escríbenos a contactosharklin@gmail.com.</p>
           </a>
         </div>
       </section>
     </main>
 
     <footer class="shell footer">
-      <span>$harky · Finanzas personales</span>
+      <span data-i18n="footerTagline">$harky · Finanzas personales</span>
       <span>
-        <a href="./privacy.html">Privacidad</a> · <a href="./terms.html">Términos</a> · <a href="./delete-account.html">Eliminar cuenta</a>
+        <a href="./privacy.html" data-i18n="footerPrivacy">Privacidad</a> · <a href="./terms.html" data-i18n="footerTerms">Términos</a> · <a href="./delete-account.html" data-i18n="footerDelete">Eliminar cuenta</a>
       </span>
       <span>contactosharklin@gmail.com</span>
     </footer>
+
+    <script>
+      (function () {
+        var I18N = {
+          brandHomeAria: { es: '$harky inicio', en: '$harky home' },
+          navLabel: { es: 'Navegacion', en: 'Navigation' },
+          navFeatures: { es: 'Funciones', en: 'Features' },
+          navNews: { es: 'Novedades', en: "What's new" },
+          navDownload: { es: 'Descargar', en: 'Download' },
+          navLegal: { es: 'Legal', en: 'Legal' },
+          langToggleAria: { es: 'Cambiar idioma a inglés', en: 'Switch language to Spanish' },
+
+          heroEyebrow: { es: 'App para Android · funciona sin conexión', en: 'Android app · works offline' },
+          heroTitle: { es: 'Tus finanzas, claras y bajo tu control.', en: 'Your finances, clear and under your control.' },
+          heroBody: {
+            es: '$harky es una app de finanzas personales para Android. Registra tus movimientos, controla presupuestos y metas de ahorro, escanea recibos y mantén tus datos en tu teléfono — con sincronización en la nube totalmente opcional.',
+            en: '$harky is a personal finance app for Android. Log your transactions, track budgets and savings goals, scan receipts, and keep your data on your phone — with fully optional cloud sync.',
+          },
+          playBadgeAria: { es: 'Disponible en Google Play', en: 'Get it on Google Play' },
+          playBadgeAlt: { es: 'Disponible en Google Play', en: 'Get it on Google Play' },
+          viewCode: { es: 'Ver el codigo', en: 'View the code' },
+          metaBudgetsGoals: { es: 'Presupuestos y metas', en: 'Budgets and goals' },
+          metaReceiptScan: { es: 'Escaneo de recibos', en: 'Receipt scanning' },
+          metaPinFingerprint: { es: 'PIN y huella', en: 'PIN and fingerprint' },
+          phonePreviewAria: { es: 'Vista previa de $harky en Android', en: '$harky preview on Android' },
+          phoneVsLastMonth: { es: '+ 6.2% vs. mes anterior', en: '+ 6.2% vs. last month' },
+
+          featuresTitle: { es: 'Lo importante en una sola app.', en: 'Everything that matters, in one app.' },
+          featuresBody: {
+            es: 'La prioridad es que entiendas qué pasa con tu dinero y puedas actuar al momento, sin pelear con hojas de cálculo ni formularios largos.',
+            en: 'The priority is that you understand what is happening with your money and can act right away, without fighting spreadsheets or long forms.',
+          },
+
+          featTxTitle: { es: 'Transacciones y cuentas', en: 'Transactions and accounts' },
+          featTxBody: {
+            es: 'Registra ingresos, gastos y transferencias entre cuentas de efectivo, débito, ahorro y tarjetas de crédito, con balances siempre claros.',
+            en: 'Record income, expenses and transfers between cash, debit, savings and credit card accounts, with balances that are always clear.',
+          },
+          featBudgetsTitle: { es: 'Presupuestos y metas', en: 'Budgets and goals' },
+          featBudgetsBody: {
+            es: 'Define un presupuesto mensual por categoría con alertas, y crea metas de ahorro con seguimiento de aportes y progreso.',
+            en: 'Set a monthly budget per category with alerts, and create savings goals with contribution and progress tracking.',
+          },
+          featScanTitle: { es: 'Escaneo de recibos', en: 'Receipt scanning' },
+          featScanBody: {
+            es: 'Toma una foto del recibo y $harky reconoce el monto y la fecha automáticamente para que solo confirmes y guardes.',
+            en: 'Take a photo of the receipt and $harky automatically recognizes the amount and date, so you just confirm and save.',
+          },
+          featNotiTitle: { es: 'Detección desde notificaciones', en: 'Detection from notifications' },
+          featNotiBody: {
+            es: 'Activa la lectura de notificaciones de tu banco para que las transacciones se registren solas, sin escribir nada manualmente.',
+            en: 'Enable reading your bank notifications so transactions are logged automatically, without typing anything manually.',
+          },
+          featCsvTitle: { es: 'Importación bancaria', en: 'Bank statement import' },
+          featCsvBody: {
+            es: 'Sube el estado de cuenta de Banco Popular, BHD, Banreservas o Scotiabank en CSV, OFX o TXT: $harky detecta columnas, evita duplicados y aprende reglas de categorización.',
+            en: 'Upload your Banco Popular, BHD, Banreservas or Scotiabank statement as CSV, OFX or TXT: $harky detects columns, avoids duplicates and learns categorization rules.',
+          },
+          featReportsTitle: { es: 'Reportes y respaldo', en: 'Reports and backup' },
+          featReportsBody: {
+            es: 'Genera reportes mensuales y anuales en PDF, exporta a Excel con hojas por categoría y cuenta, y haz backup completo en JSON.',
+            en: 'Generate monthly and annual reports in PDF, export to Excel with sheets per category and account, and make a full backup in JSON.',
+          },
+          featPrivacyTitle: { es: 'Privacidad por diseño', en: 'Privacy by design' },
+          featPrivacyBody: {
+            es: 'Funciona sin conexión y guarda tus datos en el dispositivo. El PIN o patrón de acceso se cifra con Android Keystore.',
+            en: 'Works offline and keeps your data on the device. The access PIN or pattern is encrypted with Android Keystore.',
+          },
+          featShortcutsTitle: { es: 'Accesos directos', en: 'Shortcuts' },
+          featShortcutsBody: {
+            es: 'Mantén presionado el ícono de $harky para abrir una mini ventana y registrar un gasto o ingreso al instante, sin entrar a la app.',
+            en: 'Long-press the $harky icon to open a mini window and log an expense or income instantly, without opening the app.',
+          },
+          featSyncTitle: { es: 'Sincronización opcional', en: 'Optional sync' },
+          featSyncBody: {
+            es: 'Inicia sesión con tu cuenta de Google si quieres respaldar y sincronizar tu información entre varios dispositivos. Es completamente opcional.',
+            en: 'Sign in with your Google account if you want to back up and sync your data across multiple devices. It is completely optional.',
+          },
+          featDebtTitle: { es: 'Calculadora de deudas', en: 'Debt calculator' },
+          featDebtBody: {
+            es: 'Arma un plan de pago con los métodos bola de nieve o avalancha, y mira cuánto tiempo y cuántos intereses te ahorras según el orden en que pagues.',
+            en: 'Build a payoff plan with the snowball or avalanche method, and see how much time and interest you save depending on the order you pay.',
+          },
+          featSubsTitle: { es: 'Pagos recurrentes y suscripciones', en: 'Recurring payments and subscriptions' },
+          featSubsBody: {
+            es: '$harky detecta automáticamente tus suscripciones y pagos recurrentes, calcula tu gasto fijo mensual y te avisa antes del próximo cobro.',
+            en: '$harky automatically detects your subscriptions and recurring payments, calculates your fixed monthly spending, and warns you before the next charge.',
+          },
+          featCalendarTitle: { es: 'Calendario financiero', en: 'Financial calendar' },
+          featCalendarBody: {
+            es: 'Revisa tus movimientos día a día en un calendario que muestra cuánto llevas gastado frente a tu presupuesto diario.',
+            en: 'Review your transactions day by day in a calendar that shows how much you have spent against your daily budget.',
+          },
+          featAnnualTitle: { es: 'Reportes anuales', en: 'Annual reports' },
+          featAnnualBody: {
+            es: 'Compara tus finanzas año contra año, identifica tus meses más fuertes y exporta el resumen como imagen para compartir.',
+            en: 'Compare your finances year over year, spot your strongest months, and export the summary as an image to share.',
+          },
+          featSearchTitle: { es: 'Búsqueda global', en: 'Global search' },
+          featSearchBody: {
+            es: 'Encuentra cualquier transacción, categoría o cuenta al instante con la búsqueda global, desde cualquier pantalla de la app.',
+            en: 'Find any transaction, category or account instantly with global search, from any screen in the app.',
+          },
+          featLangTitle: { es: 'App en español e inglés', en: 'App in Spanish and English' },
+          featLangBody: {
+            es: 'Cambia el idioma de $harky entre español e inglés cuando quieras, con fechas, meses y montos adaptados automáticamente.',
+            en: 'Switch $harky between Spanish and English whenever you want, with dates, months and amounts adapted automatically.',
+          },
+
+          newsTitle: { es: 'Lo último que mejoramos.', en: 'What we just improved.' },
+          newsBody: {
+            es: '$harky se actualiza con frecuencia, sobre todo en seguridad y en los detalles del día a día.',
+            en: '$harky is updated frequently, especially around security and everyday details.',
+          },
+          relV170Title: { es: 'App completamente bilingüe y nuevas herramientas', en: 'Fully bilingual app and new tools' },
+          relV170Body: {
+            es: '$harky ahora funciona en español e inglés, e incorpora calculadora de deudas, detección de pagos recurrentes, calendario financiero, reportes anuales y búsqueda global.',
+            en: '$harky now works in Spanish and English, and adds a debt calculator, recurring payment detection, a financial calendar, annual reports and global search.',
+          },
+          relV162aTitle: { es: 'Inicio de sesión con Google más estable', en: 'More stable Google sign-in' },
+          relV162aBody: {
+            es: 'La sesión ahora se guarda cifrada con Android Keystore, así que iniciar sesión con Google ya no se interrumpe ni te pide volver a entrar al reabrir la app.',
+            en: 'Your session is now stored encrypted with Android Keystore, so signing in with Google no longer drops or asks you to log in again when reopening the app.',
+          },
+          relV162bTitle: { es: 'Accesos directos del ícono', en: 'Icon shortcuts' },
+          relV162bBody: {
+            es: 'Mantén presionado el ícono de $harky para agregar un gasto o un ingreso desde una mini ventana, sin tener que abrir el menú principal.',
+            en: 'Long-press the $harky icon to add an expense or income from a mini window, without opening the main menu.',
+          },
+          relV161aTitle: { es: 'Más control sobre tus datos', en: 'More control over your data' },
+          relV161aBody: {
+            es: '"Eliminar todos los datos" ahora borra también tu copia en la nube si usas sincronización con Google, además de tus datos locales.',
+            en: '"Delete all data" now also deletes your cloud copy if you use Google sync, in addition to your local data.',
+          },
+          relV161bTitle: { es: 'Detalles de uso diario', en: 'Everyday usability details' },
+          relV161bBody: {
+            es: 'Se desactivó el zoom accidental con gestos, y se corrigió la pantalla de edición de cuentas que aparecía cortada en algunos casos.',
+            en: 'Accidental gesture zoom was disabled, and the account-editing screen that appeared cut off in some cases was fixed.',
+          },
+
+          downloadTitle: { es: 'Descarga $harky.', en: 'Download $harky.' },
+          downloadBody: {
+            es: 'La forma recomendada de instalar $harky es desde Google Play, donde recibirás las actualizaciones automáticamente.',
+            en: 'The recommended way to install $harky is from Google Play, where you will receive updates automatically.',
+          },
+          statusRecommended: { es: 'Recomendado', en: 'Recommended' },
+          downloadPlayBody: {
+            es: 'Instala $harky desde la Play Store y mantente al día con las últimas mejoras y correcciones de seguridad.',
+            en: 'Install $harky from the Play Store and stay up to date with the latest improvements and security fixes.',
+          },
+          statusOpenSource: { es: 'Código abierto', en: 'Open source' },
+          downloadRepoTitle: { es: 'Repositorio en GitHub', en: 'GitHub repository' },
+          downloadRepoBody: {
+            es: 'El código fuente de $harky es público. Puedes revisarlo, reportar un problema o seguir el desarrollo desde GitHub.',
+            en: '$harky’s source code is public. You can review it, report an issue or follow development on GitHub.',
+          },
+          viewRepo: { es: 'Ver repositorio', en: 'View repository' },
+
+          legalTitle: { es: 'Legal y soporte.', en: 'Legal and support.' },
+          legalBody: {
+            es: 'Información sobre cómo manejamos tus datos y cómo contactarnos.',
+            en: 'Information about how we handle your data and how to contact us.',
+          },
+          legalPrivacyTitle: { es: 'Política de privacidad', en: 'Privacy policy' },
+          legalPrivacyBody: {
+            es: 'Qué datos recolectamos, cómo los usamos y con quién los compartimos.',
+            en: 'What data we collect, how we use it and who we share it with.',
+          },
+          legalTermsTitle: { es: 'Términos de uso', en: 'Terms of use' },
+          legalTermsBody: {
+            es: 'Las condiciones para usar $harky y la app de Android.',
+            en: 'The conditions for using $harky and the Android app.',
+          },
+          legalDeleteTitle: { es: 'Eliminar mi cuenta', en: 'Delete my account' },
+          legalDeleteBody: {
+            es: 'Cómo borrar tus datos locales, tu cuenta y tu información en la nube.',
+            en: 'How to delete your local data, your account and your cloud information.',
+          },
+          legalSupportTitle: { es: 'Soporte', en: 'Support' },
+          legalSupportBody: {
+            es: '¿Dudas, errores o sugerencias? Escríbenos a contactosharklin@gmail.com.',
+            en: 'Questions, bugs or suggestions? Write to us at contactosharklin@gmail.com.',
+          },
+
+          footerTagline: { es: '$harky · Finanzas personales', en: '$harky · Personal finance' },
+          footerPrivacy: { es: 'Privacidad', en: 'Privacy' },
+          footerTerms: { es: 'Términos', en: 'Terms' },
+          footerDelete: { es: 'Eliminar cuenta', en: 'Delete account' },
+        }
+
+        var STORAGE_KEY = 'sharky-landing-lang'
+
+        function detectDefaultLang() {
+          var saved = localStorage.getItem(STORAGE_KEY)
+          if (saved === 'es' || saved === 'en') return saved
+          return navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'es'
+        }
+
+        function applyLang(lang) {
+          document.documentElement.lang = lang
+          document.querySelectorAll('[data-i18n]').forEach(function (el) {
+            var entry = I18N[el.getAttribute('data-i18n')]
+            if (entry) el.textContent = entry[lang]
+          })
+          document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+            var entry = I18N[el.getAttribute('data-i18n-aria')]
+            if (entry) el.setAttribute('aria-label', entry[lang])
+          })
+          document.querySelectorAll('[data-i18n-alt]').forEach(function (el) {
+            var entry = I18N[el.getAttribute('data-i18n-alt')]
+            if (entry) el.setAttribute('alt', entry[lang])
+          })
+          document.querySelectorAll('[data-lang-opt]').forEach(function (el) {
+            el.classList.toggle('active', el.getAttribute('data-lang-opt') === lang)
+          })
+          localStorage.setItem(STORAGE_KEY, lang)
+        }
+
+        var toggle = document.getElementById('langToggle')
+        var currentLang = detectDefaultLang()
+        applyLang(currentLang)
+        toggle.addEventListener('click', function () {
+          currentLang = currentLang === 'es' ? 'en' : 'es'
+          applyLang(currentLang)
+        })
+      })()
+    </script>
   </body>
 </html>

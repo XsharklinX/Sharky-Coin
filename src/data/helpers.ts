@@ -105,11 +105,11 @@ export function monthKeys(txns: Transaction[]): string[] {
   return keys
 }
 
-export function monthlySeries(txns: Transaction[], year: number): MonthSeries[] {
+export function monthlySeries(txns: Transaction[], year: number, locale = 'es-DO'): MonthSeries[] {
   return Array.from({ length: 12 }, (_, m) => {
     const key = `${year}-${String(m + 1).padStart(2, '0')}`
     const t   = totals(txForMonth(txns, key))
-    return { key, label: shortMonth(key), ...t }
+    return { key, label: shortMonth(key, locale), ...t }
   })
 }
 

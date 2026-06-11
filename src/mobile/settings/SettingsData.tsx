@@ -35,7 +35,7 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
       await saveBackup(json)
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return
-      toast(error instanceof Error ? error.message : 'Error al exportar.', { icon: 'alert' })
+      toast(error instanceof Error ? error.message : t('exportError'), { icon: 'alert' })
     }
   }
 
@@ -44,10 +44,10 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
       const text = await openBackup()
       if (!text) return
       finance.restoreBackup(parseBackup(text))
-      toast('Backup restaurado', { icon: 'check', type: 'ok' })
+      toast(t('backupRestored'), { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Archivo inválido.', { icon: 'alert' })
+      toast(error instanceof Error ? error.message : t('invalidFile'), { icon: 'alert' })
     }
   }
 
@@ -55,9 +55,9 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
     setExportingPdf(true)
     try {
       await exportMonthlyPdf(finance, mkey, '')
-      toast(`Estado de ${monthLabel(mkey)} exportado en PDF`, { icon: 'download', type: 'ok' })
+      toast(t('pdfExportedFor').replace('{month}', monthLabel(mkey)), { icon: 'download', type: 'ok' })
     } catch {
-      toast('No se pudo generar el PDF.', { icon: 'alert' })
+      toast(t('pdfExportError'), { icon: 'alert' })
     } finally {
       setExportingPdf(false)
     }
@@ -67,9 +67,9 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
     setExportingExcel(true)
     try {
       await exportExcel(finance)
-      toast('Reporte completo exportado en Excel', { icon: 'download', type: 'ok' })
+      toast(t('excelExported'), { icon: 'download', type: 'ok' })
     } catch {
-      toast('No se pudo generar el Excel.', { icon: 'alert' })
+      toast(t('excelExportError'), { icon: 'alert' })
     } finally {
       setExportingExcel(false)
     }
@@ -83,14 +83,14 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
         await wipeCloudData(user.id)
         clearCloudWorkspaceCache(user.id)
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'No se pudieron borrar los datos en la nube.', { icon: 'alert' })
+        toast(error instanceof Error ? error.message : t('couldNotDeleteCloudData'), { icon: 'alert' })
         setResetting(false)
         return
       }
       setResetting(false)
     }
     finance.startEmpty()
-    toast('Todos los datos eliminados', { icon: 'trash' })
+    toast(t('allDataDeleted'), { icon: 'trash' })
     onClose()
   }
 
@@ -98,17 +98,17 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
     <>
       {/* ── Sección Datos ── */}
       <div className="mset-section">
-        <span className="mset-section-title">Datos</span>
+        <span className="mset-section-title">{t('dataSection')}</span>
         <div className="mset-card">
           <div className="mset-stats">
-            <div><strong>{health.transactions}</strong><small>Transacciones</small></div>
-            <div><strong>{health.categories}</strong><small>Categorías</small></div>
+            <div><strong>{health.transactions}</strong><small>{t('transactionsLabel')}</small></div>
+            <div><strong>{health.categories}</strong><small>{t('categoriesTitle')}</small></div>
             <div><strong>{health.goals}</strong><small>{t('goals')}</small></div>
           </div>
           {storageQuota && (
             <div className="mset-storage-bar">
               <div className="mset-storage-bar-head">
-                <span>Almacenamiento</span>
+                <span>{t('storageLabel')}</span>
                 <span style={{ color: storageQuota.level === 'ok' ? 'var(--m-muted)' : storageQuota.level === 'warning' ? '#f59e0b' : '#ff6b8a' }}>
                   {storageQuota.usedMB} MB / {storageQuota.quotaMB} MB ({Math.round(storageQuota.pct * 100)}%)
                 </span>
@@ -123,8 +123,8 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
                 <p className="mset-warning" style={{ color: storageQuota.level === 'critical' ? '#ff6b8a' : '#f59e0b' }}>
                   <Icon name="alert" size={13} />
                   {storageQuota.level === 'critical'
-                    ? 'Almacenamiento casi lleno — exporta un backup ahora para no perder datos.'
-                    : 'Almacenamiento al 70% — considera exportar un backup.'}
+                    ? t('storageCriticalWarning')
+                    : t('storageWarning70')}
                 </p>
               )}
             </div>
@@ -134,30 +134,30 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
           ))}
         </div>
         <div className="mset-card">
-          <SettingsRow icon="download" iconColor="#35d0a2" label="Exportar Datos"
+          <SettingsRow icon="download" iconColor="#35d0a2" label={t('exportData')}
             onClick={() => onOpen('export')} />
-          <SettingsRow icon="upload" iconColor="#5bc0ff" label="Restaurar backup"
+          <SettingsRow icon="upload" iconColor="#5bc0ff" label={t('restoreBackup')}
             onClick={() => void importBackup()} />
         </div>
         <div className="mset-card">
-          <SettingsRow icon="trash" iconColor="#ff6b8a" label="Eliminar todos los datos"
+          <SettingsRow icon="trash" iconColor="#ff6b8a" label={t('deleteAllData')}
             danger onClick={() => onOpen('reset')} />
         </div>
       </div>
 
       {/* ── Sheets ── */}
       {activeSheet === 'export' && (
-        <SettingsSheet title="Exportar Datos" onClose={onClose}>
+        <SettingsSheet title={t('exportData')} onClose={onClose}>
           <div className="mset-sheet-body">
-            <p className="mset-legal-intro">Elige el formato en el que quieres exportar tu información financiera.</p>
+            <p className="mset-legal-intro">{t('exportDataIntro')}</p>
             <div className="mset-card" style={{ margin: 0 }}>
-              <SettingsRow icon="fileJson" iconColor="#35d0a2" label="Backup (JSON)"
+              <SettingsRow icon="fileJson" iconColor="#35d0a2" label={t('backupJson')}
                 onClick={() => void exportBackup()} />
               <SettingsRow icon="download" iconColor="#5bc0ff"
-                label={exportingExcel ? 'Generando Excel…' : 'Reporte completo (Excel)'}
+                label={exportingExcel ? t('generatingExcel') : t('fullReportExcel')}
                 onClick={() => { if (!exportingExcel) void handleExportExcel() }} />
               <SettingsRow icon="download" iconColor="#a78bfa"
-                label={exportingPdf ? 'Generando PDF…' : `Estado de ${monthLabel(mkey)} (PDF)`}
+                label={exportingPdf ? t('generatingPdf') : t('statementOfMonth').replace('{month}', monthLabel(mkey))}
                 onClick={() => { if (!exportingPdf) void handleExportPdf() }} />
             </div>
           </div>
@@ -165,23 +165,24 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
       )}
 
       {activeSheet === 'reset' && (
-        <SettingsSheet title="Eliminar datos" onClose={onClose}>
+        <SettingsSheet title={t('deleteDataTitle')} onClose={onClose}>
           <div className="mset-sheet-body">
             <p className="mset-reset-warning">
-              Esto eliminará permanentemente <strong>todas tus transacciones, cuentas, categorías y metas</strong>
-              {auth.user?.mode === 'cloud' ? <>, incluyendo <strong>tu copia en la nube</strong></> : null}. Esta acción no se puede deshacer.
+              {t('deleteDataWarningPrefix')}<strong>{t('deleteDataWarningBoldText')}</strong>
+              {auth.user?.mode === 'cloud' ? <>{t('deleteDataWarningCloudSuffix')}<strong>{t('deleteDataWarningCloudBoldText')}</strong></> : null}
+              {t('deleteDataWarningSuffix')}
             </p>
             {!pendingReset ? (
               <button className="mset-sheet-danger" onClick={() => setPendingReset(true)}>
-                Continuar
+                {t('continueBtn')}
               </button>
             ) : (
               <>
                 <button className="mset-sheet-danger" disabled={resetting} onClick={() => void confirmReset()}>
-                  <Icon name="trash" size={18} /> {resetting ? 'Eliminando…' : 'Sí, eliminar todo'}
+                  <Icon name="trash" size={18} /> {resetting ? t('deletingEllipsis') : t('yesDeleteAll')}
                 </button>
                 <button className="mset-sheet-cancel" disabled={resetting} onClick={() => setPendingReset(false)}>
-                  Cancelar
+                  {t('cancel')}
                 </button>
               </>
             )}

@@ -1,13 +1,24 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { fmtCompact, txForMonth } from '@/data/helpers'
+import { dateLocale, fmtCompact, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { useT } from '@/i18n'
 import { MobileTransactionList } from './MobileTransactionList'
 import type { Transaction } from '@/types'
 
-const DAYS  = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
-const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function weekdayLabels(locale: string): string[] {
+  // Monday-first week
+  return Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }))
+}
+
+function monthLabels(locale: string): string[] {
+  return Array.from({ length: 12 }, (_, i) => capitalize(new Date(2024, i, 1).toLocaleDateString(locale, { month: 'long' })))
+}
 
 function prevMonth(year: number, month: number) {
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
@@ -29,6 +40,11 @@ export function MobileCalendar({
   onDeleteTx?: (id: string) => void
 }) {
   const { transactions, categories, currency } = useFinance()
+  const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
+  const locale = dateLocale(lang)
+  const DAYS = weekdayLabels(locale)
+  const MONTHS = monthLabels(locale)
   const [year,  setYear]  = useState(Number(initialMkey.slice(0, 4)))
   const [month, setMonth] = useState(Number(initialMkey.slice(5, 7)))
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
@@ -79,11 +95,11 @@ export function MobileCalendar({
     <div className="mcal-root">
       {/* Header nav */}
       <div className="mcal-header">
-        <button className="mcal-nav" aria-label="Mes anterior" onClick={goBack}>
+        <button className="mcal-nav" aria-label={t('prevMonth')} onClick={goBack}>
           <Icon name="arrowUp" size={16} style={{ transform: 'rotate(-90deg)' }} />
         </button>
         <span className="mcal-month-label">{MONTHS[month - 1]} {year}</span>
-        <button className="mcal-nav" aria-label="Mes siguiente" onClick={goNext}>
+        <button className="mcal-nav" aria-label={t('nextMonth')} onClick={goNext}>
           <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
         </button>
       </div>
@@ -124,13 +140,13 @@ export function MobileCalendar({
       <div className="mcal-footer">
         {dailyBudget > 0 && (
           <span className="mcal-budget-label">
-            Presupuesto diario medio:&nbsp;
+            {t('avgDailyBudgetLabel')}:&nbsp;
             <strong>{fmtCompact(dailyBudget, currency)}</strong>
           </span>
         )}
         <div className="mcal-legend">
-          <span><i className="mcal-dot over" />Por encima del presupuesto</span>
-          <span><i className="mcal-dot ok" />Dentro del presupuesto</span>
+          <span><i className="mcal-dot over" />{t('overBudgetLegend')}</span>
+          <span><i className="mcal-dot ok" />{t('withinBudgetLegend')}</span>
         </div>
       </div>
 
@@ -146,7 +162,7 @@ export function MobileCalendar({
         </div>
       )}
       {selectedDay !== null && dayTxs.length === 0 && (
-        <p className="mcal-empty-day">Sin movimientos el día {selectedDay}</p>
+        <p className="mcal-empty-day">{t('noMovementsOnDay').replace('{day}', String(selectedDay))}</p>
       )}
     </div>
   )

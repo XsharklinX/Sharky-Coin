@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
 import { useSettings } from '@/store/settings'
+import { useT } from '@/i18n'
 import { currentMonthKey, monthKeys } from '@/data/helpers'
 import { ToastHost, toast } from '@/components/ui/Toast'
 import { DialogProvider } from '@/components/ui/DialogProvider'
@@ -34,6 +35,7 @@ const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default:
 
 export default function App() {
   const s = useSettings()
+  const t = useT()
   const { transactions, addTx, deleteTx } = useFinance()
 
   const { hydrated } = useAppLockHydration()
@@ -49,6 +51,18 @@ export default function App() {
 
   const initializeAuth = useAuth(state => state.initialize)
   useEffect(() => { initializeAuth() }, [initializeAuth])
+
+  // Primer arranque: adoptar el idioma del dispositivo si el usuario aún no
+  // pasó por el onboarding (después de eso, respetamos su elección manual).
+  useEffect(() => {
+    if (!hydrated || s.languageAutoDetected) return
+    if (!s.hasSeenOnboarding) {
+      const deviceLang = navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'es'
+      s.setLanguage(deviceLang)
+    }
+    s.setLanguageAutoDetected(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, s.languageAutoDetected, s.hasSeenOnboarding])
 
   // Tras hidratar el PIN/patrón cifrados (Android), re-bloquear si corresponde:
   // `credUnlocked` se inicializó antes de conocer el valor real de `hasAppLock`.
@@ -112,10 +126,10 @@ export default function App() {
     const tx = transactions.find(t => t.id === id)
     if (!tx) return
     deleteTx(id)
-    toast('Movimiento eliminado', {
+    toast(t('movementDeleted'), {
       icon: 'trash',
       duration: 5000,
-      action: { label: 'Deshacer', onClick: () => addTx(tx) },
+      action: { label: t('undo'), onClick: () => addTx(tx) },
     })
   }
 
@@ -133,7 +147,7 @@ export default function App() {
     budgets: (props: ViewProps) => <MobileBudgets {...props} />,
     goals: (props: ViewProps) => <MobileGoals {...props} />,
     calendar: (props: ViewProps) => (
-      <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>Cargando...</div>}>
+      <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>{t('loading')}</div>}>
         <CalendarView {...props} />
       </Suspense>
     ),

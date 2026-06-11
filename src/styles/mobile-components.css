@@ -1007,6 +1007,17 @@
   .msub-confirm-row button { border-radius: 10px; flex: 1; font-size: 14px; font-weight: 600; padding: 12px; }
   .msub-confirm-row button.danger { background: #ff6b8a; color: #fff; }
 
+  /* Detected subscriptions */
+  .msub-row-right { align-items: flex-end; display: flex; flex-direction: column; gap: 6px; }
+  .msub-convert-btn {
+    align-items: center; background: color-mix(in oklab, var(--m-primary) 16%, transparent);
+    border: 0; border-radius: 999px; color: var(--m-primary);
+    display: inline-flex; font-size: 11px; font-weight: 700;
+    gap: 4px; padding: 4px 10px;
+  }
+  .msub-detected-hint { color: var(--m-muted); font-size: 12px; line-height: 1.5; margin: 0; }
+  .mgl-btn-save:disabled { opacity: .5; }
+
 /* -- MobileBiometricGate ----------------------------------- */
   .mbio-root {
     align-items: center; background: var(--m-bg);

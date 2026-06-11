@@ -5,9 +5,11 @@ import { useDialogs } from '@/components/ui/DialogProvider'
 import { useSettings } from '@/store/settings'
 import { dateLocale, fmt } from '@/data/helpers'
 import { playKeySound, playBackspaceSound, playDoneSound } from '@/lib/sound'
+import { useT } from '@/i18n'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Goal, IconName, ViewProps } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 const COLORS = [
   '#ffdd3d','#ff6b35','#e8445a','#c765ff','#5e5ce6',
@@ -55,6 +57,7 @@ function GoalNumpad({
   prefix: string
   onDone: () => void
 }) {
+  const t = useT()
   return (
     <div className="mgl-numpad-view">
       <div className="mgl-numpad-display">{fmtAmountText(amountText, prefix)}</div>
@@ -69,12 +72,14 @@ function GoalNumpad({
           </button>
         ))}
       </div>
-      <button className="mgl-numpad-done" onClick={onDone}>Listo</button>
+      <button className="mgl-numpad-done" onClick={onDone}>{t('done')}</button>
     </div>
   )
 }
 
 function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; onClick: () => void }) {
+  const t = useT()
+  const lang = useSettings(s => s.language)
   const p = pct(goal.saved, goal.target)
   const cur = currency as Parameters<typeof fmt>[1]
   return (
@@ -85,7 +90,7 @@ function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; o
         </span>
         <div className="mgl-card-info">
           <strong>{goal.name}</strong>
-          {goal.deadline && <small>{new Date(goal.deadline).toLocaleDateString('es', { day:'numeric', month:'short', year:'numeric' })}</small>}
+          {goal.deadline && <small>{new Date(goal.deadline).toLocaleDateString(dateLocale(lang), { day:'numeric', month:'short', year:'numeric' })}</small>}
         </div>
         <span className="mgl-pct" style={{ color: goal.color }}>{p}%</span>
       </div>
@@ -94,7 +99,7 @@ function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; o
       </div>
       <div className="mgl-card-bottom">
         <span>{fmt(goal.saved, cur)}</span>
-        <span className="mgl-dim"> de {fmt(goal.target, cur)}</span>
+        <span className="mgl-dim"> {t('of')} {fmt(goal.target, cur)}</span>
       </div>
     </button>
   )
@@ -111,6 +116,7 @@ function GoalForm({
   onSave: (data: Omit<Goal,'id'|'saved'>) => void
   onClose: () => void
 }) {
+  const t = useT()
   const [name, setName]             = useState(initial?.name ?? '')
   const [amountText, setAmountText] = useState(initial?.target?.toString() ?? '')
   const [color, setColor]           = useState(initial?.color ?? COLORS[0])
@@ -125,6 +131,7 @@ function GoalForm({
   const deadlinePast = !!deadline && deadline < today
 
   useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : showDate ? () => setShowDate(false) : onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad && !showDate)
 
   const pressAmt = (key: string) => {
     if (key === 'back') {
@@ -155,21 +162,21 @@ function GoalForm({
   }
 
   const save = () => {
-    const t = parseFloat(amountText)
-    if (!name.trim() || !t || t <= 0) return
-    onSave({ name: name.trim(), target: t, color, icon, deadline: deadline || undefined })
+    const targetVal = parseFloat(amountText)
+    if (!name.trim() || !targetVal || targetVal <= 0) return
+    onSave({ name: name.trim(), target: targetVal, color, icon, deadline: deadline || undefined })
   }
 
   const deadlineLabel = deadline
     ? new Date(`${deadline}T00:00:00`).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
-    : 'Sin fecha límite'
+    : t('noDeadlineLabel')
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? 'Editar meta' : 'Nueva meta'} onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? t('editGoal') : t('newGoal')} onClick={onClose}>
       <section className="mgl-form" onClick={e => e.stopPropagation()}>
         <header>
-          <span>{initial ? 'Editar meta' : 'Nueva meta'}</span>
-          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
+          <span>{initial ? t('editGoal') : t('newGoal')}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         {showNumpad ? (
@@ -178,17 +185,17 @@ function GoalForm({
           <>
             <div className="mgl-form-body">
               <label className="mgl-field">
-                <span>Nombre</span>
+                <span>{t('name')}</span>
                 <input
                   className="mgl-input"
-                  placeholder="Ej. Fondo de emergencia"
+                  placeholder={t('egGoalName')}
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />
               </label>
 
               <div className="mgl-field">
-                <span>Objetivo</span>
+                <span>{t('target')}</span>
                 <button className="mgl-amount-tap" onClick={() => setShowNumpad(true)}>
                   <span>{fmtAmountText(amountText, prefix)}</span>
                   <Icon name="edit" size={14} style={{ opacity: .4 }} />
@@ -196,7 +203,7 @@ function GoalForm({
               </div>
 
               <div className="mgl-field">
-                <span>Fecha límite <em>(opcional)</em></span>
+                <span>{t('deadlineOptional')}</span>
                 <button
                   className={`mgl-amount-tap${deadlinePast ? ' warn' : ''}`}
                   onClick={() => setShowDate(true)}
@@ -206,19 +213,19 @@ function GoalForm({
                 </button>
                 {deadlinePast && (
                   <small style={{ color: 'var(--m-warn, #f59e0b)', marginTop: 4, display: 'block', fontSize: 11 }}>
-                    Esta fecha ya pasó — la meta se mostrará como vencida
+                    {t('deadlinePastWarning')}
                   </small>
                 )}
               </div>
 
               <div className="mgl-field">
-                <span>Color</span>
+                <span>{t('color')}</span>
                 <div className="mgl-colors">
                   {COLORS.map(c => (
                     <button
                       key={c}
                       className={`mgl-color-dot${color === c ? ' on' : ''}`}
-                      aria-label={`Color ${c}`}
+                      aria-label={t('colorOption').replace('{c}', c)}
                       aria-pressed={color === c}
                       style={{ background: c }}
                       onClick={() => setColor(c)}
@@ -228,13 +235,13 @@ function GoalForm({
               </div>
 
               <div className="mgl-field">
-                <span>Icono</span>
+                <span>{t('icon')}</span>
                 <div className="mgl-icons">
                   {ICONS.map(ic => (
                     <button
                       key={ic}
                       className={`mgl-icon-btn${icon === ic ? ' on' : ''}`}
-                      aria-label={`Icono ${ic}`}
+                      aria-label={t('iconOption').replace('{ic}', ic)}
                       aria-pressed={icon === ic}
                       style={icon === ic ? { background: color + '33', color } : {}}
                       onClick={() => setIcon(ic)}
@@ -247,9 +254,9 @@ function GoalForm({
             </div>
 
             <div className="mgl-form-actions">
-              <button className="mgl-btn-cancel" onClick={onClose}>Cancelar</button>
+              <button className="mgl-btn-cancel" onClick={onClose}>{t('cancel')}</button>
               <button className="mgl-btn-save" style={{ background: color }} onClick={save}>
-                {initial ? 'Guardar' : 'Crear meta'}
+                {initial ? t('save') : t('createGoal')}
               </button>
             </div>
           </>
@@ -268,6 +275,7 @@ function GoalForm({
 }
 
 function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: string; onClose: () => void }) {
+  const t = useT()
   const { accounts, contribute } = useFinance()
   const [amountText, setAmountText] = useState('')
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
@@ -276,6 +284,7 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
   const prefix = currencyPrefix(currency)
 
   useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad)
 
   const validAccounts = accounts.filter(a => a.type !== 'credit')
 
@@ -314,16 +323,16 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
       contribute(goal.id, amt, accountId)
       onClose()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Error al aportar')
+      alert(e instanceof Error ? e.message : t('errorContributing'))
     }
   }
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={`Aportar a ${goal.name}`} onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('contributeToGoal').replace('{name}', goal.name)} onClick={onClose}>
       <section className="mgl-form" onClick={e => e.stopPropagation()}>
         <header>
-          <span>Aportar a {goal.name}</span>
-          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
+          <span>{t('contributeToGoal').replace('{name}', goal.name)}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         {showNumpad ? (
@@ -342,7 +351,7 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
               </div>
 
               <div className="mgl-field">
-                <span>Monto a aportar</span>
+                <span>{t('amountToContribute')}</span>
                 <button className="mgl-amount-tap" onClick={() => setShowNumpad(true)}>
                   <span>{fmtAmountText(amountText, prefix)}</span>
                   <Icon name="edit" size={14} style={{ opacity: .4 }} />
@@ -350,7 +359,7 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
               </div>
 
               <label className="mgl-field">
-                <span>Desde cuenta</span>
+                <span>{t('sourceAccount')}</span>
                 <select className="mgl-input" value={accountId} onChange={e => setAccountId(e.target.value)}>
                   {validAccounts.map(a => (
                     <option key={a.id} value={a.id}>{a.name} — {fmt(a.balance, cur)}</option>
@@ -360,9 +369,9 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
             </div>
 
             <div className="mgl-form-actions">
-              <button className="mgl-btn-cancel" onClick={onClose}>Cancelar</button>
+              <button className="mgl-btn-cancel" onClick={onClose}>{t('cancel')}</button>
               <button className="mgl-btn-save" style={{ background: goal.color }} onClick={submit}>
-                Aportar
+                {t('contribute')}
               </button>
             </div>
           </>
@@ -373,6 +382,7 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
 }
 
 export function MobileGoals(_props: ViewProps) {
+  const t = useT()
   const { goals, addGoal, updateGoal, deleteGoal, currency } = useFinance()
   const { confirm } = useDialogs()
   const [sheet, setSheet] = useState<Sheet>(null)
@@ -388,17 +398,17 @@ export function MobileGoals(_props: ViewProps) {
       {goals.length > 0 && (
         <div className="mgl-summary">
           <div className="mgl-sum-item">
-            <span className="mgl-sum-label">Ahorrado</span>
+            <span className="mgl-sum-label">{t('saved')}</span>
             <strong className="mgl-sum-value">{fmt(totalSaved, cur)}</strong>
           </div>
           <div className="mgl-sum-div" />
           <div className="mgl-sum-item">
-            <span className="mgl-sum-label">Objetivo</span>
+            <span className="mgl-sum-label">{t('target')}</span>
             <strong className="mgl-sum-value">{fmt(totalTarget, cur)}</strong>
           </div>
           <div className="mgl-sum-div" />
           <div className="mgl-sum-item">
-            <span className="mgl-sum-label">Listas</span>
+            <span className="mgl-sum-label">{t('doneCountLabel')}</span>
             <strong className="mgl-sum-value">{done}/{goals.length}</strong>
           </div>
         </div>
@@ -407,9 +417,9 @@ export function MobileGoals(_props: ViewProps) {
       {goals.length === 0 ? (
         <div className="mgl-empty">
           <Icon name="target" size={48} style={{ opacity: .25 }} />
-          <p>No tienes metas aún</p>
+          <p>{t('noGoals')}</p>
           <button className="mgl-empty-btn" onClick={() => setSheet({ type: 'add' })}>
-            Crear primera meta
+            {t('createFirstGoal')}
           </button>
         </div>
       ) : (
@@ -419,13 +429,13 @@ export function MobileGoals(_props: ViewProps) {
               <GoalCard goal={g} currency={currency} onClick={() => setSheet({ type: 'detail', goal: g })} />
               <div className="mgl-card-actions">
                 <button className="mgl-action-btn" onClick={() => setContributeGoal(g)}>
-                  <Icon name="plus" size={15} /> Aportar
+                  <Icon name="plus" size={15} /> {t('contribute')}
                 </button>
-                <button className="mgl-action-btn" aria-label={`Editar meta ${g.name}`} onClick={() => setSheet({ type: 'edit', goal: g })}>
+                <button className="mgl-action-btn" aria-label={t('editGoalNamed').replace('{name}', g.name)} onClick={() => setSheet({ type: 'edit', goal: g })}>
                   <Icon name="edit" size={15} />
                 </button>
-                <button className="mgl-action-btn mgl-action-del" aria-label={`Eliminar meta ${g.name}`} onClick={() => {
-                  void confirm({ title: `¿Eliminar "${g.name}"?`, description: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', icon: 'trash' }).then(ok => { if (ok) deleteGoal(g.id) })
+                <button className="mgl-action-btn mgl-action-del" aria-label={t('deleteGoalNamed').replace('{name}', g.name)} onClick={() => {
+                  void confirm({ title: t('deleteGoalConfirmTitle').replace('{name}', g.name), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' }).then(ok => { if (ok) deleteGoal(g.id) })
                 }}>
                   <Icon name="trash" size={15} />
                 </button>
@@ -435,7 +445,7 @@ export function MobileGoals(_props: ViewProps) {
         </div>
       )}
 
-      <button className="mgl-fab" aria-label="Nueva meta" onClick={() => setSheet({ type: 'add' })}>
+      <button className="mgl-fab" aria-label={t('newGoal')} onClick={() => setSheet({ type: 'add' })}>
         <Icon name="plus" size={24} />
       </button>
 

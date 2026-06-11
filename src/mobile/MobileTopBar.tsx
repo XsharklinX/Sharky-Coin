@@ -60,11 +60,11 @@ export function MobileTopBar({
             <span className="mobile-currency-code">{currency}</span>
           </button>
           {onCalendar && (
-            <button className="mobile-icon-btn" aria-label="Calendario" onClick={onCalendar}>
+            <button className="mobile-icon-btn" aria-label={t('calendarLabel')} onClick={onCalendar}>
               <Icon name="calendar" size={21} />
             </button>
           )}
-          <button className="mobile-icon-btn" aria-label="Buscar" onClick={onSearch}>
+          <button className="mobile-icon-btn" aria-label={t('search')} onClick={onSearch}>
             <Icon name="search" size={21} />
           </button>
           <button className="mobile-icon-btn" aria-label={t('settings')} onClick={onSettings}>
@@ -75,14 +75,14 @@ export function MobileTopBar({
 
       {showMonth && (
         <div className="mobile-month">
-          <button aria-label="Mes anterior" disabled={!canGoBack} onClick={onPrevMonth}>
+          <button aria-label={t('prevMonth')} disabled={!canGoBack} onClick={onPrevMonth}>
             <Icon name="arrowUp" size={14} style={{ transform: 'rotate(-90deg)' }} />
           </button>
           <span className="mobile-month-label">
             <Icon name="calendar" size={14} />
             {monthLabel}
           </span>
-          <button aria-label="Mes siguiente" disabled={!canGoForward} onClick={onNextMonth}>
+          <button aria-label={t('nextMonth')} disabled={!canGoForward} onClick={onNextMonth}>
             <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)' }} />
           </button>
         </div>

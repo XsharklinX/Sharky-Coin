@@ -36,8 +36,8 @@ describe('MobileTopBar date navigation', () => {
       />
     )
     
-    const prevBtn = screen.getByRole('button', { name: /Mes anterior/i })
-    const nextBtn = screen.getByRole('button', { name: /Mes siguiente/i })
+    const prevBtn = screen.getByRole('button', { name: /^prevMonth$/i })
+    const nextBtn = screen.getByRole('button', { name: /^nextMonth$/i })
     
     expect(prevBtn).not.toBeDisabled()
     expect(nextBtn).toBeDisabled()

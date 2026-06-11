@@ -12,6 +12,7 @@ import { SettingsData } from './settings/SettingsData'
 import { SettingsSecurity } from './settings/SettingsSecurity'
 import { SettingsBankNotifications } from './settings/SettingsBankNotifications'
 import { SettingsLegal } from './settings/SettingsLegal'
+import { SettingsSyncConflicts } from './settings/SettingsSyncConflicts'
 
 export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () => void }) {
   const settings = useSettings()
@@ -27,7 +28,7 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
 
   const saveName = () => {
     settings.setDisplayName(nameInput.trim())
-    toast('Nombre guardado', { icon: 'check', type: 'ok' })
+    toast(t('nameSaved'), { icon: 'check', type: 'ok' })
     close()
   }
 
@@ -42,14 +43,14 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
       </header>
 
       <div className="mset-body">
-        <SettingsAccount />
+        <SettingsAccount onOpen={open} />
 
         {/* ── Profile ── */}
         <div className="mset-section">
-          <span className="mset-section-title">Perfil</span>
+          <span className="mset-section-title">{t('profileSection')}</span>
           <div className="mset-card">
-            <SettingsRow icon="user" iconColor="#5bc0ff" label="Nombre"
-              value={settings.displayName || 'Sin definir'}
+            <SettingsRow icon="user" iconColor="#5bc0ff" label={t('name')}
+              value={settings.displayName || t('notSet')}
               onClick={() => open('name')} />
           </div>
         </div>
@@ -60,16 +61,17 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
         <SettingsSecurity activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsBankNotifications activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsLegal activeSheet={activeSheet} onOpen={open} onClose={close} />
+        <SettingsSyncConflicts activeSheet={activeSheet} onOpen={open} onClose={close} />
       </div>
 
       {/* ─── Sheets ─── */}
 
       {activeSheet === 'name' && (
-        <SettingsSheet title="Nombre" onClose={close}>
+        <SettingsSheet title={t('name')} onClose={close}>
           <div className="mset-sheet-body">
             <input
               className="mset-text-input" type="text"
-              value={nameInput} placeholder="Ej. Juan Pérez"
+              value={nameInput} placeholder={t('egName')}
               autoCapitalize="words" enterKeyHint="done"
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveName() }}

@@ -1,10 +1,13 @@
 import { Icon } from '@/components/ui/Icon'
+import { useT } from '@/i18n'
 import type { IconName } from '@/types'
+import { useDialogA11y } from '../useDialogA11y'
 
 // ── Sheet type ────────────────────────────────────────────
 export type Sheet =
   | 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
   | 'comments' | 'about' | 'privacy' | 'terms' | 'export' | 'pin' | 'categories' | 'bankNotifications'
+  | 'syncConflicts'
 
 export interface SheetProps {
   activeSheet: Sheet | null
@@ -48,12 +51,14 @@ interface SettingsSheetContainerProps {
 }
 
 export function SettingsSheet({ title, onClose, children }: SettingsSheetContainerProps) {
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
+  const t = useT()
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section onClick={e => e.stopPropagation()}>
         <header>
           <span>{title}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
         {children}
       </section>
@@ -63,6 +68,7 @@ export function SettingsSheet({ title, onClose, children }: SettingsSheetContain
 
 // ── GoogleButton ──────────────────────────────────────────
 export function GoogleButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  const t = useT()
   return (
     <button className="mset-google-btn-wrap" disabled={busy} onClick={onClick}>
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -71,7 +77,7 @@ export function GoogleButton({ busy, onClick }: { busy: boolean; onClick: () => 
         <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
         <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
       </svg>
-      {busy ? 'Conectando...' : 'Continuar con Google'}
+      {busy ? t('connectingGoogle') : t('continueWithGoogle')}
     </button>
   )
 }

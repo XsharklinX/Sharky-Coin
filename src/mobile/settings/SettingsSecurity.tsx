@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/Toast'
 import { useSettings } from '@/store/settings'
 import { isTauri } from '@/hooks/useTauri'
 import { checkBiometric } from '@/lib/biometric'
+import { useT } from '@/i18n'
 import { PatternPad } from '../PatternPad'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
@@ -16,6 +17,7 @@ type LockStep =
 
 export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
   const settings = useSettings()
+  const t = useT()
   const [bioAvailable, setBioAvailable] = useState(false)
   const hasLock = !!(settings.appPin || settings.appPattern)
 
@@ -62,7 +64,7 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
   function removeLock() {
     settings.setAppPin(null)
     settings.setAppPattern(null)
-    toast('Bloqueo de la app desactivado', { icon: 'trash' })
+    toast(t('lockDisabledToast'), { icon: 'trash' })
     setTimeout(onClose, 200)
   }
 
@@ -86,7 +88,7 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
         else setLockStep('choose')
       } else {
         setPinValue('')
-        triggerShake('PIN incorrecto')
+        triggerShake(t('pinIncorrect'))
       }
     } else if (lockStep === 'pin-enter') {
       setPinDraft(value)
@@ -95,13 +97,13 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
     } else if (lockStep === 'pin-confirm') {
       if (value === pinDraft) {
         settings.setAppPin(value)
-        toast('PIN configurado', { icon: 'check', type: 'ok' })
+        toast(t('pinConfigured'), { icon: 'check', type: 'ok' })
         setTimeout(onClose, 250)
       } else {
         setPinValue('')
         setPinDraft('')
         setLockStep('pin-enter')
-        triggerShake('Los PIN no coinciden, intenta de nuevo')
+        triggerShake(t('pinMismatch'))
       }
     }
   }
@@ -117,35 +119,35 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
           else setLockStep('choose')
         }, 180)
       } else {
-        triggerShake('Patrón incorrecto')
+        triggerShake(t('patternIncorrect'))
       }
     } else if (lockStep === 'pattern-enter') {
-      if (!value) { triggerShake('Dibuja un patrón de al menos 4 puntos'); return }
+      if (!value) { triggerShake(t('drawPatternMin')); return }
       setPatternDraft(value)
       setSuccess(true)
       setTimeout(() => { setSuccess(false); setLockStep('pattern-confirm') }, 180)
     } else if (lockStep === 'pattern-confirm') {
       if (value && value === patternDraft) {
         settings.setAppPattern(value)
-        toast('Patrón configurado', { icon: 'check', type: 'ok' })
+        toast(t('patternConfigured'), { icon: 'check', type: 'ok' })
         setTimeout(onClose, 250)
       } else {
         setPatternDraft(null)
         setLockStep('pattern-enter')
-        triggerShake(value ? 'Los patrones no coinciden, intenta de nuevo' : 'Dibuja un patrón de al menos 4 puntos')
+        triggerShake(value ? t('patternMismatchRetry') : t('drawPatternMin'))
       }
     }
   }
 
-  const lockValue = settings.appPattern ? 'Patrón' : settings.appPin ? 'PIN' : 'Desactivado'
+  const lockValue = settings.appPattern ? t('lockPattern') : settings.appPin ? t('lockPin') : t('lockDisabled')
 
   const stepCopy: Partial<Record<LockStep, string>> = {
-    'verify-pin':      'Ingresa tu PIN actual para continuar.',
-    'verify-pattern':  'Dibuja tu patrón actual para continuar.',
-    'pin-enter':       'Crea un PIN de 4 dígitos para bloquear la app.',
-    'pin-confirm':     'Confirma tu nuevo PIN.',
-    'pattern-enter':   'Dibuja un nuevo patrón (mínimo 4 puntos).',
-    'pattern-confirm': 'Dibuja el patrón nuevamente para confirmar.',
+    'verify-pin':      t('verifyPinHint'),
+    'verify-pattern':  t('verifyPatternHint'),
+    'pin-enter':       t('createPinHint'),
+    'pin-confirm':     t('confirmNewPinHint'),
+    'pattern-enter':   t('drawNewPatternHint'),
+    'pattern-confirm': t('confirmPatternHint'),
   }
 
   const renderPinPad = () => (
@@ -161,7 +163,7 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
         ))}
         <span />
         <button onClick={() => pressPinDigit('0')}>0</button>
-        <button aria-label="Borrar" onClick={backspacePin}><Icon name="close" size={18} /></button>
+        <button aria-label={t('delete')} onClick={backspacePin}><Icon name="close" size={18} /></button>
       </div>
     </>
   )
@@ -169,7 +171,7 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
   return (
     <>
       <div className="mset-section">
-        <div className="mset-section-label">Seguridad</div>
+        <div className="mset-section-label">{t('securitySection')}</div>
         <div className="mset-card">
           {isTauri() && (
             <div className="mset-row">
@@ -177,11 +179,11 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
                 <Icon name="lock" size={18} />
               </span>
               <div className="mset-row-text">
-                <b>Requerir biometría</b>
+                <b>{t('requireBiometricLabel')}</b>
                 <small>
-                  {!bioAvailable ? 'No disponible en este dispositivo'
-                    : !hasLock ? 'Configura un PIN o patrón para activarla'
-                    : 'Huella o rostro al abrir la app'}
+                  {!bioAvailable ? t('bioNotAvailable')
+                    : !hasLock ? t('bioConfigurePinFirst')
+                    : t('bioFingerprintDesc')}
                 </small>
               </div>
               <label className="mset-toggle-wrap">
@@ -193,40 +195,39 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
               </label>
             </div>
           )}
-          <SettingsRow icon="key" iconColor="#ffdd3d" label="Bloqueo de la app"
+          <SettingsRow icon="key" iconColor="#ffdd3d" label={t('appLock')}
             value={lockValue}
             onClick={openLockSheet} />
         </div>
       </div>
 
       {activeSheet === 'pin' && (
-        <SettingsSheet title="Bloqueo de la app" onClose={onClose}>
+        <SettingsSheet title={t('appLock')} onClose={onClose}>
           <div className="mset-sheet-body">
             {lockStep === 'menu' && (
               <>
                 <p className="mset-legal-intro">
-                  Tu app está protegida con {settings.appPattern ? 'un patrón' : 'un PIN de 4 dígitos'}.
-                  Puedes cambiarlo o quitarlo.
+                  {t('appProtectedWith').replace('{method}', settings.appPattern ? t('protectedWithPattern') : t('protectedWith4DigitPin'))}
                 </p>
                 <button className="mset-sheet-confirm"
                   onClick={() => { setAfterVerify('choose'); setLockStep(settings.appPin ? 'verify-pin' : 'verify-pattern') }}>
-                  Cambiar método de bloqueo
+                  {t('changeLockMethod')}
                 </button>
                 <button className="mset-sheet-danger"
                   onClick={() => { setAfterVerify('remove'); setLockStep(settings.appPin ? 'verify-pin' : 'verify-pattern') }}>
-                  <Icon name="trash" size={16} /> Desactivar bloqueo
+                  <Icon name="trash" size={16} /> {t('disableLock')}
                 </button>
               </>
             )}
 
             {lockStep === 'choose' && (
               <>
-                <p className="mset-legal-intro">Elige cómo quieres bloquear la app.</p>
+                <p className="mset-legal-intro">{t('chooseLockMethod')}</p>
                 <button className="mset-sheet-confirm" onClick={() => setLockStep('pin-enter')}>
-                  <Icon name="key" size={16} /> PIN de 4 dígitos
+                  <Icon name="key" size={16} /> {t('pin4Digits')}
                 </button>
                 <button className="mset-sheet-confirm" onClick={() => setLockStep('pattern-enter')}>
-                  <Icon name="grid" size={16} /> Patrón
+                  <Icon name="grid" size={16} /> {t('lockPattern')}
                 </button>
               </>
             )}

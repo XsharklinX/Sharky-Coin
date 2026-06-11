@@ -54,7 +54,7 @@ export function MobileBottomNav({ route, onRoute, onQuickAdd }: {
   }
 
   return (
-    <nav className="mobile-bottom-nav" aria-label="Main navigation">
+    <nav className="mobile-bottom-nav" aria-label={t('mainNavigation')}>
       {ITEMS.slice(0, 2).map(item => (
         <button key={item.route} className={route === item.route ? 'on' : ''}
           aria-current={route === item.route ? 'page' : undefined}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 export function MobileTextSheet({
   title,
@@ -17,6 +19,7 @@ export function MobileTextSheet({
   onDone: (value: string) => void
   onClose: () => void
 }) {
+  const t = useT()
   const [text, setText] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -26,11 +29,12 @@ export function MobileTextSheet({
   }, [])
 
   useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   const confirm = () => { onDone(text.trim()); onClose() }
 
   return (
-    <div className="mtxt-overlay" onClick={onClose}>
+    <div ref={dialogRef} className="mtxt-overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <div className="mtxt-bar" onClick={e => e.stopPropagation()}>
         <span className="mtxt-label">{title}</span>
         <div className="mtxt-row">
@@ -46,7 +50,7 @@ export function MobileTextSheet({
             onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') confirm() }}
           />
-          <button className="mtxt-done" onClick={confirm}>
+          <button className="mtxt-done" aria-label={t('confirmLabel')} onClick={confirm}>
             <Icon name="check" size={20} />
           </button>
         </div>

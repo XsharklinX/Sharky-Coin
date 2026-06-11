@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { fmt } from '@/data/helpers'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 const keypad = [
   '7', '8', '9', '÷',
@@ -64,6 +66,7 @@ export function MobileAmountSheet({
   onDone: (value: number) => void
   onClose: () => void
 }) {
+  const t = useT()
   const [amountText, setAmountText] = useState(value > 0 ? String(value) : '')
 
   const amount = amountText ? evaluateExpression(amountText) : 0
@@ -104,12 +107,14 @@ export function MobileAmountSheet({
     onDone(amount)
   }
 
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
+
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mamt-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <span>{title}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mamt-amount-display">
@@ -141,10 +146,10 @@ export function MobileAmountSheet({
               ))}
             </div>
             <div className="mobile-keypad-actions">
-              <button className="mobile-back-button" onClick={() => pressKey('back')} aria-label="Borrar">
+              <button className="mobile-back-button" onClick={() => pressKey('back')} aria-label={t('delete')}>
                 <Icon name="close" size={18} />
               </button>
-              <button className="mobile-done-button" onClick={done} aria-label="Listo">
+              <button className="mobile-done-button" onClick={done} aria-label={t('done')}>
                 <Icon name="check" size={20} />
               </button>
             </div>

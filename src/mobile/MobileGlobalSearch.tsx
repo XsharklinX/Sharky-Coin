@@ -4,6 +4,7 @@ import { CatBadge } from '@/views/shared'
 import { dateLocale, fmt, getAccount, getCategory } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
+import { translateCategoryName, useT } from '@/i18n'
 import type { Account, AccountType, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
@@ -44,7 +45,8 @@ export function MobileGlobalSearch({
   onGotoGoals: () => void
 }) {
   const { accounts, categories, goals, transactions, currency } = useFinance()
-  const lang = useSettings(s => s.language)
+  const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const locale = dateLocale(lang)
   const [query, setQuery] = useState('')
 
@@ -59,8 +61,8 @@ export function MobileGlobalSearch({
 
   const matchedCategories = useMemo(() => {
     if (!q) return []
-    return categories.filter(c => c.name.toLowerCase().includes(q)).slice(0, MAX_RESULTS)
-  }, [categories, q])
+    return categories.filter(c => c.name.toLowerCase().includes(q) || translateCategoryName(c, lang).toLowerCase().includes(q)).slice(0, MAX_RESULTS)
+  }, [categories, q, lang])
 
   const matchedGoals = useMemo(() => {
     if (!q) return []
@@ -75,7 +77,7 @@ export function MobileGlobalSearch({
         const account = getAccount(tx.accountId, accounts)
         const from = getAccount(tx.fromAccount, accounts)
         const to = getAccount(tx.toAccount, accounts)
-        const haystack = [tx.note, category?.name, account?.name, from?.name, to?.name]
+        const haystack = [tx.note, category?.name, category && translateCategoryName(category, lang), account?.name, from?.name, to?.name]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
@@ -83,16 +85,16 @@ export function MobileGlobalSearch({
       })
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, MAX_RESULTS)
-  }, [transactions, categories, accounts, q])
+  }, [transactions, categories, accounts, q, lang])
 
   const hasResults = matchedAccounts.length > 0 || matchedCategories.length > 0
     || matchedGoals.length > 0 || matchedTx.length > 0
 
   return (
-    <div className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label="Búsqueda global">
+    <div className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label={t('globalSearchLabel')}>
       <div className="mobile-search-head">
-        <button onClick={onClose}>Cancelar</button>
-        <strong>Buscar</strong>
+        <button onClick={onClose}>{t('cancel')}</button>
+        <strong>{t('search')}</strong>
         <span />
       </div>
       <label className="mobile-search-input">
@@ -100,7 +102,7 @@ export function MobileGlobalSearch({
         <input
           autoFocus
           value={query}
-          placeholder="Movimientos, cuentas, categorías, metas"
+          placeholder={t('searchPlaceholderAll')}
           onChange={event => setQuery(event.target.value)}
         />
       </label>
@@ -108,22 +110,22 @@ export function MobileGlobalSearch({
       {!q && (
         <div className="mobile-empty-list">
           <Icon name="search" size={40} style={{ opacity: .25 }} />
-          <strong>Busca en toda la app</strong>
-          <span>Encuentra movimientos, cuentas, categorías y metas.</span>
+          <strong>{t('searchEverywhereTitle')}</strong>
+          <span>{t('searchEverywhereHint')}</span>
         </div>
       )}
 
       {q && !hasResults && (
         <div className="mobile-empty-list">
           <Icon name="search" size={40} style={{ opacity: .25 }} />
-          <strong>Sin resultados</strong>
-          <span>Prueba con otro término de búsqueda.</span>
+          <strong>{t('noResultsTitle')}</strong>
+          <span>{t('tryAnotherSearchTerm')}</span>
         </div>
       )}
 
       {matchedAccounts.length > 0 && (
         <div className="mset-section">
-          <span className="mset-section-title">Cuentas</span>
+          <span className="mset-section-title">{t('accounts')}</span>
           <div className="mset-card">
             {matchedAccounts.map(account => (
               <button key={account.id} className="mset-row" onClick={() => { onGotoAccounts(); onClose() }}>
@@ -140,13 +142,13 @@ export function MobileGlobalSearch({
 
       {matchedCategories.length > 0 && (
         <div className="mset-section">
-          <span className="mset-section-title">Categorías</span>
+          <span className="mset-section-title">{t('categoriesLabel')}</span>
           <div className="mset-card">
             {matchedCategories.map(category => (
               <button key={category.id} className="mset-row" onClick={() => { onGotoCategories(); onClose() }}>
                 <CatBadge category={category} size={32} />
-                <span className="mset-label">{category.name}</span>
-                <span className="mset-value">{category.type === 'income' ? 'Ingreso' : 'Gasto'}</span>
+                <span className="mset-label">{translateCategoryName(category, lang)}</span>
+                <span className="mset-value">{category.type === 'income' ? t('income') : t('expense')}</span>
               </button>
             ))}
           </div>
@@ -155,7 +157,7 @@ export function MobileGlobalSearch({
 
       {matchedGoals.length > 0 && (
         <div className="mset-section">
-          <span className="mset-section-title">Metas</span>
+          <span className="mset-section-title">{t('goals')}</span>
           <div className="mset-card">
             {matchedGoals.map(goal => (
               <button key={goal.id} className="mset-row" onClick={() => { onGotoGoals(); onClose() }}>
@@ -172,7 +174,7 @@ export function MobileGlobalSearch({
 
       {matchedTx.length > 0 && (
         <div className="mset-section">
-          <span className="mset-section-title">Movimientos</span>
+          <span className="mset-section-title">{t('movementsLabel')}</span>
           <div className="mobile-list-card">
             {matchedTx.map(tx => {
               const category = getCategory(tx.categoryId, categories)
@@ -183,10 +185,10 @@ export function MobileGlobalSearch({
                     ? <span className="mobile-transfer-icon"><Icon name="repeat" size={24} /></span>
                     : <CatBadge category={category} size={40} />}
                   <span>
-                    <b>{tx.type === 'transfer' ? 'Transferencia' : tx.note}</b>
+                    <b>{tx.type === 'transfer' ? t('transfer') : tx.note}</b>
                     <small>{tx.type === 'transfer'
-                      ? `${accountLabel(getAccount(tx.fromAccount, accounts), 'Origen')} → ${accountLabel(getAccount(tx.toAccount, accounts), 'Destino')}`
-                      : `${category?.name ?? 'Sin categoría'} · ${account?.name ?? 'Sin cuenta'} · ${txDateLabel(tx.date, locale)}`}</small>
+                      ? `${accountLabel(getAccount(tx.fromAccount, accounts), t('origin'))} → ${accountLabel(getAccount(tx.toAccount, accounts), t('destination'))}`
+                      : `${category ? translateCategoryName(category, lang) : t('noCategoryLabel')} · ${account?.name ?? t('noAccountLabel')} · ${txDateLabel(tx.date, locale)}`}</small>
                   </span>
                   <strong className={tx.type === 'income' ? 'income' : tx.type === 'transfer' ? 'transfer' : ''}>
                     {signedAmount(tx, currency)}

@@ -156,7 +156,7 @@ export function MobileHome({
             <div key={alert.id} className={`mhome-alert ${alert.level}`}>
               <span className="mhome-alert-ico"><Icon name={alert.icon} size={16} /></span>
               <p><strong>{alert.title}</strong>{alert.text}</p>
-              <button aria-label="Descartar aviso" onClick={() => dismissAlert(alert.id)}>
+              <button aria-label={t('dismissAlertLabel')} onClick={() => dismissAlert(alert.id)}>
                 <Icon name="close" size={14} />
               </button>
             </div>
@@ -187,12 +187,12 @@ export function MobileHome({
             <div key={mk} data-month={mk} className="mhome-prev-month">
               <div className="mhome-prev-month-header">
                 <Icon name="calendar" size={13} />
-                <span>{monthLabel(mk)}</span>
+                <span>{monthLabel(mk, dateLocale(lang))}</span>
               </div>
               {mkTx.length ? (
                 <MobileTransactionList transactions={mkTx} onEdit={onEditTx} onDelete={onDeleteTx} />
               ) : (
-                <p className="mhome-prev-empty">Sin movimientos ese mes</p>
+                <p className="mhome-prev-empty">{t('noMovementsThatMonth')}</p>
               )}
             </div>
           )
@@ -202,7 +202,7 @@ export function MobileHome({
         {prevHasTx && (
           <button className="mhome-load-prev" onClick={loadPrevMonth}>
             <Icon name="calendar" size={14} />
-            <span>Cargar {monthLabel(prevKey)}</span>
+            <span>{t('loadMonth').replace('{month}', monthLabel(prevKey, dateLocale(lang)))}</span>
           </button>
         )}
       </div>

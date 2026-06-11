@@ -1,21 +1,24 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { byCategory, monthlySeries, totals } from '@/data/helpers'
+import { byCategory, dateLocale, monthlySeries, totals } from '@/data/helpers'
 import { exportElementPng } from '@/data/imageExport'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import { translateCategoryName, useT } from '@/i18n'
 import { useFmt } from '@/hooks/useFmt'
-
-const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 export function MobileAnnual({ mkey }: { mkey: string }) {
   const { transactions, categories, currency } = useFinance()
   const fmtVal = useFmt()
+  const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
+  const locale = dateLocale(lang)
   const [exporting, setExporting] = useState(false)
   const year = Number(mkey.slice(0, 4))
   const yearTx = transactions.filter(tx => tx.date.startsWith(String(year)))
   const summary = totals(yearTx)
-  const months = monthlySeries(transactions, year)
+  const months = monthlySeries(transactions, year, locale)
   const expenses = byCategory(yearTx, 'expense', categories)
   const incomeCategories = byCategory(yearTx, 'income', categories)
   const topMonth = months.reduce((best, m) => m.expense > best.expense ? m : best, months[0] ?? { label: '—', expense: 0 })
@@ -27,15 +30,27 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
   const topExpenses = expenses.slice(0, 6)
   const totalExpense = Math.max(1, summary.expense)
 
+  const prevYear = year - 1
+  const prevSummary = useMemo(
+    () => totals(transactions.filter(tx => tx.date.startsWith(String(prevYear)))),
+    [transactions, prevYear],
+  )
+  const compareRows: Array<{ label: string; current: number; prev: number; goodWhenUp: boolean; cls: string }> = [
+    { label: t('incomes'), current: summary.income, prev: prevSummary.income, goodWhenUp: true, cls: 'income' },
+    { label: t('expenses'), current: summary.expense, prev: prevSummary.expense, goodWhenUp: false, cls: 'expense' },
+    { label: t('netLabel'), current: summary.net, prev: prevSummary.net, goodWhenUp: true, cls: summary.net >= 0 ? 'income' : 'expense' },
+  ]
+  const showCompare = prevSummary.income > 0 || prevSummary.expense > 0
+
   const handleExport = async () => {
     const el = document.getElementById('annual-capture')
     if (!el) return
     setExporting(true)
     try {
       await exportElementPng(el, `sharky-anual-${year}`)
-      toast('Reporte exportado como imagen', { icon: 'download', type: 'ok' })
+      toast(t('reportExportedAsImage'), { icon: 'download', type: 'ok' })
     } catch {
-      toast('No se pudo exportar.', { icon: 'alert' })
+      toast(t('couldNotExportPeriod'), { icon: 'alert' })
     } finally {
       setExporting(false)
     }
@@ -46,23 +61,23 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
       {/* Hero */}
       <section className="mobile-annual-hero">
         <span className="mobile-annual-year">{year}</span>
-        <h2>Resumen anual</h2>
+        <h2>{t('annualSummaryTitle')}</h2>
         <strong className={summary.net >= 0 ? 'income' : 'expense'}>{fmtVal(summary.net, currency)}</strong>
-        <p>{summary.net >= 0 ? 'Ahorro neto del año' : 'Déficit del año'}</p>
+        <p>{summary.net >= 0 ? t('netSavingsOfYear') : t('deficitOfYear')}</p>
       </section>
 
       {/* Métricas principales */}
       <div className="mobile-annual-metrics">
         <article>
-          <small>Ingresos</small>
+          <small>{t('incomes')}</small>
           <b className="income">{fmtVal(summary.income, currency)}</b>
         </article>
         <article>
-          <small>Gastos</small>
+          <small>{t('expenses')}</small>
           <b className="expense">{fmtVal(summary.expense, currency)}</b>
         </article>
         <article>
-          <small>Ahorro</small>
+          <small>{t('savings')}</small>
           <b className={savingsRate >= 0 ? 'income' : 'expense'}>{savingsRate}%</b>
         </article>
       </div>
@@ -72,29 +87,60 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
         <article>
           <Icon name="flame" size={18} />
           <div>
-            <small>Mes de mayor gasto</small>
+            <small>{t('highestExpenseMonthLabel')}</small>
             <strong>{topMonth.label}</strong>
           </div>
         </article>
         <article>
           <Icon name="star" size={18} />
           <div>
-            <small>Mejor mes de ahorro</small>
+            <small>{t('bestSavingsMonthLabel')}</small>
             <strong>{bestSavingsMonth.label}</strong>
           </div>
         </article>
         <article>
           <Icon name="list" size={18} />
           <div>
-            <small>Movimientos totales</small>
+            <small>{t('totalMovementsLabel')}</small>
             <strong>{yearTx.length}</strong>
           </div>
         </article>
       </div>
 
+      {/* Comparativa interanual */}
+      {showCompare && (
+        <section className="mobile-annual-card">
+          <h3>{t('compareVsYear').replace('{year}', String(prevYear))}</h3>
+          <div className="man-compare-rows">
+            {compareRows.map(row => {
+              const delta = row.prev !== 0
+                ? Math.round((row.current / row.prev - 1) * 100)
+                : (row.current !== 0 ? 100 : 0)
+              const isUp = delta >= 0
+              const isGood = isUp === row.goodWhenUp
+              return (
+                <div key={row.label} className="man-compare-row">
+                  <div className="man-compare-main">
+                    <span className="man-compare-label">{row.label}</span>
+                    <strong className={row.cls}>{fmtVal(row.current, currency)}</strong>
+                  </div>
+                  <div className="man-compare-side">
+                    <span className={`man-compare-delta ${delta === 0 ? '' : isGood ? 'ok' : 'warn'}`}>
+                      <Icon name={isUp ? 'arrowUp' : 'arrowDn'} size={11} />
+                      {Math.abs(delta)}%
+                    </span>
+                    <small>{fmtVal(row.prev, currency)}</small>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Barras por mes */}
       <section className="mobile-annual-card">
-        <h3>Gastos e ingresos por mes</h3>
+        <h3>{t('expensesAndIncomeByMonth')}</h3>
         <div className="mobile-annual-bars">
           {months.map(m => (
             <div key={m.key} className="mobile-annual-month">
@@ -102,35 +148,35 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
                 <span
                   className="bar-income"
                   style={{ height: `${Math.max(3, m.income / maxBar * 80)}px` }}
-                  title={`Ingresos: ${fmtVal(m.income, currency)}`}
+                  title={t('incomeColon').replace('{amount}', fmtVal(m.income, currency))}
                 />
                 <span
                   className="bar-expense"
                   style={{ height: `${Math.max(3, m.expense / maxBar * 80)}px` }}
-                  title={`Gastos: ${fmtVal(m.expense, currency)}`}
+                  title={t('expenseColon').replace('{amount}', fmtVal(m.expense, currency))}
                 />
               </div>
-              <small>{MONTH_LABELS[Number(m.key.slice(5, 7)) - 1]}</small>
+              <small>{m.label}</small>
             </div>
           ))}
         </div>
         <div className="mobile-annual-legend">
-          <span><i style={{ background: '#35d0a2' }} />Ingresos</span>
-          <span><i style={{ background: '#ff6b8a' }} />Gastos</span>
+          <span><i style={{ background: '#35d0a2' }} />{t('incomes')}</span>
+          <span><i style={{ background: '#ff6b8a' }} />{t('expenses')}</span>
         </div>
       </section>
 
       {/* Top categorías gasto */}
       {topExpenses.length > 0 && (
         <section className="mobile-annual-card">
-          <h3>Top categorías de gasto</h3>
+          <h3>{t('topExpenseCategoriesTitle')}</h3>
           <div className="mobile-category-bars">
             {topExpenses.map((item, idx) => (
               <article key={item.category.id}>
                 <div>
                   <span style={{ color: item.category.color }}>
                     <strong style={{ fontSize: 11, marginRight: 4, opacity: .6 }}>#{idx + 1}</strong>
-                    {item.category.name}
+                    {translateCategoryName(item.category, lang)}
                   </span>
                   <strong>{fmtVal(item.amount, currency)}</strong>
                 </div>
@@ -146,11 +192,11 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
       {/* Top fuentes de ingreso */}
       {incomeCategories.length > 0 && (
         <section className="mobile-annual-card">
-          <h3>Fuentes de ingreso</h3>
+          <h3>{t('incomeSourcesTitle')}</h3>
           <div className="mobile-annual-income-list">
             {incomeCategories.slice(0, 4).map(item => (
               <div key={item.category.id} className="mobile-annual-income-row">
-                <span style={{ color: item.category.color }}>{item.category.name}</span>
+                <span style={{ color: item.category.color }}>{translateCategoryName(item.category, lang)}</span>
                 <strong className="income">{fmtVal(item.amount, currency)}</strong>
               </div>
             ))}
@@ -161,7 +207,7 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
       {/* Exportar */}
       <button className="mobile-annual-export" disabled={exporting} onClick={handleExport}>
         <Icon name="download" size={19} />
-        {exporting ? 'Generando imagen…' : 'Exportar imagen'}
+        {exporting ? t('generatingImageEllipsis') : t('exportImageLabel')}
       </button>
     </div>
   )

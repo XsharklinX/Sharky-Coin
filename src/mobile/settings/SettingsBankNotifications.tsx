@@ -5,10 +5,12 @@ import { isTauri } from '@/hooks/useTauri'
 import { useBankNotifications } from '@/hooks/useBankNotifications'
 import { hasNotificationAccess, openNotificationAccessSettings } from '@/lib/bankNotifications'
 import { useNotificationInbox } from '@/store/notificationInbox'
+import { useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
 export function SettingsBankNotifications({ activeSheet, onOpen, onClose }: SheetProps) {
   const inbox = useNotificationInbox()
+  const t = useT()
   const [granted, setGranted] = useState<boolean | null>(null)
 
   useBankNotifications()
@@ -26,32 +28,29 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose }: Shee
 
   const handleClear = () => {
     inbox.clear()
-    toast('Capturas eliminadas', { icon: 'trash' })
+    toast(t('capturesCleared'), { icon: 'trash' })
   }
 
   if (!isTauri()) return null
 
-  const accessLabel = granted == null ? 'Verificando…' : granted ? 'Concedido' : 'No concedido'
+  const accessLabel = granted == null ? t('checking') : granted ? t('accessGranted') : t('accessNotGranted')
 
   return (
     <>
       <div className="mset-section">
-        <div className="mset-section-label">Notificaciones bancarias</div>
+        <div className="mset-section-label">{t('bankNotificationsSection')}</div>
         <div className="mset-card">
-          <SettingsRow icon="bell" iconColor="#5bc0ff" label="Detección de transacciones"
-            value={`${inbox.items.length} capturadas`}
+          <SettingsRow icon="bell" iconColor="#5bc0ff" label={t('transactionDetection')}
+            value={t('capturedCount').replace('{count}', String(inbox.items.length))}
             onClick={() => onOpen('bankNotifications')} />
         </div>
       </div>
 
       {activeSheet === 'bankNotifications' && (
-        <SettingsSheet title="Notificaciones bancarias" onClose={onClose}>
+        <SettingsSheet title={t('bankNotificationsSection')} onClose={onClose}>
           <div className="mset-sheet-body">
             <p className="mset-legal-intro">
-              $harky puede leer el título y el texto de las notificaciones de tu teléfono
-              (incluyendo SMS y avisos de tus apps bancarias) para detectar transacciones
-              automáticamente. Todo el procesamiento ocurre en tu dispositivo, nada se envía
-              a ningún servidor. Es opcional y puedes desactivarlo cuando quieras.
+              {t('bankNotificationsIntro')}
             </p>
 
             <div className="mset-row">
@@ -59,12 +58,12 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose }: Shee
                 <Icon name="shield" size={18} />
               </span>
               <div className="mset-row-text">
-                <b>Acceso a notificaciones</b>
+                <b>{t('notificationAccess')}</b>
                 <small>{accessLabel}</small>
               </div>
             </div>
             <button className="mset-sheet-confirm" onClick={handleOpenSettings}>
-              Abrir ajustes de notificaciones
+              {t('openNotificationSettings')}
             </button>
 
             <div className="mset-row">
@@ -72,8 +71,8 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose }: Shee
                 <Icon name="bell" size={18} />
               </span>
               <div className="mset-row-text">
-                <b>Capturar notificaciones (modo prueba)</b>
-                <small>Guarda en este dispositivo las notificaciones recibidas para revisarlas</small>
+                <b>{t('captureNotificationsTest')}</b>
+                <small>{t('captureNotificationsDesc')}</small>
               </div>
               <label className="mset-toggle-wrap">
                 <input type="checkbox" className="mset-toggle-input"
@@ -84,17 +83,17 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose }: Shee
             </div>
 
             <p className="mset-section-label" style={{ marginTop: 16 }}>
-              Capturadas ({inbox.items.length})
+              {t('capturedHeader').replace('{count}', String(inbox.items.length))}
             </p>
             {inbox.items.length === 0 ? (
-              <p className="mset-legal-intro">Aún no se ha capturado ninguna notificación.</p>
+              <p className="mset-legal-intro">{t('noCapturedYet')}</p>
             ) : (
               <div className="mset-card">
                 {inbox.items.map(item => (
                   <div key={item.id} className="mset-row" style={{ alignItems: 'flex-start' }}>
                     <div className="mset-row-text">
-                      <b>{item.title || '(sin título)'}</b>
-                      <small style={{ whiteSpace: 'pre-wrap' }}>{item.text || '(sin texto)'}</small>
+                      <b>{item.title || t('noTitle')}</b>
+                      <small style={{ whiteSpace: 'pre-wrap' }}>{item.text || t('noText')}</small>
                       <small>{item.package} · {new Date(item.postTime).toLocaleString()}</small>
                     </div>
                   </div>
@@ -104,7 +103,7 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose }: Shee
 
             {inbox.items.length > 0 && (
               <button className="mset-sheet-danger" onClick={handleClear}>
-                <Icon name="trash" size={16} /> Limpiar capturas
+                <Icon name="trash" size={16} /> {t('clearCaptures')}
               </button>
             )}
           </div>

@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
-
-const DAYS  = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
-const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+import { useDialogA11y } from './useDialogA11y'
 
 function parseDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -20,11 +18,15 @@ export function MobileDatePicker({
   onChange: (v: string) => void
   onClose: () => void
 }) {
+  const t = useT()
+  const DAYS = [t('dayMon'), t('dayTue'), t('dayWed'), t('dayThu'), t('dayFri'), t('daySat'), t('daySun')]
+  const MONTHS = [t('jan'), t('feb'), t('mar'), t('apr'), t('may'), t('jun'), t('jul'), t('aug'), t('sep'), t('oct'), t('nov'), t('dec')]
   const parsed = parseDate(value)
   const [viewYear, setViewYear]   = useState(parsed.year)
   const [viewMonth, setViewMonth] = useState(parsed.month)
 
   useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   const today = new Date()
   const firstDay = new Date(viewYear, viewMonth - 1, 1).getDay()
@@ -61,16 +63,16 @@ export function MobileDatePicker({
   while (cells.length % 7 !== 0) cells.push(null)
 
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mdp-sheet" onClick={e => e.stopPropagation()}>
 
         {/* Nav */}
         <div className="mdp-nav">
-          <button onClick={prevMonth}>
+          <button aria-label={t('prevMonth')} onClick={prevMonth}>
             <Icon name="arrowUp" size={18} style={{ transform: 'rotate(-90deg)' }} />
           </button>
           <strong>{MONTHS[viewMonth - 1]} {viewYear}</strong>
-          <button onClick={nextMonth}>
+          <button aria-label={t('nextMonth')} onClick={nextMonth}>
             <Icon name="arrowUp" size={18} style={{ transform: 'rotate(90deg)' }} />
           </button>
         </div>
@@ -97,19 +99,19 @@ export function MobileDatePicker({
         {/* Quick actions */}
         <div className="mdp-quick">
           <button onClick={() => {
-            const t = new Date()
-            const iso = t.toISOString().slice(0, 10)
+            const now = new Date()
+            const iso = now.toISOString().slice(0, 10)
             onChange(iso)
             onClose()
-          }}>Hoy</button>
+          }}>{t('today')}</button>
           <button onClick={() => {
-            const t = new Date()
-            t.setDate(t.getDate() - 1)
-            const iso = t.toISOString().slice(0, 10)
+            const now = new Date()
+            now.setDate(now.getDate() - 1)
+            const iso = now.toISOString().slice(0, 10)
             onChange(iso)
             onClose()
-          }}>Ayer</button>
-          <button onClick={onClose}>Cancelar</button>
+          }}>{t('yesterday')}</button>
+          <button onClick={onClose}>{t('cancel')}</button>
         </div>
 
       </section>

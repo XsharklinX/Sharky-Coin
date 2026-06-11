@@ -10,20 +10,26 @@ import type { DensityName, OverdraftPolicy, ThemeName } from '@/types'
 import { ACCENT_COLORS } from '@/constants'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
-const ACCENTS = [
-  { color: ACCENT_COLORS[0], label: 'Amarillo' },
-  { color: ACCENT_COLORS[1], label: 'Verde'    },
-  { color: ACCENT_COLORS[2], label: 'Azul'     },
-  { color: ACCENT_COLORS[3], label: 'Violeta'  },
-  { color: ACCENT_COLORS[4], label: 'Rosa'     },
-  { color: ACCENT_COLORS[5], label: 'Naranja'  },
-]
+function getAccents(t: ReturnType<typeof useT>) {
+  return [
+    { color: ACCENT_COLORS[0], label: t('accentYellow') },
+    { color: ACCENT_COLORS[1], label: t('accentGreen')  },
+    { color: ACCENT_COLORS[2], label: t('accentBlue')   },
+    { color: ACCENT_COLORS[3], label: t('accentViolet') },
+    { color: ACCENT_COLORS[4], label: t('accentPink')   },
+    { color: ACCENT_COLORS[5], label: t('accentOrange') },
+  ]
+}
 
-const THEME_LABELS: Record<ThemeName, string>     = { dark: 'Oscuro', light: 'Claro', system: 'Sistema' }
-const DENSITY_LABELS: Record<DensityName, string> = { compact: 'Compacto', regular: 'Regular', comfy: 'Cómodo' }
-const OVERDRAFT_LABELS: Record<OverdraftPolicy, string> = { block: 'Bloquear', warn: 'Advertir', allow: 'Permitir' }
-
-export { OVERDRAFT_LABELS }
+function getThemeLabels(t: ReturnType<typeof useT>): Record<ThemeName, string> {
+  return { dark: t('themeDarkLabel'), light: t('themeLightLabel'), system: t('themeSystemLabel') }
+}
+function getDensityLabels(t: ReturnType<typeof useT>): Record<DensityName, string> {
+  return { compact: t('densityCompact'), regular: t('densityRegular'), comfy: t('densityComfy') }
+}
+function getOverdraftLabels(t: ReturnType<typeof useT>): Record<OverdraftPolicy, string> {
+  return { block: t('overdraftBlock'), warn: t('overdraftWarn'), allow: t('overdraftAllow') }
+}
 
 const themePreviewBg: Record<'dark' | 'light', string> = { dark: '#0a0e16', light: '#f4f7fb' }
 const themePreviewFg: Record<'dark' | 'light', string> = { dark: '#e9eef7', light: '#172033' }
@@ -33,17 +39,21 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
   const finance  = useFinance()
   const resolvedTheme = useResolvedTheme()
   const t = useT()
+  const ACCENTS = getAccents(t)
+  const THEME_LABELS = getThemeLabels(t)
+  const DENSITY_LABELS = getDensityLabels(t)
+  const OVERDRAFT_LABELS = getOverdraftLabels(t)
 
   return (
     <>
       {/* ── Finanzas ── */}
       <div className="mset-section">
-        <span className="mset-section-title">Finanzas</span>
+        <span className="mset-section-title">{t('financeSection')}</span>
         <div className="mset-card">
           <SettingsRow icon="dollar" iconColor="#35d0a2" label={t('currency')}
             value={finance.currency}
             onClick={() => onOpen('currency')} />
-          <SettingsRow icon="alert" iconColor="#f59e0b" label="Sobregiro"
+          <SettingsRow icon="alert" iconColor="#f59e0b" label={t('overdraft')}
             value={OVERDRAFT_LABELS[settings.overdraftPolicy]}
             onClick={() => onOpen('overdraft')} />
         </div>
@@ -51,12 +61,12 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
 
       {/* ── Apariencia ── */}
       <div className="mset-section">
-        <span className="mset-section-title">Apariencia</span>
+        <span className="mset-section-title">{t('appearanceSection')}</span>
         <div className="mset-card">
           <SettingsRow icon="palette" iconColor="#a78bfa" label={t('theme')}
             value={THEME_LABELS[settings.theme]}
             onClick={() => onOpen('theme')} />
-          <SettingsRow icon="sliders" iconColor="#ff6b8a" label="Color de acento"
+          <SettingsRow icon="sliders" iconColor="#ff6b8a" label={t('accentColor')}
             onClick={() => onOpen('accent')}
             right={
               <>
@@ -65,7 +75,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
               </>
             }
           />
-          <SettingsRow icon="grid" iconColor="#f59e0b" label="Densidad"
+          <SettingsRow icon="grid" iconColor="#f59e0b" label={t('density')}
             value={DENSITY_LABELS[settings.density]}
             onClick={() => onOpen('density')} />
           <SettingsRow icon="map" iconColor="#64d2ff" label={t('language')}
@@ -76,8 +86,8 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
               <Icon name="bell" size={18} />
             </span>
             <div className="mset-row-text">
-              <b>Sonidos de interfaz</b>
-              <small>Tonos al escribir, guardar y abrir</small>
+              <b>{t('interfaceSounds')}</b>
+              <small>{t('interfaceSoundsDesc')}</small>
             </div>
             <label className="mset-toggle-wrap">
               <input type="checkbox" className="mset-toggle-input"
@@ -92,7 +102,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
                 <Icon name="sliders" size={18} />
               </span>
               <div className="mset-row-text">
-                <b>Volumen de sonidos</b>
+                <b>{t('soundVolume')}</b>
                 <input
                   className="mset-slider" type="range"
                   min={0} max={100} step={5}
@@ -109,8 +119,8 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
               <Icon name="chart" size={18} />
             </span>
             <div className="mset-row-text">
-              <b>Números resumidos</b>
-              <small>Mostrar 1.7k en lugar del valor completo</small>
+              <b>{t('compactNumbers')}</b>
+              <small>{t('compactNumbersDesc')}</small>
             </div>
             <label className="mset-toggle-wrap">
               <input type="checkbox" className="mset-toggle-input"
@@ -125,8 +135,8 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
                 <Icon name="bell" size={18} />
               </span>
               <div className="mset-row-text">
-                <b>Recordatorios en segundo plano</b>
-                <small>Avisos de pagos próximos y presupuestos aunque la app esté cerrada</small>
+                <b>{t('backgroundReminders')}</b>
+                <small>{t('backgroundRemindersDesc')}</small>
               </div>
               <label className="mset-toggle-wrap">
                 <input type="checkbox" className="mset-toggle-input"
@@ -141,7 +151,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
 
       {/* ── Sheets ── */}
       {activeSheet === 'theme' && (
-        <SettingsSheet title="Tema" onClose={onClose}>
+        <SettingsSheet title={t('theme')} onClose={onClose}>
           <div className="mset-sheet-options">
             {(['dark', 'light', 'system'] as ThemeName[]).map(theme => {
               const previewKey = theme === 'system' ? resolvedTheme : theme
@@ -161,7 +171,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
       )}
 
       {activeSheet === 'accent' && (
-        <SettingsSheet title="Color de acento" onClose={onClose}>
+        <SettingsSheet title={t('accentColor')} onClose={onClose}>
           <div className="mset-sheet-body">
             <div className="mset-accent-grid">
               {ACCENTS.map(({ color, label }) => (
@@ -177,13 +187,13 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
       )}
 
       {activeSheet === 'density' && (
-        <SettingsSheet title="Densidad de interfaz" onClose={onClose}>
+        <SettingsSheet title={t('density')} onClose={onClose}>
           <div className="mset-sheet-options">
             {(['compact', 'regular', 'comfy'] as DensityName[]).map(density => (
               <button key={density} className={`mset-option-row${settings.density === density ? ' on' : ''}`}
                 onClick={() => { settings.setDensity(density); onClose() }}>
                 <strong>{DENSITY_LABELS[density]}</strong>
-                <small>{density === 'compact' ? 'Más contenido visible' : density === 'comfy' ? 'Más espacio entre elementos' : 'Balanceado'}</small>
+                <small>{density === 'compact' ? t('densityCompactDesc') : density === 'comfy' ? t('densityComfyDesc') : t('densityRegularDesc')}</small>
                 {settings.density === density && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
@@ -192,7 +202,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
       )}
 
       {activeSheet === 'currency' && (
-        <SettingsSheet title="Moneda predeterminada" onClose={onClose}>
+        <SettingsSheet title={t('currencySheetTitle')} onClose={onClose}>
           <div className="mset-sheet-options">
             {(['DOP','USD','EUR','MXN','GBP','COP','ARS','BRL','CAD'] as const).map(code => (
               <button key={code} className={`mset-option-row${finance.currency === code ? ' on' : ''}`}
@@ -206,13 +216,13 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
       )}
 
       {activeSheet === 'overdraft' && (
-        <SettingsSheet title="Política de sobregiro" onClose={onClose}>
+        <SettingsSheet title={t('overdraftSheetTitle')} onClose={onClose}>
           <div className="mset-sheet-options">
             {(['block', 'warn', 'allow'] as OverdraftPolicy[]).map(policy => (
               <button key={policy} className={`mset-option-row${settings.overdraftPolicy === policy ? ' on' : ''}`}
                 onClick={() => { settings.setOverdraftPolicy(policy); onClose() }}>
                 <strong>{OVERDRAFT_LABELS[policy]}</strong>
-                <small>{policy === 'block' ? 'Bloquea gastos cuando el saldo es cero' : policy === 'warn' ? 'Advierte pero permite continuar' : 'Siempre permite, sin restricción'}</small>
+                <small>{policy === 'block' ? t('overdraftBlockDesc') : policy === 'warn' ? t('overdraftWarnDesc') : t('overdraftAllowDesc')}</small>
                 {settings.overdraftPolicy === policy && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
@@ -221,13 +231,13 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
       )}
 
       {activeSheet === 'language' && (
-        <SettingsSheet title="Idioma" onClose={onClose}>
+        <SettingsSheet title={t('language')} onClose={onClose}>
           <div className="mset-sheet-options">
             {(['es', 'en'] as const).map(lang => (
               <button key={lang} className={`mset-option-row${settings.language === lang ? ' on' : ''}`}
                 onClick={() => { settings.setLanguage(lang); onClose() }}>
                 <strong>{lang === 'en' ? '🇺🇸 English' : '🇩🇴 Español'}</strong>
-                <small>{lang === 'en' ? 'Interfaz en inglés' : 'Interfaz en español'}</small>
+                <small>{lang === 'en' ? t('englishInterface') : t('spanishInterface')}</small>
                 {settings.language === lang && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}

@@ -9,6 +9,7 @@ export interface SubscriptionInsight {
   months: number
   confidence: number
   lastDate: string
+  alreadyRecurring: boolean
 }
 
 export interface CashflowProjection {
@@ -106,6 +107,7 @@ export function detectSubscriptions(txns: Transaction[], mkey: string): Subscrip
       months: distinctMonths.size,
       confidence: Math.min(98, Math.round((distinctMonths.size / 6) * 70 + (recurringFlag ? 25 : 0) + (1 - variance) * 20)),
       lastDate: rows.map(tx => tx.date).sort()[rows.length - 1] ?? '',
+      alreadyRecurring: recurringFlag,
     }]
   }).sort((a, b) => b.confidence - a.confidence || b.amount - a.amount).slice(0, 6)
 }

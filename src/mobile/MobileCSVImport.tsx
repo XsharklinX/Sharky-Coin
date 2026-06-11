@@ -2,7 +2,9 @@ import { useState, useRef } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 import type { TxType } from '@/types'
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
@@ -113,6 +115,7 @@ function buildTxs(rows: string[][], map: ColMap): ParsedTx[] {
 
 export function MobileCSVImport({ onClose }: { onClose: () => void }) {
   const { accounts, addTx } = useFinance()
+  const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep]         = useState<'upload' | 'map' | 'confirm'>('upload')
@@ -123,10 +126,11 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
   const [importing, setImport]  = useState(false)
 
   useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   const loadFile = (text: string) => {
     const parsed = parseCSV(text)
-    if (parsed.length < 2) { toast('Archivo inválido o sin filas', { icon: 'alert' }); return }
+    if (parsed.length < 2) { toast(t('invalidFileNoRows'), { icon: 'alert' }); return }
     const [hdrs, ...data] = parsed
     setHeaders(hdrs)
     setRows(data)
@@ -154,14 +158,14 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
   const valid = txs.filter(t => t.valid)
 
   const doImport = async () => {
-    if (!accountId) { toast('Selecciona una cuenta', { icon: 'alert' }); return }
+    if (!accountId) { toast(t('selectAccountPrompt'), { icon: 'alert' }); return }
     setImport(true)
     let count = 0
     for (const tx of valid) {
       addTx({ type: tx.type, amount: tx.amount, date: tx.date, note: tx.note, accountId })
       count++
     }
-    toast(`${count} transacciones importadas`, { icon: 'check', type: 'ok' })
+    toast(t('transactionsImported').replace('{count}', String(count)), { icon: 'check', type: 'ok' })
     setImport(false)
     onClose()
   }
@@ -169,12 +173,12 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
   const pCol = (k: keyof ColMap, v: ColMap[keyof ColMap]) => setColMap(m => ({ ...m, [k]: v }))
 
   return (
-    <div className="mcsv-root" role="dialog" aria-modal="true">
+    <div ref={dialogRef} className="mcsv-root" role="dialog" aria-modal="true">
       <header className="mcsv-header">
-        <button className="mcsv-back" onClick={onClose}>
+        <button className="mcsv-back" aria-label={t('back')} onClick={onClose}>
           <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
         </button>
-        <strong>Importar extracto</strong>
+        <strong>{t('importStatementTitle')}</strong>
         <span />
       </header>
 
@@ -185,21 +189,21 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
           <div className="mcsv-upload">
             <div className="mcsv-drop-area" onClick={() => fileRef.current?.click()}>
               <Icon name="fileJson" size={40} style={{ opacity: .3 }} />
-              <p>Selecciona un extracto bancario</p>
-              <small>Formatos: CSV · OFX · TXT</small>
-              <button className="mcsv-pick-btn">Elegir archivo</button>
+              <p>{t('selectBankStatementTitle')}</p>
+              <small>{t('formatsCsvOfxTxt')}</small>
+              <button className="mcsv-pick-btn">{t('chooseFileLabel')}</button>
             </div>
             <input ref={fileRef} type="file" accept=".csv,.txt,.ofx"
               style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
 
             <div className="mcsv-bank-hints">
-              <p className="mcsv-bank-label">Bancos compatibles</p>
+              <p className="mcsv-bank-label">{t('compatibleBanksLabel')}</p>
               {[
-                { name: 'BanReservas', note: 'Descarga CSV desde banca en línea' },
-                { name: 'Banco Popular', note: 'Historial → Exportar CSV' },
-                { name: 'Scotiabank DR', note: 'Exportar movimientos · CSV' },
-                { name: 'BHD León', note: 'Extracto en línea · CSV' },
+                { name: 'BanReservas', note: t('bankHintBanreservas') },
+                { name: 'Banco Popular', note: t('bankHintPopular') },
+                { name: 'Scotiabank DR', note: t('bankHintScotia') },
+                { name: 'BHD León', note: t('bankHintBhd') },
               ].map(b => (
                 <div key={b.name} className="mcsv-bank-row">
                   <b>{b.name}</b>
@@ -213,45 +217,45 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
         {/* Step 2 – Column mapping */}
         {step === 'map' && (
           <div className="mcsv-map">
-            <p className="mcsv-step-label">{rows.length} filas detectadas · {headers.length} columnas</p>
+            <p className="mcsv-step-label">{t('rowsColumnsDetected').replace('{rows}', String(rows.length)).replace('{cols}', String(headers.length))}</p>
 
             <div className="mcsv-map-grid">
               <label className="mcsv-map-row">
-                <span>Fecha</span>
+                <span>{t('date')}</span>
                 <select value={colMap.date} onChange={e => pCol('date', Number(e.target.value))}>
-                  <option value={-1}>— seleccionar —</option>
+                  <option value={-1}>{t('selectPlaceholder')}</option>
                   {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                 </select>
               </label>
               <label className="mcsv-map-row">
-                <span>Descripción</span>
+                <span>{t('descriptionLabel')}</span>
                 <select value={colMap.desc} onChange={e => pCol('desc', Number(e.target.value))}>
-                  <option value={-1}>— seleccionar —</option>
+                  <option value={-1}>{t('selectPlaceholder')}</option>
                   {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                 </select>
               </label>
               <label className="mcsv-map-row">
-                <span>Tipo de monto</span>
+                <span>{t('amountTypeLabel')}</span>
                 <select value={colMap.mode}
                   onChange={e => pCol('mode', e.target.value as ColMap['mode'])}>
-                  <option value="debit_credit">Débito y Crédito (2 columnas)</option>
-                  <option value="single">Monto único</option>
+                  <option value="debit_credit">{t('debitCreditTwoColumns')}</option>
+                  <option value="single">{t('singleAmountOption')}</option>
                 </select>
               </label>
 
               {colMap.mode === 'debit_credit' ? (
                 <>
                   <label className="mcsv-map-row">
-                    <span>Columna Débito (gasto)</span>
+                    <span>{t('debitColumnExpense')}</span>
                     <select value={colMap.debit} onChange={e => pCol('debit', Number(e.target.value))}>
-                      <option value={-1}>— seleccionar —</option>
+                      <option value={-1}>{t('selectPlaceholder')}</option>
                       {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                     </select>
                   </label>
                   <label className="mcsv-map-row">
-                    <span>Columna Crédito (ingreso)</span>
+                    <span>{t('creditColumnIncome')}</span>
                     <select value={colMap.credit} onChange={e => pCol('credit', Number(e.target.value))}>
-                      <option value={-1}>— seleccionar —</option>
+                      <option value={-1}>{t('selectPlaceholder')}</option>
                       {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                     </select>
                   </label>
@@ -259,18 +263,18 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
               ) : (
                 <>
                   <label className="mcsv-map-row">
-                    <span>Columna de monto</span>
+                    <span>{t('amountColumnLabel')}</span>
                     <select value={colMap.amount} onChange={e => pCol('amount', Number(e.target.value))}>
-                      <option value={-1}>— seleccionar —</option>
+                      <option value={-1}>{t('selectPlaceholder')}</option>
                       {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                     </select>
                   </label>
                   <label className="mcsv-map-row">
-                    <span>Los montos son</span>
+                    <span>{t('amountsAreLabel')}</span>
                     <select value={colMap.singleIsExpense ? 'expense' : 'income'}
                       onChange={e => pCol('singleIsExpense', e.target.value === 'expense')}>
-                      <option value="expense">Gastos (débitos)</option>
-                      <option value="income">Ingresos (créditos)</option>
+                      <option value="expense">{t('expensesDebits')}</option>
+                      <option value="income">{t('incomesCredits')}</option>
                     </select>
                   </label>
                 </>
@@ -278,7 +282,7 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* Preview first 3 rows */}
-            <p className="mcsv-step-label" style={{ marginTop: 16 }}>Vista previa (primeras 3 filas)</p>
+            <p className="mcsv-step-label" style={{ marginTop: 16 }}>{t('previewFirst3Rows')}</p>
             <div className="mcsv-preview">
               {txs.slice(0, 3).map((tx, i) => (
                 <div key={i} className={`mcsv-preview-row${tx.valid ? '' : ' invalid'}`}>
@@ -286,7 +290,7 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
                     {tx.type === 'income' ? '+' : '−'}{tx.amount.toLocaleString()}
                   </span>
                   <span className="mcsv-note">{tx.note || '—'}</span>
-                  <span className="mcsv-date">{tx.date || '?fecha'}</span>
+                  <span className="mcsv-date">{tx.date || t('unknownDateShort')}</span>
                 </div>
               ))}
             </div>
@@ -294,7 +298,7 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
             <button className="mcsv-next-btn"
               disabled={colMap.date < 0 || colMap.desc < 0}
               onClick={() => setStep('confirm')}>
-              Continuar → {valid.length} transacciones válidas
+              {t('continueValidTransactions').replace('{count}', String(valid.length))}
             </button>
           </div>
         )}
@@ -304,18 +308,18 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
           <div className="mcsv-confirm">
             <div className="mcsv-confirm-hero">
               <strong>{valid.length}</strong>
-              <span>transacciones listas para importar</span>
+              <span>{t('transactionsReadyToImport')}</span>
             </div>
 
             <label className="mcsv-map-row">
-              <span>Cuenta destino</span>
+              <span>{t('destinationAccount')}</span>
               <select value={accountId} onChange={e => setAccId(e.target.value)}>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </label>
 
             <div className="mcsv-preview" style={{ maxHeight: 260 }}>
-              {txs.filter(t => t.valid).slice(0, 10).map((tx, i) => (
+              {txs.filter(tx => tx.valid).slice(0, 10).map((tx, i) => (
                 <div key={i} className="mcsv-preview-row">
                   <span className={tx.type === 'income' ? 'mcsv-income' : 'mcsv-expense'}>
                     {tx.type === 'income' ? '+' : '−'}{tx.amount.toLocaleString()}
@@ -326,16 +330,16 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
               ))}
               {valid.length > 10 && (
                 <p style={{ textAlign: 'center', color: 'var(--m-muted)', fontSize: 13, padding: '8px 0' }}>
-                  +{valid.length - 10} más...
+                  {t('moreEllipsis').replace('{count}', String(valid.length - 10))}
                 </p>
               )}
             </div>
 
             <div className="mcsv-confirm-actions">
-              <button className="mcsv-back-btn" onClick={() => setStep('map')}>← Atrás</button>
+              <button className="mcsv-back-btn" onClick={() => setStep('map')}>← {t('back')}</button>
               <button className="mcsv-import-btn" disabled={importing || !accountId}
                 onClick={doImport}>
-                {importing ? 'Importando...' : `Importar ${valid.length}`}
+                {importing ? t('importingLabel') : t('importCountLabel').replace('{count}', String(valid.length))}
               </button>
             </div>
           </div>

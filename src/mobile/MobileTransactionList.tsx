@@ -8,8 +8,10 @@ import { useDialogs } from '@/components/ui/DialogProvider'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
+import { translateCategoryName, useT } from '@/i18n'
 import type { Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 type TxFilter = 'all' | 'expense' | 'income' | 'transfer'
 
@@ -20,12 +22,14 @@ type ListItem =
 const HEADER_ESTIMATE = 32
 const ROW_ESTIMATE = 60
 
-const FILTERS: Array<{ id: TxFilter; label: string }> = [
-  { id: 'all', label: 'Todos' },
-  { id: 'expense', label: 'Gastos' },
-  { id: 'income', label: 'Ingresos' },
-  { id: 'transfer', label: 'Transferencias' },
-]
+function getFilters(t: ReturnType<typeof useT>): Array<{ id: TxFilter; label: string }> {
+  return [
+    { id: 'all', label: t('allLabel') },
+    { id: 'expense', label: t('expenses') },
+    { id: 'income', label: t('incomes') },
+    { id: 'transfer', label: t('transfersLabel') },
+  ]
+}
 
 function dateLabel(date: string, locale: string): string {
   return new Date(`${date}T00:00:00`).toLocaleDateString(locale, {
@@ -67,9 +71,12 @@ export function MobileTransactionList({
   const { accounts, categories, currency } = useFinance()
   const { confirm } = useDialogs()
   const fmtVal = useFmt()
+  const t = useT()
   const settings = useSettings()
   const { compactNumbers } = settings
+  const lang = (settings.language ?? 'es') as 'en' | 'es'
   const locale = dateLocale(settings.language)
+  const FILTERS = getFilters(t)
   const [filter, setFilter] = useState<TxFilter>('all')
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -81,6 +88,8 @@ export function MobileTransactionList({
   const startX = useRef(0)
   useMobileBackDismiss(searchOpen, () => setSearchOpen(false))
   useMobileBackDismiss(!!selected, () => setSelected(null))
+  const searchRef = useDialogA11y<HTMLDivElement>(() => setSearchOpen(false), searchOpen)
+  const selectedRef = useDialogA11y<HTMLDivElement>(() => setSelected(null), !!selected)
 
   const closeSwipe = () => { setOpenActionId(null) }
 
@@ -172,31 +181,31 @@ export function MobileTransactionList({
             : <CatBadge category={category} size={40} />}
           <span>
             <b>
-              {tx.type === 'transfer' ? 'Transferencia' : tx.note}
-              {tx.recurring && <i className="mobile-recur-dot" title="Recurrente"><Icon name="repeat" size={11} /></i>}
+              {tx.type === 'transfer' ? t('transfer') : tx.note}
+              {tx.recurring && <i className="mobile-recur-dot" title={t('recurring')}><Icon name="repeat" size={11} /></i>}
             </b>
             <small>{tx.type === 'transfer'
-              ? `${getAccount(tx.fromAccount, accounts)?.name ?? 'Origen'} → ${getAccount(tx.toAccount, accounts)?.name ?? 'Destino'}`
-              : `${category?.name ?? 'Sin categoría'} · ${account?.name ?? 'Sin cuenta'}`}</small>
+              ? `${getAccount(tx.fromAccount, accounts)?.name ?? t('origin')} → ${getAccount(tx.toAccount, accounts)?.name ?? t('destination')}`
+              : `${category ? translateCategoryName(category, lang) : t('noCategoryLabel')} · ${account?.name ?? t('noAccountLabel')}`}</small>
           </span>
           <strong className={income ? 'income' : tx.type === 'transfer' ? 'transfer' : ''}>
             {signedAmount(tx, currency, compactNumbers)}
           </strong>
         </button>
         {!compact && (
-          <div className="mobile-row-actions" aria-label="Acciones del movimiento" onClick={event => event.stopPropagation()}>
-            <button onClick={() => { onEdit(tx); closeSwipe() }}><Icon name="edit" size={17} />Editar</button>
+          <div className="mobile-row-actions" aria-label={t('movementActionsLabel')} onClick={event => event.stopPropagation()}>
+            <button onClick={() => { onEdit(tx); closeSwipe() }}><Icon name="edit" size={17} />{t('edit')}</button>
             {onDelete && (
               <button
                 className="danger"
                 onClick={() => {
-                  const label = tx.note || (tx.type === 'transfer' ? 'Transferencia' : 'Movimiento')
-                  void confirm({ title: `¿Eliminar "${label}"?`, description: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', icon: 'trash' }).then(ok => {
+                  const label = tx.note || (tx.type === 'transfer' ? t('transfer') : t('movementLabel'))
+                  void confirm({ title: t('deleteQuotedConfirm').replace('{name}', label), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' }).then(ok => {
                     if (ok) { navigator.vibrate?.([12, 40, 24]); onDelete(tx.id); closeSwipe() }
                   })
                 }}>
                 <Icon name="trash" size={17} />
-                Eliminar
+                {t('delete')}
               </button>
             )}
           </div>
@@ -223,7 +232,7 @@ export function MobileTransactionList({
     >
       {!compact && (
         <div className="mobile-movement-tools">
-          <div className="mobile-filter-chips" role="tablist" aria-label="Filtrar movimientos">
+          <div className="mobile-filter-chips" role="tablist" aria-label={t('filterMovements')}>
             {FILTERS.map(item => (
               <button
                 key={item.id}
@@ -237,7 +246,7 @@ export function MobileTransactionList({
             {showSearch && (
               <button className="mobile-search-chip" onClick={() => setSearchOpen(true)}>
                 <Icon name="search" size={16} />
-                Buscar
+                {t('search')}
               </button>
             )}
           </div>
@@ -247,8 +256,8 @@ export function MobileTransactionList({
       {rows.length === 0 ? (
         <div className="mobile-empty-list">
           <BrandMark size={48} />
-          <strong>Sin movimientos</strong>
-          <span>Prueba otro filtro o registra un nuevo movimiento.</span>
+          <strong>{t('noMovementsTitle')}</strong>
+          <span>{t('tryOtherFilterHint')}</span>
         </div>
       ) : (
         <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
@@ -277,40 +286,43 @@ export function MobileTransactionList({
       )}
 
       {searchOpen && (
-        <div className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label="Buscar movimientos">
+        <div ref={searchRef} className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label={t('searchMovementsLabel')}>
           <div className="mobile-search-head">
-            <button onClick={() => setSearchOpen(false)}>Cancelar</button>
-            <strong>Buscar</strong>
+            <button onClick={() => setSearchOpen(false)}>{t('cancel')}</button>
+            <strong>{t('search')}</strong>
             <span />
           </div>
           <label className="mobile-search-input">
             <Icon name="search" size={18} />
-            <input value={query} placeholder="Nota, categoría o cuenta" onChange={event => setQuery(event.target.value)} />
+            <input value={query} placeholder={t('noteCategoryAccountPlaceholder')} onChange={event => setQuery(event.target.value)} />
           </label>
           <MobileTransactionList transactions={rows} onEdit={onEdit} onDelete={onDelete} compact />
         </div>
       )}
 
       {selected && (
-        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setSelected(null)}>
+        <div ref={selectedRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setSelected(null)}>
           <section onClick={event => event.stopPropagation()}>
             <header>
               <span className="sheet-icon">{selected.type === 'transfer' ? <Icon name="repeat" size={28} /> : <CatBadge category={getCategory(selected.categoryId, categories)} size={56} />}</span>
-              <button onClick={() => setSelected(null)}><Icon name="close" size={18} /></button>
+              <button aria-label={t('close')} onClick={() => setSelected(null)}><Icon name="close" size={18} /></button>
             </header>
-            <h2>{selected.type === 'transfer' ? 'Transferencia' : selected.note}</h2>
+            <h2>{selected.type === 'transfer' ? t('transfer') : selected.note}</h2>
             <strong className={selected.type === 'income' ? 'income' : ''}>{signedAmount(selected, currency, compactNumbers)}</strong>
             <dl>
-              <div><dt>Fecha</dt><dd>{dateLabel(selected.date, locale)}</dd></div>
-              <div><dt>Categoría</dt><dd>{getCategory(selected.categoryId, categories)?.name ?? 'No aplica'}</dd></div>
-              <div><dt>Cuenta</dt><dd>{selected.type === 'transfer'
-                ? `${getAccount(selected.fromAccount, accounts)?.name ?? 'Origen'} -> ${getAccount(selected.toAccount, accounts)?.name ?? 'Destino'}`
-                : getAccount(selected.accountId, accounts)?.name ?? 'Sin cuenta'}</dd></div>
-              <div><dt>Monto exacto</dt><dd>{fmt(selected.amount, currency)}</dd></div>
+              <div><dt>{t('date')}</dt><dd>{dateLabel(selected.date, locale)}</dd></div>
+              <div><dt>{t('category')}</dt><dd>{(() => {
+                const cat = getCategory(selected.categoryId, categories)
+                return cat ? translateCategoryName(cat, lang) : t('notApplicableShort')
+              })()}</dd></div>
+              <div><dt>{t('account')}</dt><dd>{selected.type === 'transfer'
+                ? `${getAccount(selected.fromAccount, accounts)?.name ?? t('origin')} -> ${getAccount(selected.toAccount, accounts)?.name ?? t('destination')}`
+                : getAccount(selected.accountId, accounts)?.name ?? t('noAccountLabel')}</dd></div>
+              <div><dt>{t('exactAmountLabel')}</dt><dd>{fmt(selected.amount, currency)}</dd></div>
             </dl>
             <div className="mobile-detail-actions">
-              <button onClick={() => { onEdit(selected); setSelected(null) }}><Icon name="edit" size={18} />Editar</button>
-              {onDelete && <button className="danger" onClick={() => { navigator.vibrate?.([12, 40, 24]); onDelete(selected.id); setSelected(null) }}><Icon name="trash" size={18} />Eliminar</button>}
+              <button onClick={() => { onEdit(selected); setSelected(null) }}><Icon name="edit" size={18} />{t('edit')}</button>
+              {onDelete && <button className="danger" onClick={() => { navigator.vibrate?.([12, 40, 24]); onDelete(selected.id); setSelected(null) }}><Icon name="trash" size={18} />{t('delete')}</button>}
             </div>
           </section>
         </div>

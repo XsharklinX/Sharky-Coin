@@ -3,6 +3,7 @@ import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { APP_VERSION } from '@/data/release'
+import { useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
 const PRIVACY_SECTIONS: { title: string; body: string[] }[] = [
@@ -158,11 +159,12 @@ const TERMS_SECTIONS: { title: string; body: string[] }[] = [
 ]
 
 export function SettingsLegal({ activeSheet, onOpen, onClose }: SheetProps) {
+  const t = useT()
   const [commentText, setCommentText] = useState('')
 
   const sendComment = () => {
     if (!commentText.trim()) return
-    toast('¡Gracias por tu comentario! Lo tendremos en cuenta.', { icon: 'check', type: 'ok' })
+    toast(t('thanksForComment'), { icon: 'check', type: 'ok' })
     setCommentText('')
     onClose()
   }
@@ -170,14 +172,14 @@ export function SettingsLegal({ activeSheet, onOpen, onClose }: SheetProps) {
   return (
     <>
       <div className="mset-section">
-        <span className="mset-section-title">Acerca de</span>
+        <span className="mset-section-title">{t('aboutSection')}</span>
         <div className="mset-card">
-          <SettingsRow icon="edit"  iconColor="#5bc0ff" label="Comentarios"      onClick={() => onOpen('comments')} />
-          <SettingsRow icon="info"  iconColor="#35d0a2" label="Sobre nosotros"   onClick={() => onOpen('about')} />
+          <SettingsRow icon="edit"  iconColor="#5bc0ff" label={t('comments')}  onClick={() => onOpen('comments')} />
+          <SettingsRow icon="info"  iconColor="#35d0a2" label={t('aboutUs')}   onClick={() => onOpen('about')} />
         </div>
         <div className="mset-card">
-          <SettingsRow icon="shield" iconColor="#a78bfa" label="Política de privacidad" onClick={() => onOpen('privacy')} />
-          <SettingsRow icon="book"   iconColor="#f59e0b" label="Términos de uso"         onClick={() => onOpen('terms')} />
+          <SettingsRow icon="shield" iconColor="#a78bfa" label={t('privacyPolicy')} onClick={() => onOpen('privacy')} />
+          <SettingsRow icon="book"   iconColor="#f59e0b" label={t('termsOfUse')}    onClick={() => onOpen('terms')} />
         </div>
         <div className="mset-card">
           <div className="mset-info-row">
@@ -188,39 +190,39 @@ export function SettingsLegal({ activeSheet, onOpen, onClose }: SheetProps) {
       </div>
 
       {activeSheet === 'comments' && (
-        <SettingsSheet title="Comentarios" onClose={onClose}>
+        <SettingsSheet title={t('comments')} onClose={onClose}>
           <div className="mset-sheet-body">
             <p className="mset-legal-intro">
-              ¿Tienes una sugerencia, encontraste un error o quieres contarnos algo? Escríbelo abajo y lo enviamos directo a nuestro equipo.
+              {t('commentsIntro')}
             </p>
             <textarea
               className="mset-textarea" rows={6}
-              value={commentText} placeholder="Escribe tu comentario aquí…"
+              value={commentText} placeholder={t('commentPlaceholder')}
               onChange={e => setCommentText(e.target.value)}
             />
             <button className="mset-sheet-confirm" disabled={!commentText.trim()} onClick={sendComment}>
-              <Icon name="edit" size={16} style={{ marginRight: 8 }} /> Enviar comentario
+              <Icon name="edit" size={16} style={{ marginRight: 8 }} /> {t('sendComment')}
             </button>
           </div>
         </SettingsSheet>
       )}
 
       {activeSheet === 'about' && (
-        <SettingsSheet title="Sobre nosotros" onClose={onClose}>
+        <SettingsSheet title={t('aboutUs')} onClose={onClose}>
           <div className="mset-sheet-body mset-about">
             <BrandMark size={64} />
             <strong className="mset-about-name">$harky</strong>
-            <span className="mset-about-version">Versión {APP_VERSION}</span>
-            <p className="mset-about-dev">Desarrollador: <strong>David Bonilla</strong></p>
+            <span className="mset-about-version">{t('versionLabel').replace('{v}', APP_VERSION)}</span>
+            <p className="mset-about-dev">{t('developedByLabel')} <strong>David Bonilla</strong></p>
             <p className="mset-about-desc">
-              $harky es tu compañero de finanzas personales: simple, privado por diseño y pensado para ayudarte a entender y mejorar tus hábitos financieros, sin complicaciones.
+              {t('aboutDesc')}
             </p>
           </div>
         </SettingsSheet>
       )}
 
       {activeSheet === 'privacy' && (
-        <SettingsSheet title="Privacy Policy" onClose={onClose}>
+        <SettingsSheet title={t('privacyPolicy')} onClose={onClose}>
           <div className="mset-sheet-body mset-legal">
             <p className="mset-legal-updated">Last updated: June 7, 2026</p>
             {PRIVACY_SECTIONS.map(section => (
@@ -234,7 +236,7 @@ export function SettingsLegal({ activeSheet, onOpen, onClose }: SheetProps) {
       )}
 
       {activeSheet === 'terms' && (
-        <SettingsSheet title="Terms of Use" onClose={onClose}>
+        <SettingsSheet title={t('termsOfUse')} onClose={onClose}>
           <div className="mset-sheet-body mset-legal">
             <p className="mset-legal-updated">Last updated: June 7, 2026</p>
             {TERMS_SECTIONS.map(section => (

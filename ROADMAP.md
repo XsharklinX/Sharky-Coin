@@ -1,237 +1,117 @@
-# $harky - Roadmap de v1.x
+# $harky - Roadmap (Android)
 
-Fecha de revision: 2026-06-02
-Version actual: 1.6.0
+Fecha de revision: 2026-06-10
+Version base: 1.6.2
+Plataforma: Android (Tauri Mobile), Play Store en proceso de alta
+
+> $harky se enfoca por ahora exclusivamente en Android. El empaquetado de
+> escritorio (Windows/.exe) queda fuera del roadmap mientras tanto; podria
+> retomarse en el futuro pero no es prioridad.
 
 ## Diagnostico actual
 
-$harky ya tiene una base funcional fuerte: React + TypeScript, Tauri, autenticacion local/cloud, sincronizacion Supabase, importacion CSV bancaria, exportaciones profesionales, presupuestos, metas, cuentas, transacciones, graficas, pruebas unitarias, E2E y empaquetado Windows con instalador `.exe` y portable.
+$harky es una app movil completa: dashboard, transacciones/cuentas,
+presupuestos y metas, importacion CSV de bancos dominicanos, reportes
+PDF/Excel/JSON, escaneo de recibos, deteccion por notificaciones bancarias,
+bloqueo por PIN/patron/biometria (cifrado con Android Keystore), inicio de
+sesion con Google + sync opcional con Supabase, accesos directos de inicio
+rapido y modo claro/oscuro. La pagina publica (`docs/`) ya refleja esto.
 
-El riesgo principal ya no es "faltan pantallas". El riesgo esta en calidad de release, consistencia visual, recuperacion ante fallos, migraciones de datos y confianza de distribucion.
+Lo que falta ya no es "construir mas pantallas", sino: **validar todo en
+dispositivos reales, cerrar el alta en Play Store, y pulir los flujos que mas
+usa un usuario nuevo o con datos reales** (sync, importacion, primeros pasos).
 
-## Problemas actuales
+## Prioridades
 
-| Prioridad | Area | Problema | Impacto |
+| Prioridad | Area | Item | Por que importa |
 | --- | --- | --- | --- |
-| P0 | Release | Falta firma de codigo Windows | SmartScreen puede marcar el `.exe` como poco confiable aunque el build sea correcto. |
-| P0 | Datos | No hay pruebas de migracion entre versiones antiguas y v1.0 | Un usuario con datos viejos puede encontrar estados inconsistentes tras actualizar. |
-| P0 | Cloud | Falta validacion manual completa del flujo cloud dentro del `.exe` final | El navegador web puede pasar, pero Tauri tiene diferencias en deep links, storage seguro y permisos. |
-| P0 | Recuperacion | Restaurar backups cloud/local necesita pruebas E2E completas | Es una funcion critica; debe cubrir corrupcion, frase incorrecta y restore exitoso. |
-| P1 | UX | Falta completar microcopy y estados de error por vista | La app ya no usa dialogos nativos, pero algunos mensajes pueden ser mas explicativos. |
-| P1 | UI | Falta una auditoria visual completa por tema: claro, oscuro, pizarra y sistema | Ya hay cobertura E2E, pero no comparacion visual automatica. |
-| P1 | Accesibilidad | Falta checklist AA completo con teclado, foco visible y lector de pantalla | Puede bloquear usuarios y reduce calidad percibida. |
-| P1 | Sync | Conflictos cloud visibles, pero falta una pantalla dedicada para resolverlos con contexto | El sistema evita sobrescrituras silenciosas, pero la resolucion aun puede mejorar. |
-| P1 | CSV | Faltan plantillas para estados de tarjeta de credito | La importacion cubre bancos principales, pero no todos los formatos reales. |
-| P2 | Producto | Inteligencia financiera no permite ajustar sensibilidad | Usuarios distintos pueden necesitar alertas mas o menos agresivas. |
-| P2 | Reportes | Falta identidad visual completa en reportes exportados | PDF/Excel funcionan, pero pueden verse mas de marca y menos genericos. |
-| P2 | Distribucion | Falta auto-update firmado | El usuario debe instalar manualmente nuevas versiones. |
-| P2 | Observabilidad | No hay telemetria opcional de errores | Los fallos reales en equipos de usuarios pueden pasar desapercibidos. |
-
-## Roadmap recomendado
-
-## v1.0.1 - Hotfix de release
-
-Objetivo: dejar el instalador y portable listos para uso real sin sorpresas.
-
-Estado: completada como `v1.0.1`.
-
-### Cerrado en esta iteracion
-
-- Version de app, Tauri y Cargo actualizada a `1.0.1`.
-- Metadata de Windows normalizada en ASCII para evitar caracteres rotos en instalador, terminal y manifiestos.
-- Script de paquete Windows normalizado y con hashes SHA-256 de instalador y portable.
-- Pruebas de migracion agregadas para backups v1 antiguos sin aportes a metas.
-- Pruebas de restauracion agregadas para aportes a metas con referencias invalidas.
-- Pruebas de sanitizacion agregadas para datos legacy persistidos con categorias, cuentas, aportes y movimientos inconsistentes.
-
-### P0
-
-- Pendiente externo: firmar el instalador `.exe` y portable con certificado de codigo.
-- Pendiente manual: ejecutar smoke test en Windows limpio: instalar, abrir, crear usuario local, crear cuenta, crear movimiento, cerrar y reabrir.
-- Pendiente manual: validar flujo cloud dentro del `.exe`: registro, confirmacion por correo, login, logout, recuperacion de sesion y deep link `sharky://auth/callback`.
-- Pendiente manual: probar backup local y cloud con cuenta real de Supabase.
-- Pendiente tecnico siguiente: ampliar snapshots de migracion con fixtures reales de v0.3, v0.5 y v0.7.
-
-### Criterio de salida
-
-- `npm run lint`, `npm run test -- --run`, `npm run build`, `npm run test:e2e` y `npm run package:windows` pasan.
-- El `.exe` abre con cambios actuales, no una version cacheada.
-- No hay textos corruptos en app, metadata o instalador.
-
-## v1.1 - UX profesional y accesibilidad
-
-Objetivo: subir la calidad percibida sin meter deuda nueva.
-
-Estado: completada como `v1.1.0`.
-
-### Cerrado en esta iteracion
-
-- Sistema comun `ModalShell` con cierre por `Esc`, restauracion de foco, titulo, descripcion e icono.
-- Modal de transacciones migrado al sistema comun sin cambiar reglas financieras.
-- Modal de configuracion migrado al sistema comun y actualizado a `v1.1.0`.
-- Estilos base de modal renovados con header, contenido, footer y foco consistentes.
-- Roadmap interno actualizado para reflejar el salto a `v1.1.0`.
-
-### P1
-
-- Pendiente siguiente: migrar cuentas, metas, categorias CSV y confirmaciones destructivas al mismo `ModalShell`.
-- Pendiente siguiente: auditoria visual de los cuatro temas con capturas comparativas.
-- Pendiente siguiente: accesibilidad AA completa con navegacion por teclado, labels, roles ARIA y contraste.
-- Pendiente siguiente: mejorar la pantalla de conflictos cloud con comparacion lado a lado.
-
-### Criterio de salida
-
-- Todos los modales usan el mismo patron.
-- Navegacion completa sin mouse en flujos criticos.
-- Sin overflow horizontal en 1280 px, 1024 px y 768 px.
-
-## v1.2 - Integraciones bancarias reales
-
-Objetivo: reducir trabajo manual para usuarios dominicanos.
-
-Estado: completada como `v1.2.0`.
-
-### Cerrado en esta iteracion
-
-- Perfiles CSV separados para tarjetas de Banco Popular, BHD, Banreservas y Scotiabank.
-- Deteccion automatica mejorada para encabezados de tarjeta: fecha de consumo/posteo, comercio, consumos, cargos, pagos y abonos.
-- Conciliacion mas tolerante para tarjetas: mismo monto y comercio con hasta dos dias de diferencia entre fecha de consumo y posteo.
-- Normalizacion de descripciones bancarias eliminando ruido comun de POS, VISA, Mastercard, autorizaciones y referencias.
-- Modal de importacion CSV migrado al sistema comun `ModalShell`.
-- Vista previa CSV muestra si el perfil detectado es Cuenta, Tarjeta o Mixto.
-
-### P1
-
-- Pendiente siguiente: separar perfiles por moneda cuando tengamos estados reales RD$/US$ por banco.
-- Pendiente siguiente: mejorar aprendizaje de reglas por comercio, cuenta y monto aproximado.
-- Pendiente siguiente: importar OFX/QFX como alternativa estandar.
-- Pendiente siguiente: guardar ejemplos anonimizados de formatos reales para ampliar fixtures.
-
-### Criterio de salida
-
-- Un usuario puede importar estados comunes sin editar columnas manualmente.
-- Los duplicados se detectan de forma explicable antes de confirmar.
-
-## v1.3 - Reportes y decision financiera
-
-Objetivo: que la app explique el dinero, no solo lo registre.
-
-Estado: completada como `v1.3.0`.
-
-### Cerrado en esta iteracion
-
-- Ajuste de sensibilidad para gastos atipicos: alta, balanceada y baja.
-- Motor de inteligencia conectado a la sensibilidad elegida por el usuario.
-- Suscripciones detectadas accionables: se pueden convertir en recurrencias mensuales desde el Dashboard.
-- Reportes Excel con hoja de resumen ejecutivo, resumen anual, categoria, cuenta y hojas mensuales.
-- PDF mensual con identidad visual, resumen ejecutivo, KPI y categoria principal.
-- Resumen ejecutivo reutilizable y cubierto por prueba unitaria.
-- Roadmap interno del Dashboard actualizado hasta `v1.3`.
-
-### P2
-
-- Pendiente siguiente: panel dedicado para editar una suscripcion antes de convertirla en recurrencia.
-- Pendiente siguiente: comparativas visuales avanzadas este mes vs mes anterior y este ano vs ano anterior.
-- Pendiente siguiente: plantilla PDF con portada y notas por categoria.
-
-### Criterio de salida
-
-- Los reportes se pueden enviar a otra persona sin parecer un export tecnico.
-- Las recomendaciones tienen accion directa dentro de la app.
-
-## v1.4 - Distribucion y operacion
-
-Objetivo: mantener la app en produccion sin friccion.
-
-Estado: completada como `v1.4.0` para la parte implementable dentro del repo.
-
-### Cerrado en esta iteracion
-
-- Carga inicial optimizada con vistas principales bajo demanda.
-- Exportadores PDF, Excel y captura PNG aislados en chunks on-demand.
-- Chunks pesados nombrados y separados en Vite: Excel, PDF, captura, graficas e iconos.
-- PWA precache reducido excluyendo exports y graficas pesadas.
-- Changelog visible dentro de Configuracion.
-- Canal estable/beta guardado como preferencia operativa.
-- Telemetria local opcional para errores tecnicos, desactivada por defecto.
-- Error boundaries guardan diagnosticos locales cuando el usuario lo permite.
-- Proceso de release documentado en `docs/RELEASE.md`.
-
-### P2
-
-- Pendiente externo: certificado de firma de codigo Windows.
-- Pendiente externo: hosting de update metadata para canal estable y beta.
-- Pendiente siguiente: conectar Tauri updater cuando existan firma y endpoint.
-- Pendiente siguiente: enviar diagnosticos opcionales a un backend propio con consentimiento explicito.
-
-### Criterio de salida
-
-- Build sin warning de chunks de primera carga.
-- El usuario puede ver cambios de version dentro de la app.
-- Los fallos reales tienen diagnostico local exportable sin tracking por defecto.
-
-## v1.5 - Calidad de datos y recuperacion
-
-Objetivo: que ningun usuario pierda datos ni quede bloqueado al actualizar o restaurar.
-
-Estado: completada como `v1.5.0`.
-
-### Cerrado en esta iteracion
-
-- Snapshot automatico antes de cualquier restauracion de backup local o cloud.
-- Estado de datos visible en Configuracion: cuentas, movimientos, categorias, metas, recovery, backup cloud y sync.
-- Razones de recovery diferenciadas, incluyendo puntos creados antes de restore.
-- Fixtures legacy anonimizados para versiones tempranas.
-- Pruebas de backups corruptos, referencias invalidas, fixtures legacy y restore seguro.
-- Changelog actualizado a `v1.5.0`.
-
-### Pendiente siguiente
-
-- E2E con dialogo de archivo nativo dentro del `.exe`.
-- Smoke manual cloud con cuenta real de Supabase.
-- Fixture reales adicionales de usuarios anonimizados.
-
-### Criterio de salida
-
-- Un restore crea snapshot previo antes de reemplazar datos.
-- Un backup corrupto no modifica datos actuales.
-- La app muestra al usuario el estado basico de seguridad de sus datos.
-
-## v1.6 - UX profesional completa
-
-Objetivo: eliminar dialogos nativos del navegador y unificar confirmaciones criticas.
-
-Estado: completada como `v1.6.0`.
-
-### Cerrado en esta iteracion
-
-- `window.confirm` eliminado de flujos de usuario.
-- `window.prompt` eliminado del guardado de filtros.
-- Sistema reutilizable de dialogos en `DialogProvider`.
-- Confirmaciones destructivas migradas en cuentas, presupuestos, metas, backups, recovery y transacciones en lote.
-- Prueba E2E actualizada para validar el modal propio de eliminacion de metas.
-- Changelog actualizado a `v1.6.0`.
-
-### Pendiente siguiente
-
-- Resolver conflictos cloud con comparacion lado a lado.
-- Auditoria visual automatizada por tema y viewport.
-- E2E completo de restore cloud/local con fixtures reales.
-
-## Deuda tecnica que no debe crecer
-
-- Mantener los componentes en `src/views/` como TypeScript real, sin volver a JSX heredado.
-- No reintroducir estado global mutable en `window`.
-- No depender de Babel runtime.
-- No agregar nuevas pantallas sin E2E minimo.
-- No agregar nuevos exporters sin pruebas de formato.
-- No mezclar datos cloud entre usuarios ni volver a guardar tokens en `localStorage` dentro de Tauri.
-
-## Orden de ejecucion
-
-1. Cerrar v1.0.1 con firma, migraciones y smoke del `.exe`.
-2. Hacer v1.1 antes de agregar nuevas features grandes.
-3. Avanzar importacion bancaria real en v1.2.
-4. Pulir reportes e inteligencia financiera en v1.3.
-5. Automatizar actualizaciones y operacion en v1.4.
-6. Reforzar datos, backups y recovery en v1.5.
+| P0 | Lanzamiento | Terminar checklist de Play Console (calificacion de contenido, publico objetivo, anuncios, datos seguros) | Bloquea la publicacion |
+| P0 | QA dispositivo real | Probar PIN/patron tras actualizar desde v1.6.1 a v1.6.2+ (migracion al nuevo storage cifrado) | Riesgo de que usuarios existentes queden bloqueados fuera de la app |
+| P0 | QA dispositivo real | Probar notificaciones bancarias (permiso especial de Android), OCR de recibos (permiso camara) y Google Sign-In de punta a punta en un telefono real | Estas tres dependen de permisos/SO y son dificiles de validar en emulador |
+| P0 | Ficha de Play Store | Generar capturas de pantalla reales (telefono y, si aplica, tablet) y un feature graphic | `docs/assets` solo tiene el icono; la ficha no puede publicarse sin capturas |
+| P1 | Onboarding | Flujo inicial para usuario nuevo: crear primera cuenta, elegir moneda, categorias sugeridas | Hoy un usuario nuevo llega a un dashboard vacio sin guia |
+| P1 | Sync cloud | Pantalla de conflictos lado a lado (local vs. cloud) cuando hay choques de sincronizacion | Los conflictos hoy solo se listan; el usuario no entiende que conservar |
+| P1 | Accesibilidad | Auditoria AA: contraste, foco visible, labels en botones de icono | Calidad percibida y usuarios con lectores de pantalla |
+| P1 | Importacion bancaria | Perfiles separados por moneda (RD$/US$) y soporte OFX/QFX | Reduce edicion manual para tarjetas en USD y otros bancos |
+| P1 | Importacion bancaria | Historial de imports (fecha, archivo, cuenta, duplicados omitidos) + deshacer import completo | Un import equivocado hoy no se puede revertir limpio |
+| P2 | Inteligencia financiera | Modal para editar una suscripcion detectada antes de convertirla en recurrencia | Evita crear recurrencias mal configuradas |
+| P2 | Reportes | Comparativas mes vs. mes anterior y ano vs. ano anterior en el dashboard/reportes | Hoy los reportes son snapshots, sin contexto de tendencia |
+| P2 | Reportes | Portada y notas por categoria en el PDF mensual | Se ve mas "documento para compartir" y menos export tecnico |
+| P2 | Internacionalizacion | Revisar cobertura es/en (textos nuevos del quick-add, shortcuts, etc.) | Evitar claves sin traducir en produccion |
+| P2 | Operacion | Reportes de error opcionales con consentimiento (mas alla de la telemetria local) | Detectar fallos reales de usuarios sin acceso a sus dispositivos |
+
+## Fase A - Cierre de lanzamiento (P0)
+
+- [ ] Completar los 9 items del checklist "Termina de configurar tu app".
+- [ ] Verificar Data Safety form: que coincida con lo que realmente hace la
+      app (Google sign-in, Supabase, sin anuncios, sin tracking de terceros).
+- [ ] Smoke test en dispositivo real (apk firmado o build interno de Play):
+  - Instalar version nueva sobre una instalacion previa con PIN configurado.
+  - Activar lectura de notificaciones bancarias y registrar un gasto real.
+  - Escanear un recibo con la camara.
+  - Iniciar sesion con Google, cerrar la app por completo y reabrirla.
+  - Crear un acceso directo desde el icono (mantener presionado) y agregar
+    un gasto/ingreso desde la mini ventana.
+- [ ] Tomar capturas de pantalla (dashboard, transacciones, presupuestos,
+      reportes, escaneo de recibo) y crear el feature graphic.
+- [ ] Una vez publicada la ficha, actualizar `docs/index.html` y
+      `docs/PLAY_STORE.md` con el enlace real de Play Store.
+
+## Fase B - Primeros pasos y confianza en los datos (P1)
+
+- [ ] Onboarding: pantalla inicial para crear la primera cuenta, elegir
+      moneda principal y (opcional) activar PIN/biometria.
+- [ ] Pantalla de resolucion de conflictos de sync: comparacion local vs.
+      cloud por entidad, con accion clara (mantener local / usar cloud /
+      duplicar / ignorar).
+- [x] Auditoria de accesibilidad: navegacion por teclado en flujos
+      principales, foco visible, `aria-label` en botones de icono.
+      Foco visible ya existia globalmente (`:focus-visible` en
+      `base.css`). Se agrego `useDialogA11y` (foco inicial, cierre con
+      `Escape`, restauracion de foco al cerrar) a todos los sheets/dialogos
+      moviles, y `aria-label` a los botones de cerrar/volver/confirmar sin
+      etiquetar. Pendiente como mejora futura: focus trap completo dentro
+      de los dialogos y una alternativa accesible por teclado al menu de
+      mantener-presionado del FAB (`MobileBottomNav.tsx`).
+
+## Fase C - Importacion bancaria avanzada (P1)
+
+- [ ] Perfiles CSV separados por moneda para tarjetas en USD.
+- [ ] Soporte de import OFX/QFX como alternativa al CSV.
+- [ ] Historial de importaciones con deshacer.
+- [ ] Reglas de categorizacion mas precisas (comercio + cuenta + monto
+      aproximado).
+
+## Fase D - Inteligencia financiera y reportes (P2)
+
+- [x] Modal de edicion previa al convertir una suscripcion detectada en
+      recurrencia. Nueva seccion "Detectadas automaticamente" en
+      `MobileSubscriptions` (usa `detectSubscriptions`, ocultando las que ya
+      son recurrentes) con boton "Convertir" que abre un formulario
+      (nombre, monto, categoria, cuenta, frecuencia) antes de crear la
+      plantilla recurrente.
+- [x] Comparativas mes vs. mes anterior y ano vs. ano anterior. Seccion
+      "Comparativa" en `MobileAnalytics` (ingresos/gastos/neto vs. periodo
+      anterior, segun la pestana mes/ano) y seccion "Comparativa
+      interanual" en el reporte anual (`MobileAnnual`).
+- [ ] Portada y notas por categoria en el PDF mensual.
+
+## Deuda tecnica a vigilar
+
+- No volver a guardar PIN, patron o tokens de Google en `localStorage` en
+  texto plano en Android: deben pasar por `secureBlob`/`appLockStorage`.
+- Mantener `partialize` de `settings.ts` sincronizado si se agregan nuevos
+  campos sensibles.
+- Revisar que las claves nuevas de `i18n` tengan version en `es` y `en`.
+- Mantener exporters (PDF/Excel/JSON) cubiertos por pruebas al tocarlos.
+- Los dos tests flaky conocidos (`financeIntelligence.test.ts`,
+  `month-navigation.test.tsx`) deben revisarse si vuelven a fallar en CI;
+  hasta ahora pasan en aislado.
+
+## Orden recomendado
+
+1. Fase A: cerrar el alta en Play Store y validar en dispositivo real.
+2. Fase B: onboarding y conflictos de sync, antes de tener muchos usuarios
+   con datos reales en la nube.
+3. Fase C: importacion bancaria avanzada.
+4. Fase D: inteligencia financiera y reportes.

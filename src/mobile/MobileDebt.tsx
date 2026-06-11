@@ -5,24 +5,27 @@ import { fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
 import { useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
+import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 import { MobileAmountSheet } from './MobileAmountSheet'
 
 const COLORS = ['#ff6b8a', '#5bc0ff', '#35d0a2', '#a78bfa', '#f59e0b', '#ffdd3d']
 const EMPTY: Omit<Debt, 'id'> = { name: '', balance: 0, rate: 0, minPayment: 0, color: COLORS[0] }
 
-function monthsLabel(m: number) {
+function monthsLabel(m: number, t: ReturnType<typeof useT>) {
   if (m <= 0) return '—'
-  if (m >= 600) return '>50 años'
+  if (m >= 600) return t('over50Years')
   const y = Math.floor(m / 12), mo = m % 12
-  if (y === 0) return `${mo} mes${mo !== 1 ? 'es' : ''}`
-  if (mo === 0) return `${y} año${y !== 1 ? 's' : ''}`
-  return `${y}a ${mo}m`
+  if (y === 0) return `${mo} ${mo !== 1 ? t('monthsPlural') : t('monthsSingular')}`
+  if (mo === 0) return `${y} ${y !== 1 ? t('yearsPlural') : t('yearsSingular')}`
+  return t('yearsMonthsShort').replace('{y}', String(y)).replace('{mo}', String(mo))
 }
 
 export function MobileDebt() {
   const { currency } = useFinance()
   const fmtVal = useFmt()
+  const t = useT()
   const { debts, extraPayment, addDebt, updateDebt, deleteDebt, setExtraPayment } = useDebt()
   const [method, setMethod] = useState<PayoffMethod>('avalanche')
   const [editing, setEditing] = useState<Debt | 'new' | null>(null)
@@ -45,10 +48,10 @@ export function MobileDebt() {
     <div className="mdebt-root">
       <div className="mdebt-empty">
         <Icon name="dollar" size={44} style={{ opacity: .18 }} />
-        <p>Sin deudas registradas</p>
-        <small>Agrega tus préstamos, tarjetas de crédito u otras deudas para ver tu plan de pago.</small>
+        <p>{t('noDebtsRegistered')}</p>
+        <small>{t('addDebtsHint')}</small>
         <button className="mdebt-add-btn" onClick={() => setEditing('new')}>
-          <Icon name="plus" size={16} /> Agregar deuda
+          <Icon name="plus" size={16} /> {t('addDebt')}
         </button>
       </div>
       {editing && (
@@ -63,9 +66,9 @@ export function MobileDebt() {
 
       {/* Hero */}
       <div className="mdebt-hero">
-        <div className="mdebt-hero-label">Deuda total</div>
+        <div className="mdebt-hero-label">{t('totalDebtLabel')}</div>
         <div className="mdebt-hero-amount">{fmtVal(totalDebt, currency)}</div>
-        <div className="mdebt-hero-sub">Mínimo mensual: {fmt(totalMin, currency)}/mes</div>
+        <div className="mdebt-hero-sub">{t('monthlyMinimumColon').replace('{amount}', fmt(totalMin, currency))}</div>
       </div>
 
       {/* Method toggle */}
@@ -79,55 +82,55 @@ export function MobileDebt() {
       </div>
 
       <p className="mdebt-hint">
-        {method === 'snowball'
-          ? 'Paga la deuda de menor saldo primero. Victorias rápidas que mantienen la motivación.'
-          : 'Paga la deuda con mayor interés primero. Ahorra más dinero en total.'}
+        {method === 'snowball' ? t('snowballHint') : t('avalancheHint')}
       </p>
 
       {/* Result card */}
       <div className="mdebt-result-card">
         <div className="mdebt-result-row">
           <div className="mdebt-result-item">
-            <div className="mdebt-result-val">{monthsLabel(active.months)}</div>
-            <div className="mdebt-result-lbl">para liquidar</div>
+            <div className="mdebt-result-val">{monthsLabel(active.months, t)}</div>
+            <div className="mdebt-result-lbl">{t('toPayOffLabel')}</div>
           </div>
           <div className="mdebt-result-sep" />
           <div className="mdebt-result-item">
             <div className="mdebt-result-val">{fmtVal(active.totalInterest, currency)}</div>
-            <div className="mdebt-result-lbl">interés total</div>
+            <div className="mdebt-result-lbl">{t('totalInterestLabel')}</div>
           </div>
         </div>
         {interestSavings > 0 && (
           <div className="mdebt-badge ok">
-            Ahorras {fmtVal(interestSavings, currency)} vs {otherName}
-            {monthSavings > 0 && ` · ${monthSavings} mes${monthSavings !== 1 ? 'es' : ''} menos`}
+            {t('youSaveVsMethod').replace('{amount}', fmtVal(interestSavings, currency)).replace('{method}', otherName)}
+            {monthSavings > 0 && t('fewerMonthsSuffix').replace('{n}', String(monthSavings))}
           </div>
         )}
         {interestSavings < 0 && (
           <div className="mdebt-badge warn">
-            {otherName} ahorraría {fmtVal(-interestSavings, currency)} más
+            {t('methodWouldSaveMore').replace('{method}', otherName).replace('{amount}', fmtVal(-interestSavings, currency))}
           </div>
         )}
       </div>
 
       {/* Extra payment */}
       <div className="mdebt-extra-card">
-        <span className="mdebt-extra-label">Pago extra mensual</span>
+        <span className="mdebt-extra-label">{t('extraMonthlyPayment')}</span>
         <button className="mdebt-extra-row mdebt-extra-tap" onClick={() => setExtraSheet(true)}>
           <span className={extraPayment > 0 ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
-            {extraPayment > 0 ? fmt(extraPayment, currency) : '+ Agregar'}
+            {extraPayment > 0 ? fmt(extraPayment, currency) : `+ ${t('add')}`}
           </span>
           <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
         </button>
         {extraPayment > 0 && active.months < other.months + (method === 'snowball' ? 0 : 0) && (
-          <small className="mdebt-extra-note">Reduce {other.months - active.months > 0 ? `${other.months - active.months} meses` : 'el tiempo de pago'}</small>
+          <small className="mdebt-extra-note">
+            {other.months - active.months > 0 ? t('reducesByMonths').replace('{months}', String(other.months - active.months)) : t('reducesPaymentTime')}
+          </small>
         )}
       </div>
 
       {/* Payoff order */}
       {active.order.length > 0 && (
         <>
-          <div className="mdebt-section-title">Orden de pago</div>
+          <div className="mdebt-section-title">{t('payoffOrderLabel')}</div>
           <div className="mdebt-order-list">
             {active.order.map((id, i) => {
               const debt = debts.find(d => d.id === id)
@@ -147,9 +150,9 @@ export function MobileDebt() {
 
       {/* Debt list */}
       <div className="mdebt-section-title">
-        Deudas
+        {t('debtsLabel')}
         <button className="mdebt-add-inline" onClick={() => setEditing('new')}>
-          <Icon name="plus" size={14} /> Agregar
+          <Icon name="plus" size={14} /> {t('add')}
         </button>
       </div>
       <div className="mdebt-list">
@@ -158,7 +161,7 @@ export function MobileDebt() {
             <span className="mdebt-row-dot" style={{ background: debt.color }} />
             <div className="mdebt-row-info">
               <b>{debt.name}</b>
-              <small>{debt.rate}% APR · mínimo {fmt(debt.minPayment, currency)}/mes</small>
+              <small>{t('aprMinPerMonth').replace('{rate}', String(debt.rate)).replace('{amount}', fmt(debt.minPayment, currency))}</small>
             </div>
             <strong>{fmtVal(debt.balance, currency)}</strong>
             <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
@@ -173,12 +176,12 @@ export function MobileDebt() {
           onSave={d => {
             if (editing === 'new') addDebt(d)
             else updateDebt(editing.id, d)
-            toast(editing === 'new' ? 'Deuda agregada' : 'Deuda actualizada', { icon: 'check', type: 'ok' })
+            toast(editing === 'new' ? t('debtAdded') : t('debtUpdated'), { icon: 'check', type: 'ok' })
             setEditing(null)
           }}
           onDelete={editing !== 'new' ? () => {
             deleteDebt(editing.id)
-            toast('Deuda eliminada', { icon: 'trash' })
+            toast(t('debtDeleted'), { icon: 'trash' })
             setEditing(null)
           } : undefined}
         />
@@ -186,7 +189,7 @@ export function MobileDebt() {
 
       {extraSheet && (
         <MobileAmountSheet
-          title="Pago extra mensual"
+          title={t('extraMonthlyPayment')}
           value={extraPayment}
           currency={currency}
           onDone={v => { setExtraPayment(Math.max(0, v)); setExtraSheet(false) }}
@@ -204,6 +207,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
   onDelete?: () => void
 }) {
   const { currency } = useFinance()
+  const t = useT()
   const [f, setF] = useState<Omit<Debt, 'id'>>(
     debt ? { name: debt.name, balance: debt.balance, rate: debt.rate, minPayment: debt.minPayment, color: debt.color }
          : { ...EMPTY }
@@ -214,26 +218,27 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
 
   useMobileBackDismiss(amountSheet !== null, () => setAmountSheet(null))
   useMobileBackDismiss(amountSheet === null, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, amountSheet === null)
 
   return (
     <>
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={debt ? 'Editar deuda' : 'Nueva deuda'} onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={debt ? t('editDebt') : t('newDebt')} onClick={onClose}>
       <section className="mdebt-sheet" onClick={e => e.stopPropagation()}>
         <header>
-          <span>{debt ? 'Editar deuda' : 'Nueva deuda'}</span>
-          <button aria-label="Cerrar" onClick={onClose}><Icon name="close" size={18} /></button>
+          <span>{debt ? t('editDebt') : t('newDebt')}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mdebt-sheet-body">
           <label className="mdebt-field">
-            <span>Nombre</span>
+            <span>{t('name')}</span>
             <input className="mdebt-input" value={f.name}
-              placeholder="ej. Tarjeta de crédito" onChange={e => p('name', e.target.value)} />
+              placeholder={t('egCreditCard')} onChange={e => p('name', e.target.value)} />
           </label>
 
           <div className="mdebt-field-row">
             <div className="mdebt-field" style={{ flex: 1 }}>
-              <span>Saldo</span>
+              <span>{t('balance')}</span>
               <button className="mdebt-amount-row" onClick={() => setAmountSheet('balance')}>
                 <span className={f.balance ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
                   {f.balance ? fmt(f.balance, currency) : '—'}
@@ -242,7 +247,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
               </button>
             </div>
             <div className="mdebt-field" style={{ flex: 1 }}>
-              <span>Interés anual (%)</span>
+              <span>{t('annualInterestPctLabel')}</span>
               <button className="mdebt-amount-row" onClick={() => setAmountSheet('rate')}>
                 <span className={f.rate ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
                   {f.rate ? `${f.rate}%` : '—'}
@@ -253,7 +258,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
           </div>
 
           <div className="mdebt-field">
-            <span>Pago mínimo mensual</span>
+            <span>{t('monthlyMinPaymentLabel')}</span>
             <button className="mdebt-amount-row" onClick={() => setAmountSheet('minPayment')}>
               <span className={f.minPayment ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
                 {f.minPayment ? fmt(f.minPayment, currency) : '—'}
@@ -263,11 +268,11 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
           </div>
 
           <div className="mdebt-field">
-            <span>Color</span>
+            <span>{t('color')}</span>
             <div className="mdebt-color-row">
               {COLORS.map(c => (
                 <button key={c} className={`mdebt-color-dot${f.color === c ? ' on' : ''}`}
-                  aria-label={`Color ${c}`} aria-pressed={f.color === c}
+                  aria-label={t('colorOption').replace('{c}', c)} aria-pressed={f.color === c}
                   style={{ background: c }} onClick={() => p('color', c)} />
               ))}
             </div>
@@ -276,27 +281,27 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
           {debt && onDelete && (
             !confirmDel
               ? <button className="mdebt-del-btn" onClick={() => setConfirmDel(true)}>
-                  <Icon name="trash" size={16} /> Eliminar deuda
+                  <Icon name="trash" size={16} /> {t('deleteDebtLabel')}
                 </button>
               : <div className="mdebt-confirm-del">
-                  <p>¿Eliminar "{debt.name}"?</p>
+                  <p>{t('deleteQuotedConfirm').replace('{name}', debt.name)}</p>
                   <div>
-                    <button onClick={() => setConfirmDel(false)}>Cancelar</button>
-                    <button className="danger" onClick={onDelete}>Eliminar</button>
+                    <button onClick={() => setConfirmDel(false)}>{t('cancel')}</button>
+                    <button className="danger" onClick={onDelete}>{t('delete')}</button>
                   </div>
                 </div>
           )}
         </div>
 
         <div className="mdebt-sheet-actions">
-          <button className="mdebt-btn-cancel" onClick={onClose}>Cancelar</button>
+          <button className="mdebt-btn-cancel" onClick={onClose}>{t('cancel')}</button>
           <button className="mdebt-btn-save" style={{ background: f.color }}
             onClick={() => {
-              if (!f.name.trim()) { toast('Escribe un nombre', { icon: 'alert' }); return }
-              if (f.balance <= 0) { toast('El saldo debe ser mayor a 0', { icon: 'alert' }); return }
+              if (!f.name.trim()) { toast(t('enterNamePrompt'), { icon: 'alert' }); return }
+              if (f.balance <= 0) { toast(t('balanceMustBePositive'), { icon: 'alert' }); return }
               onSave(f)
             }}>
-            {debt ? 'Guardar' : 'Agregar'}
+            {debt ? t('save') : t('add')}
           </button>
         </div>
       </section>
@@ -304,7 +309,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
 
     {amountSheet === 'balance' && (
       <MobileAmountSheet
-        title="Saldo de la deuda"
+        title={t('debtBalanceTitle')}
         value={f.balance}
         currency={currency}
         onDone={v => { p('balance', v); setAmountSheet(null) }}
@@ -313,7 +318,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
     )}
     {amountSheet === 'rate' && (
       <MobileAmountSheet
-        title="Interés anual (%)"
+        title={t('annualInterestPctLabel')}
         value={f.rate}
         unit="%"
         onDone={v => { p('rate', v); setAmountSheet(null) }}
@@ -322,7 +327,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
     )}
     {amountSheet === 'minPayment' && (
       <MobileAmountSheet
-        title="Pago mínimo mensual"
+        title={t('monthlyMinPaymentLabel')}
         value={f.minPayment}
         currency={currency}
         onDone={v => { p('minPayment', v); setAmountSheet(null) }}

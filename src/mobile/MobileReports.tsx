@@ -2,18 +2,21 @@ import { useState } from 'react'
 import { useMemo } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { monthLabel } from '@/data/helpers'
+import { dateLocale, monthLabel } from '@/data/helpers'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
+import { useT } from '@/i18n'
 import type { Account, AccountType, ViewId } from '@/types'
 
-const TYPE_META: Record<AccountType, { label: string; group: string; icon: Parameters<typeof Icon>[0]['name'] }> = {
-  cash:    { label: 'Efectivo', group: 'Efectivo',           icon: 'wallet' },
-  debit:   { label: 'Débito',  group: 'Cuentas bancarias',   icon: 'cards'  },
-  savings: { label: 'Ahorros', group: 'Cuentas bancarias',   icon: 'piggy'  },
-  credit:  { label: 'Crédito', group: 'Tarjetas de crédito', icon: 'cards'  },
+function getTypeMeta(t: ReturnType<typeof useT>): Record<AccountType, { label: string; group: string; icon: Parameters<typeof Icon>[0]['name'] }> {
+  return {
+    cash:    { label: t('cash'),    group: t('cash'),                    icon: 'wallet' },
+    debit:   { label: t('debit'),   group: t('bankAccountsGroupLabel'),  icon: 'cards'  },
+    savings: { label: t('savings'), group: t('bankAccountsGroupLabel'),  icon: 'piggy'  },
+    credit:  { label: t('credit'),  group: t('creditCardsGroupLabel'),   icon: 'cards'  },
+  }
 }
 
 function accountKind(a: Account): 'asset' | 'debt' {
@@ -25,6 +28,9 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
   const { accounts, currency } = finance
   const fmtVal = useFmt()
   const ownerName = useSettings(s => s.displayName) || '$harky'
+  const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
+  const TYPE_META = getTypeMeta(t)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
 
@@ -32,9 +38,9 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
     setExportingPdf(true)
     try {
       await exportMonthlyPdf(finance, mkey, ownerName)
-      toast(`Estado de ${monthLabel(mkey)} exportado en PDF`, { icon: 'download', type: 'ok' })
+      toast(t('pdfExportedFor').replace('{month}', monthLabel(mkey, dateLocale(lang))), { icon: 'download', type: 'ok' })
     } catch {
-      toast('No se pudo generar el PDF.', { icon: 'alert' })
+      toast(t('pdfExportError'), { icon: 'alert' })
     } finally {
       setExportingPdf(false)
     }
@@ -44,9 +50,9 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
     setExportingExcel(true)
     try {
       await exportExcel(finance)
-      toast('Reporte completo exportado en Excel', { icon: 'download', type: 'ok' })
+      toast(t('excelExported'), { icon: 'download', type: 'ok' })
     } catch {
-      toast('No se pudo generar el Excel.', { icon: 'alert' })
+      toast(t('excelExportError'), { icon: 'alert' })
     } finally {
       setExportingExcel(false)
     }
@@ -58,7 +64,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
     return { assets, liabilities, net: assets - liabilities }
   }, [accounts])
 
-  const groups = ['Efectivo', 'Cuentas bancarias', 'Tarjetas de crédito'].map(group => ({
+  const groups = [t('cash'), t('bankAccountsGroupLabel'), t('creditCardsGroupLabel')].map(group => ({
     group,
     accounts: accounts.filter(a => TYPE_META[a.type].group === group),
   })).filter(g => g.accounts.length)
@@ -70,7 +76,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
 
       {/* Net worth hero */}
       <div className="mrep-hero">
-        <span className="mrep-hero-label">Patrimonio neto</span>
+        <span className="mrep-hero-label">{t('netWorthLabel')}</span>
         <strong className="mrep-hero-value">{fmtVal(summary.net, currency)}</strong>
         <div className="mrep-hero-bar">
           {summary.assets + summary.liabilities > 0 && (
@@ -84,14 +90,14 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
           <div className="mrep-hero-stat">
             <span className="mrep-hero-dot asset" />
             <div>
-              <small>Activos</small>
+              <small>{t('assetsLabel')}</small>
               <strong>{fmtVal(summary.assets, currency)}</strong>
             </div>
           </div>
           <div className="mrep-hero-stat">
             <span className="mrep-hero-dot debt" />
             <div>
-              <small>Pasivos</small>
+              <small>{t('liabilitiesLabel')}</small>
               <strong>{fmtVal(summary.liabilities, currency)}</strong>
             </div>
           </div>
@@ -102,14 +108,14 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
       {accounts.length === 0 ? (
         <div className="mrep-empty">
           <Icon name="cards" size={40} style={{ opacity: .25 }} />
-          <p>Sin cuentas aún. Agrégalas desde tu Perfil.</p>
+          <p>{t('noAccountsAddFromProfile')}</p>
         </div>
       ) : (
         <>
           {/* Allocation bar */}
           {accounts.length > 1 && (
             <div className="mrep-allocation">
-              <span className="mrep-section-title">Distribución</span>
+              <span className="mrep-section-title">{t('distributionLabel')}</span>
               <div className="mrep-alloc-bar">
                 {accounts.map(a => (
                   <div
@@ -119,7 +125,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                       flex: Math.max(0, a.balance) / Math.max(1, totalBalance),
                       background: a.color,
                     }}
-                    title={`${a.name}: ${fmtVal(a.balance, currency)}`}
+                    title={t('nameColonAmount').replace('{name}', a.name).replace('{amount}', fmtVal(a.balance, currency))}
                   />
                 ))}
               </div>
@@ -161,7 +167,7 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                             }} />
                           </div>
                           <span className={utilPct >= 90 ? 'text-expense' : utilPct >= 70 ? 'text-warn' : ''}>
-                            {Math.round(utilPct)}% usado · {fmtVal(a.limit - used!, currency)} disponible
+                            {t('pctUsedAvailable').replace('{pct}', String(Math.round(utilPct))).replace('{amount}', fmtVal(a.limit - used!, currency))}
                           </span>
                         </div>
                       )}
@@ -181,37 +187,37 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
         <div className="mrep-tools-wrap">
           {goto && (
             <>
-              <p className="mrep-tools-heading">Herramientas</p>
+              <p className="mrep-tools-heading">{t('toolsLabel')}</p>
               <div className="mrep-tools-grid">
                 <button className="mrep-tool-card" onClick={() => goto('debt')}>
                   <span className="mrep-tool-card-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
                     <Icon name="dollar" size={24} />
                   </span>
-                  <strong>Calculadora de deudas</strong>
-                  <small>Snowball · Avalanche · Plan de pago</small>
+                  <strong>{t('debtCalculator')}</strong>
+                  <small>{t('debtToolDesc')}</small>
                   <span className="mrep-tool-card-arrow"><Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)' }} /></span>
                 </button>
                 <button className="mrep-tool-card" onClick={() => goto('subscriptions')}>
                   <span className="mrep-tool-card-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
                     <Icon name="repeat" size={24} />
                   </span>
-                  <strong>Pagos Recurrentes</strong>
-                  <small>Gastos e ingresos periódicos</small>
+                  <strong>{t('recurringPaymentsTitle')}</strong>
+                  <small>{t('recurringToolDesc')}</small>
                   <span className="mrep-tool-card-arrow"><Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)' }} /></span>
                 </button>
               </div>
             </>
           )}
 
-          <p className="mrep-tools-heading">Exportar datos</p>
+          <p className="mrep-tools-heading">{t('exportData')}</p>
           <div className="mrep-export-list">
             <button className="mrep-export-row" disabled={exportingPdf} onClick={handleExportPdf}>
               <span className="mrep-export-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
                 <Icon name="book" size={20} />
               </span>
               <div>
-                <b>Estado del mes — PDF</b>
-                <small>{exportingPdf ? 'Generando…' : `Resumen de ${monthLabel(mkey)} listo para compartir`}</small>
+                <b>{t('monthStatementPdf')}</b>
+                <small>{exportingPdf ? t('generatingPdf') : t('monthSummaryReadyToShare').replace('{month}', monthLabel(mkey, dateLocale(lang)))}</small>
               </div>
               {!exportingPdf && <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />}
             </button>
@@ -220,8 +226,8 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                 <Icon name="trend" size={20} />
               </span>
               <div>
-                <b>Reporte completo — Excel</b>
-                <small>{exportingExcel ? 'Generando…' : 'Movimientos, cuentas y categorías'}</small>
+                <b>{t('fullReportExcelTitle')}</b>
+                <small>{exportingExcel ? t('generatingExcel') : t('movementsAccountsCategories')}</small>
               </div>
               {!exportingExcel && <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />}
             </button>
@@ -231,8 +237,8 @@ export function MobileReports({ goto, onImport, mkey }: { goto?: (v: ViewId) => 
                   <Icon name="upload" size={20} />
                 </span>
                 <div>
-                  <b>Importar extracto bancario</b>
-                  <small>CSV · OFX desde bancos dominicanos</small>
+                  <b>{t('importBankStatement')}</b>
+                  <small>{t('csvOfxFromBanks')}</small>
                 </div>
                 <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
               </button>

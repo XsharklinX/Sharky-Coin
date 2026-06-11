@@ -14,6 +14,10 @@ export interface SyncConflict {
   table: SyncTable
   localId: string
   label: string
+  /** Versión de este dispositivo. `undefined` si se eliminó localmente. */
+  local?: SyncEntity
+  /** Versión en la nube. `undefined` si se eliminó en la nube. */
+  remote?: SyncEntity
 }
 
 interface SyncMetadata {
@@ -49,6 +53,19 @@ function readMetadata(userId: string): SyncMetadata {
 
 function writeMetadata(userId: string, metadata: SyncMetadata): void {
   localStorage.setItem(metadataKey(userId), JSON.stringify(metadata))
+}
+
+function setBaselineEntry(userId: string, table: SyncTable, id: string, hash: string): void {
+  const metadata = readMetadata(userId)
+  const baseline = { ...metadata.baseline }
+  baseline[table] = { ...baseline[table], [id]: hash }
+  writeMetadata(userId, { ...metadata, baseline })
+}
+
+function replaceEntity<T extends { id: string }>(arr: T[], id: string, entity: T | undefined): T[] {
+  if (!entity) return arr.filter(item => item.id !== id)
+  const index = arr.findIndex(item => item.id === id)
+  return index >= 0 ? arr.map((item, i) => (i === index ? entity : item)) : [...arr, entity]
 }
 
 function fingerprint(entity: SyncEntity | undefined): string {
@@ -169,7 +186,10 @@ export function mergeTable<T extends SyncEntity>(
     const remoteChanged = previous === undefined ? !!remoteEntity : remoteHash !== previous
 
     if (localChanged && remoteChanged) {
-      conflicts.push({ table, localId, label: labelFor(localEntity ?? remoteEntity, localId) })
+      conflicts.push({
+        table, localId, label: labelFor(localEntity ?? remoteEntity, localId),
+        local: localEntity, remote: remoteEntity,
+      })
       return
     }
 
@@ -359,3 +379,65 @@ export const useCloudSync = create<CloudSyncState>((set) => ({
     }
   },
 }))
+
+const TABLE_TO_STATE_KEY = {
+  accounts: 'accounts',
+  categories: 'categories',
+  goals: 'goals',
+  transactions: 'transactions',
+  goal_contributions: 'goalContributions',
+} as const satisfies Record<SyncTable, keyof Pick<FinanceState, 'accounts' | 'categories' | 'goals' | 'transactions' | 'goalContributions'>>
+
+function applyEntityToFinance(table: SyncTable, localId: string, entity: SyncEntity | undefined, dupId?: string): void {
+  const state = useFinance.getState()
+  const data = {
+    accounts: state.accounts, categories: state.categories, goals: state.goals,
+    transactions: state.transactions, goalContributions: state.goalContributions,
+    currency: state.currency,
+  }
+  const key = TABLE_TO_STATE_KEY[table]
+  const id = dupId ?? localId
+  // @ts-expect-error -- table/entity correspondence is guaranteed by SyncTable
+  data[key] = replaceEntity(data[key], id, dupId ? { ...entity, id: dupId } : entity)
+  state.restoreBackup(data)
+}
+
+function removeConflictFromState(table: SyncTable, localId: string): void {
+  useCloudSync.setState(s => ({
+    conflicts: s.conflicts.filter(c => !(c.table === table && c.localId === localId)),
+  }))
+}
+
+/** Aplica la decisión del usuario sobre un conflicto de sincronización. */
+export async function resolveConflict(conflict: SyncConflict, action: 'local' | 'cloud' | 'duplicate' | 'ignore'): Promise<void> {
+  if (action === 'ignore') {
+    removeConflictFromState(conflict.table, conflict.localId)
+    return
+  }
+
+  const authUser = useAuth.getState().user
+  if (!authUser?.id || authUser.mode !== 'cloud') throw new Error('Inicia sesión con una cuenta cloud para sincronizar.')
+  const userId = authUser.id
+  const remoteHash = fingerprint(conflict.remote)
+
+  if (action === 'cloud') {
+    applyEntityToFinance(conflict.table, conflict.localId, conflict.remote)
+    setBaselineEntry(userId, conflict.table, conflict.localId, remoteHash)
+  } else if (action === 'local') {
+    setBaselineEntry(userId, conflict.table, conflict.localId, remoteHash)
+  } else {
+    if (!conflict.local || !conflict.remote) throw new Error('Solo se puede mantener ambos cuando hay datos en los dos lados.')
+    const dupId = `${conflict.localId}_dup_${Date.now().toString(36)}`
+    applyEntityToFinance(conflict.table, conflict.localId, conflict.remote, dupId)
+    setBaselineEntry(userId, conflict.table, conflict.localId, remoteHash)
+  }
+
+  removeConflictFromState(conflict.table, conflict.localId)
+  recordAuditEvent('account', 'Conflicto de sincronización resuelto', `${conflict.label} (${action})`)
+
+  try {
+    await useCloudSync.getState().syncNow()
+  } catch {
+    // El baseline ya quedó marcado: se resolverá en el próximo sync automático.
+  }
+}

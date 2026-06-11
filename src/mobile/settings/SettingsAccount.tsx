@@ -1,17 +1,21 @@
 import { useState } from 'react'
 import { toast } from '@/components/ui/Toast'
 import { useAuth } from '@/store/auth'
-import { GoogleButton, SettingsRow } from './shared'
+import { useCloudSync } from '@/data/cloudSync'
+import { useT } from '@/i18n'
+import { GoogleButton, SettingsRow, type SheetProps } from './shared'
 
-export function SettingsAccount() {
+export function SettingsAccount({ onOpen }: Pick<SheetProps, 'onOpen'>) {
   const auth = useAuth()
+  const conflicts = useCloudSync(s => s.conflicts)
   const [googleBusy, setGoogleBusy] = useState(false)
+  const t = useT()
 
   if (!auth.cloudAvailable) return null
 
   return (
     <div className="mset-section">
-      <span className="mset-section-title">Cuenta</span>
+      <span className="mset-section-title">{t('accountSection')}</span>
       {auth.user?.mode === 'cloud' ? (
         <div className="mset-card">
           <div className="mset-google-profile">
@@ -21,26 +25,31 @@ export function SettingsAccount() {
               <small>{auth.user.email}</small>
             </div>
           </div>
-          <SettingsRow icon="logout" iconColor="#ff6b8a" label="Cerrar sesión" danger
+          {conflicts.length > 0 && (
+            <SettingsRow icon="alert" iconColor="#f59e0b" label={t('syncConflictsLabel')}
+              value={String(conflicts.length)}
+              onClick={() => onOpen('syncConflicts')} />
+          )}
+          <SettingsRow icon="logout" iconColor="#ff6b8a" label={t('logout')} danger
             onClick={async () => {
               try {
                 await auth.logout()
-                toast('Sesión cerrada', { icon: 'check' })
+                toast(t('sessionClosed'), { icon: 'check' })
               } catch (error) {
-                toast(error instanceof Error ? error.message : 'No se pudo cerrar la sesión.', { icon: 'alert' })
+                toast(error instanceof Error ? error.message : t('couldNotLogout'), { icon: 'alert' })
               }
             }} />
         </div>
       ) : (
         <div className="mset-card">
           <div className="mset-google-signin-wrap">
-            <p className="mset-google-desc">Conecta una cuenta de Google para sincronizar tus datos en todos tus dispositivos.</p>
+            <p className="mset-google-desc">{t('googleSyncDesc')}</p>
             <GoogleButton busy={googleBusy} onClick={async () => {
               setGoogleBusy(true)
               try {
                 await auth.loginWithGoogle()
               } catch (error) {
-                toast(error instanceof Error ? error.message : 'No se pudo conectar con Google.', { icon: 'alert' })
+                toast(error instanceof Error ? error.message : t('couldNotConnectGoogle'), { icon: 'alert' })
               } finally {
                 setGoogleBusy(false)
               }

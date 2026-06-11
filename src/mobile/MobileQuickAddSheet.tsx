@@ -3,10 +3,12 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
-import { useT } from '@/i18n'
+import { useSettings } from '@/store/settings'
+import { translateCategoryName, useT } from '@/i18n'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
 import type { IconName } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 type QuickAddMode = 'expense' | 'income'
 
@@ -84,6 +86,7 @@ export function MobileQuickAddSheet({
   onOpenFull: () => void
 }) {
   const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const { accounts, categories, currency, addTx } = useFinance()
   const [amountText, setAmountText] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
@@ -172,12 +175,15 @@ export function MobileQuickAddSheet({
   const amountColor = mode === 'income' ? '#35d0a2' : '#f65574'
   const currencyPrefix = currency === 'DOP' ? 'RD$' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
 
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
+  const accountPickerRef = useDialogA11y<HTMLDivElement>(() => setAccountPicker(false), accountPicker)
+
   return (
-    <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mobile-quickadd-sheet" onClick={e => e.stopPropagation()}>
         <header className="mobile-quickadd-header">
           <span>{mode === 'expense' ? t('quickAddExpense') : t('quickAddIncome')}</span>
-          <button onClick={onClose}><Icon name="close" size={18} /></button>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
         <div className="mobile-create-section-header">
@@ -193,7 +199,7 @@ export function MobileQuickAddSheet({
                   <span style={{ color: category.color, background: `color-mix(in oklab, ${category.color} 22%, transparent)` }}>
                     <Icon name={category.icon} size={20} />
                   </span>
-                  <small>{category.name}</small>
+                  <small>{translateCategoryName(category, lang)}</small>
                 </button>
               )
             })}
@@ -266,11 +272,11 @@ export function MobileQuickAddSheet({
       </section>
 
       {accountPicker && (
-        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={e => { e.stopPropagation(); setAccountPicker(false) }}>
+        <div ref={accountPickerRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={e => { e.stopPropagation(); setAccountPicker(false) }}>
           <section onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('selectAccount')}</span>
-              <button onClick={() => setAccountPicker(false)}><Icon name="close" size={18} /></button>
+              <button aria-label={t('close')} onClick={() => setAccountPicker(false)}><Icon name="close" size={18} /></button>
             </header>
             {accounts.length === 0 ? (
               <div className="mobile-picker-list" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)' }}>

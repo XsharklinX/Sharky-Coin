@@ -3,14 +3,17 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, fmtCompact } from '@/data/helpers'
 import { ACCENT_COLORS } from '@/constants'
+import { dateLocale } from '@/data/helpers'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
-import { useT } from '@/i18n'
+import { useSettings } from '@/store/settings'
+import { translateCategoryName, useT } from '@/i18n'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
 import { recognizeReceipt } from '@/lib/receiptOcr'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
 
 type MobileTxMode = Transaction['type']
 
@@ -83,8 +86,8 @@ function evaluateExpression(expr: string): number {
   return terms.reduce((sum, term, idx) => idx === 0 ? term : sum + (signs[idx - 1] === '−' ? -term : term), 0)
 }
 
-function formatDateShort(date: string): string {
-  return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+function formatDateShort(date: string, locale: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
 export function MobileCreateFlow({
@@ -99,6 +102,8 @@ export function MobileCreateFlow({
   onSaved: () => void
 }) {
   const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
+  const locale = dateLocale(lang)
   const { accounts, categories, transactions, currency, addTx, transfer, addCategory } = useFinance()
   const noteInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -173,6 +178,10 @@ export function MobileCreateFlow({
   useMobileBackDismiss(recurEndPicker, () => setRecurEndPicker(false))
   useMobileBackDismiss(scanMenuOpen, () => setScanMenuOpen(false))
 
+  const accountPickerRef = useDialogA11y<HTMLDivElement>(() => setAccountPicker(false), accountPicker)
+  const transferPickerRef = useDialogA11y<HTMLDivElement>(() => setTransferPicker(null), !!transferPicker)
+  const scanMenuRef = useDialogA11y<HTMLDivElement>(() => setScanMenuOpen(false), scanMenuOpen)
+
   const switchMode = useCallback((next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null); setTriedSave(false); setFormError(null) }, [])
 
   const pressKey = useCallback((key: (typeof keypad)[number] | 'back') => {
@@ -228,7 +237,7 @@ export function MobileCreateFlow({
       }
       if (result.date !== null) {
         setDate(result.date)
-        if (!found) toast(t('scanDateFound').replace('{date}', formatDateShort(result.date)), { icon: 'calendar', type: 'ok' })
+        if (!found) toast(t('scanDateFound').replace('{date}', formatDateShort(result.date, locale)), { icon: 'calendar', type: 'ok' })
         found = true
       }
       if (!found) toast(t('scanNothingFound'), { icon: 'alert' })
@@ -382,7 +391,7 @@ export function MobileCreateFlow({
                       <span style={{ color: category.color, background: `color-mix(in oklab, ${category.color} 22%, transparent)` }}>
                         <Icon name={category.icon} size={20} />
                       </span>
-                      <small>{category.name}</small>
+                      <small>{translateCategoryName(category, lang)}</small>
                     </button>
                   )
                 })}
@@ -421,7 +430,7 @@ export function MobileCreateFlow({
                 </div>
                 <button className="mobile-create-date-pill" onClick={() => setRecurEndPicker(true)}>
                   <Icon name="calendar" size={13} />
-                  <span>{recurEnd ? `${t('until')} ${formatDateShort(recurEnd)}` : t('noEndDate')}</span>
+                  <span>{recurEnd ? `${t('until')} ${formatDateShort(recurEnd, locale)}` : t('noEndDate')}</span>
                   {recurEnd && (
                     <span style={{ marginLeft: 'auto' }} onClick={e => { e.stopPropagation(); setRecurEnd('') }}>
                       <Icon name="close" size={12} />
@@ -513,7 +522,7 @@ export function MobileCreateFlow({
           </div>
           <button className="mobile-quick-date-btn" onClick={() => setDatePicker(true)}>
             <Icon name="calendar" size={13} />
-            <span>{isToday ? t('today') : formatDateShort(date)}</span>
+            <span>{isToday ? t('today') : formatDateShort(date, locale)}</span>
           </button>
         </div>
 
@@ -564,11 +573,11 @@ export function MobileCreateFlow({
 
       {/* Single account picker */}
       {accountPicker && (
-        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setAccountPicker(false)}>
+        <div ref={accountPickerRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setAccountPicker(false)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('selectAccount')}</span>
-              <button onClick={() => setAccountPicker(false)}><Icon name="close" size={18} /></button>
+              <button aria-label={t('close')} onClick={() => setAccountPicker(false)}><Icon name="close" size={18} /></button>
             </header>
             {accounts.length === 0 ? (
               <div className="mobile-picker-list" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)' }}>
@@ -596,11 +605,11 @@ export function MobileCreateFlow({
 
       {/* Transfer account picker sheet */}
       {transferPicker && (
-        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setTransferPicker(null)}>
+        <div ref={transferPickerRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setTransferPicker(null)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
               <span>{transferPicker === 'from' ? t('sourceAccount') : t('destinationAccount')}</span>
-              <button onClick={() => setTransferPicker(null)}><Icon name="close" size={18} /></button>
+              <button aria-label={t('close')} onClick={() => setTransferPicker(null)}><Icon name="close" size={18} /></button>
             </header>
             <div className="mobile-picker-list">
               {accounts.map(account => {
@@ -628,11 +637,11 @@ export function MobileCreateFlow({
 
       {/* Receipt scan source picker */}
       {scanMenuOpen && (
-        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setScanMenuOpen(false)}>
+        <div ref={scanMenuRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setScanMenuOpen(false)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('scanReceipt')}</span>
-              <button onClick={() => setScanMenuOpen(false)}><Icon name="close" size={18} /></button>
+              <button aria-label={t('close')} onClick={() => setScanMenuOpen(false)}><Icon name="close" size={18} /></button>
             </header>
             <div className="mobile-picker-list">
               <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); cameraInputRef.current?.click() }}>
