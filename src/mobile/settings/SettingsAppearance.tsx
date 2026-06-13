@@ -22,7 +22,7 @@ function getAccents(t: ReturnType<typeof useT>) {
 }
 
 function getThemeLabels(t: ReturnType<typeof useT>): Record<ThemeName, string> {
-  return { dark: t('themeDarkLabel'), light: t('themeLightLabel'), system: t('themeSystemLabel') }
+  return { dark: t('themeDarkLabel'), light: t('themeLightLabel'), amoled: t('themeAmoledLabel'), system: t('themeSystemLabel') }
 }
 function getDensityLabels(t: ReturnType<typeof useT>): Record<DensityName, string> {
   return { compact: t('densityCompact'), regular: t('densityRegular'), comfy: t('densityComfy') }
@@ -31,8 +31,8 @@ function getOverdraftLabels(t: ReturnType<typeof useT>): Record<OverdraftPolicy,
   return { block: t('overdraftBlock'), warn: t('overdraftWarn'), allow: t('overdraftAllow') }
 }
 
-const themePreviewBg: Record<'dark' | 'light', string> = { dark: '#0a0e16', light: '#f4f7fb' }
-const themePreviewFg: Record<'dark' | 'light', string> = { dark: '#e9eef7', light: '#172033' }
+const themePreviewBg: Record<'dark' | 'light' | 'amoled', string> = { dark: '#0a0e16', light: '#f4f7fb', amoled: '#000000' }
+const themePreviewFg: Record<'dark' | 'light' | 'amoled', string> = { dark: '#e9eef7', light: '#172033', amoled: '#e9eef7' }
 
 export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps) {
   const settings = useSettings()
@@ -153,7 +153,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
       {activeSheet === 'theme' && (
         <SettingsSheet title={t('theme')} onClose={onClose}>
           <div className="mset-sheet-options">
-            {(['dark', 'light', 'system'] as ThemeName[]).map(theme => {
+            {(['dark', 'light', 'amoled', 'system'] as ThemeName[]).map(theme => {
               const previewKey = theme === 'system' ? resolvedTheme : theme
               return (
                 <button key={theme} className={`mset-theme-opt${settings.theme === theme ? ' on' : ''}`}

@@ -1,4 +1,5 @@
 import { listRecoverySnapshots } from './recovery'
+import { accountMovementsTotal } from './helpers'
 import type { FinanceState } from '@/store/finance'
 
 export interface DataHealthStatus {
@@ -13,6 +14,7 @@ export interface DataHealthStatus {
   lastSyncAt?: string
   riskLevel: 'ok' | 'warning'
   warnings: string[]
+  driftedAccounts: number
 }
 
 export function getDataHealthStatus(state: FinanceState, userId?: string): DataHealthStatus {
@@ -27,6 +29,14 @@ export function getDataHealthStatus(state: FinanceState, userId?: string): DataH
   if (state.accounts.length === 0) warnings.push('No hay cuentas configuradas.')
   if (state.categories.length === 0) warnings.push('No hay categorias configuradas.')
 
+  // Deriva de saldos: el saldo guardado no coincide con apertura + movimientos.
+  const driftedAccounts = state.accounts.reduce((n, account) => {
+    if (account.openingBalance === undefined) return n
+    const expected = account.openingBalance + accountMovementsTotal(account.id, state.transactions, state.goalContributions)
+    return Math.abs(expected - account.balance) > 0.005 ? n + 1 : n
+  }, 0)
+  if (driftedAccounts > 0) warnings.push(`${driftedAccounts} cuenta(s) con saldo descuadrado.`)
+
   return {
     accounts: state.accounts.length,
     transactions: state.transactions.length,
@@ -39,6 +49,7 @@ export function getDataHealthStatus(state: FinanceState, userId?: string): DataH
     lastSyncAt,
     riskLevel: warnings.length ? 'warning' : 'ok',
     warnings,
+    driftedAccounts,
   }
 }
 

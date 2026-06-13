@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { applyImportedBalances, assertAvailableBalance, canDeleteAccount, canDeleteCategory, restoreFinanceDataWithSnapshot, sanitizeFinanceData } from './finance'
+import { applyImportedBalances, assertAvailableBalance, canDeleteAccount, canDeleteCategory, recomputeAccountBalances, restoreFinanceDataWithSnapshot, sanitizeFinanceData } from './finance'
+import { accountMovementsTotal } from '@/data/helpers'
 import { listRecoverySnapshots } from '@/data/recovery'
-import type { Account, Transaction } from '@/types'
+import type { Account, GoalContribution, Transaction } from '@/types'
 import type { FinanceState } from './finance'
 
 const accounts: Account[] = [
@@ -129,6 +130,44 @@ describe('sanitizeFinanceData', () => {
     })
     expect(data.categories.map(category => category.id)).toEqual(['food'])
     expect(data.transactions.map(transaction => transaction.id)).toEqual(['valid'])
+  })
+})
+
+describe('accountMovementsTotal / recomputeAccountBalances', () => {
+  const accs: Account[] = [
+    { id: 'cash', name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: 0, last4: null, openingBalance: 100 },
+    { id: 'bank', name: 'Banco', short: 'Bank', type: 'debit', color: '#fff', balance: 0, last4: null, openingBalance: 0 },
+  ]
+  const txns: Transaction[] = [
+    { id: 't1', type: 'income',  amount: 50, date: '2026-01-01', note: 'sueldo', accountId: 'cash', categoryId: 'c1' },
+    { id: 't2', type: 'expense', amount: 30, date: '2026-01-02', note: 'café',   accountId: 'cash', categoryId: 'c2' },
+    { id: 't3', type: 'transfer', amount: 20, date: '2026-01-03', note: 'mov', fromAccount: 'cash', toAccount: 'bank' },
+  ] as Transaction[]
+  const contribs: GoalContribution[] = [
+    { id: 'g1', goalId: 'goal', fromAccountId: 'bank', amount: 5, date: '2026-01-04' },
+  ]
+
+  it('suma el efecto neto de los movimientos por cuenta', () => {
+    expect(accountMovementsTotal('cash', txns, contribs)).toBe(0)   // +50 −30 −20
+    expect(accountMovementsTotal('bank', txns, contribs)).toBe(15)  // +20 −5
+  })
+
+  it('recalcula el saldo desde apertura + movimientos', () => {
+    const fixed = recomputeAccountBalances(accs, txns, contribs)
+    expect(fixed.find(a => a.id === 'cash')!.balance).toBe(100) // 100 + 0
+    expect(fixed.find(a => a.id === 'bank')!.balance).toBe(15)  // 0 + 15
+  })
+
+  it('corrige un saldo derivado y back-deriva opening si falta', () => {
+    const drifted: Account[] = [
+      { id: 'cash', name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: 999, last4: null, openingBalance: 100 },
+      { id: 'bank', name: 'Banco', short: 'Bank', type: 'debit', color: '#fff', balance: 15, last4: null }, // sin openingBalance
+    ]
+    const fixed = recomputeAccountBalances(drifted, txns, contribs)
+    expect(fixed.find(a => a.id === 'cash')!.balance).toBe(100)        // corregido desde 999
+    const bank = fixed.find(a => a.id === 'bank')!
+    expect(bank.openingBalance).toBe(0)                                // back-derivado: 15 − 15
+    expect(bank.balance).toBe(15)                                      // sin cambio neto
   })
 })
 

@@ -1,4 +1,5 @@
 import { createBackup, parseBackup, type FinanceBackup } from './backup'
+import { tt } from '@/i18n'
 import type { FinanceState } from '@/store/finance'
 
 export interface RecoverySnapshot {
@@ -38,7 +39,7 @@ export function createRecoverySnapshot(state: FinanceState, reason: RecoverySnap
 
 export function readRecoverySnapshot(id: string): FinanceBackup['data'] {
   const snapshot = listRecoverySnapshots().find(item => item.id === id)
-  if (!snapshot) throw new Error('El punto de recuperación ya no existe.')
+  if (!snapshot) throw new Error(tt('errRecoveryGone'))
   return parseBackup(JSON.stringify(snapshot.backup))
 }
 

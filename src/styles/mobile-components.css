@@ -346,7 +346,12 @@
   .mrep-group-header { align-items: center; display: flex; justify-content: space-between; padding: 14px 16px 10px; }
   .mrep-group-header > span { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
   .mrep-group-header > strong { color: var(--m-text); font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 700; }
-  .mrep-account-row { align-items: center; border-top: 1px solid var(--m-border); display: flex; gap: 12px; padding: 14px 16px; }
+  .mrep-account-row {
+    align-items: center; background: transparent; border: 0;
+    border-top: 1px solid var(--m-border); color: inherit; cursor: pointer;
+    display: flex; font: inherit; gap: 12px; padding: 14px 16px; text-align: left; width: 100%;
+  }
+  .mrep-account-row:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
   .mrep-account-icon { align-items: center; border-radius: 12px; display: flex; flex-shrink: 0; height: 40px; justify-content: center; width: 40px; }
   .mrep-account-info { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
   .mrep-account-info b { color: var(--m-text); font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -136,7 +136,10 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
   ]
   const showCompare = period === 'month' || period === 'year'
 
-  // Donut
+  // Donut — tamaño de fuente del centro según el largo del monto, para que no se desborde
+  const donutValueLabel = fmtVal(summary.expense, currency)
+  const donutValueSize = donutValueLabel.length > 11 ? 12 : donutValueLabel.length > 8 ? 14 : 16
+
   const donut = categoryRows.length
     ? `conic-gradient(${categoryRows.map((row, i) => {
         const start = categoryRows.slice(0, i).reduce((s, r) => s + r.amount / totalExpense * 100, 0)
@@ -186,7 +189,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
           <div className="man-donut" style={{ background: donut }}>
             <span>
               <small>{t('expenses')}</small>
-              <strong>{fmtVal(summary.expense, currency)}</strong>
+              <strong style={{ fontSize: donutValueSize }}>{donutValueLabel}</strong>
             </span>
           </div>
           <div className="man-donut-legend">
@@ -199,7 +202,10 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
                   <i style={{ background: row.category.color }} />
                   <span className="man-legend-name">{translateCategoryName(row.category, lang)}</span>
                   <div className="man-legend-right">
-                    <strong>{pct}%</strong>
+                    <div className="man-legend-values">
+                      <strong>{fmtVal(row.amount, currency)}</strong>
+                      <span className="man-legend-pct">{pct}%</span>
+                    </div>
                     {budgetPct !== null && (
                       <span className={`man-budget-chip${budgetPct >= 100 ? ' over' : budgetPct >= 80 ? ' warn' : ''}`}>
                         {t('pctOfBudget').replace('{pct}', String(Math.round(budgetPct)))}

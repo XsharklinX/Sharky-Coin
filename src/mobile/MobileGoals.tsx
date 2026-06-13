@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
 import { useDialogs } from '@/components/ui/DialogProvider'
 import { useSettings } from '@/store/settings'
 import { dateLocale, fmt } from '@/data/helpers'
-import { playKeySound, playBackspaceSound, playDoneSound } from '@/lib/sound'
+import { playKeySound, playBackspaceSound, playDoneSound, playConfirmSound, playDeleteSound, playAchievementSound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Goal, IconName, ViewProps } from '@/types'
@@ -164,6 +165,7 @@ function GoalForm({
   const save = () => {
     const targetVal = parseFloat(amountText)
     if (!name.trim() || !targetVal || targetVal <= 0) return
+    playConfirmSound()
     onSave({ name: name.trim(), target: targetVal, color, icon, deadline: deadline || undefined })
   }
 
@@ -321,9 +323,11 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
     if (!amt || amt <= 0 || !accountId) return
     try {
       contribute(goal.id, amt, accountId)
+      if (goal.saved < goal.target && goal.saved + amt >= goal.target) playAchievementSound()
+      else playConfirmSound()
       onClose()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : t('errorContributing'))
+      toast(e instanceof Error ? e.message : t('errorContributing'), { icon: 'alert' })
     }
   }
 
@@ -435,7 +439,7 @@ export function MobileGoals(_props: ViewProps) {
                   <Icon name="edit" size={15} />
                 </button>
                 <button className="mgl-action-btn mgl-action-del" aria-label={t('deleteGoalNamed').replace('{name}', g.name)} onClick={() => {
-                  void confirm({ title: t('deleteGoalConfirmTitle').replace('{name}', g.name), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' }).then(ok => { if (ok) deleteGoal(g.id) })
+                  void confirm({ title: t('deleteGoalConfirmTitle').replace('{name}', g.name), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' }).then(ok => { if (ok) { playDeleteSound(); deleteGoal(g.id) } })
                 }}>
                   <Icon name="trash" size={15} />
                 </button>

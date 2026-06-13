@@ -2,7 +2,7 @@
 export type AccountType  = 'debit' | 'savings' | 'credit' | 'cash'
 export type TxType       = 'income' | 'expense' | 'transfer'
 export type CurrencyCode = 'DOP' | 'USD' | 'EUR' | 'MXN' | 'GBP' | 'COP' | 'ARS' | 'BRL' | 'CAD'
-export type ThemeName    = 'dark' | 'light' | 'system'
+export type ThemeName    = 'dark' | 'light' | 'amoled' | 'system'
 export type DensityName  = 'compact' | 'regular' | 'comfy'
 export type OverdraftPolicy = 'block' | 'warn' | 'allow'
 export type RecurrenceFrequency = 'weekly' | 'monthly'
@@ -42,6 +42,13 @@ export interface Account {
   type:    AccountType
   color:   string
   balance: number
+  /**
+   * Saldo de apertura inmutable. El saldo "real" de una cuenta es siempre
+   * `openingBalance + suma de movimientos`. Se conserva aparte para poder
+   * auditar y recalcular `balance` si alguna vez deriva por un bug.
+   * Opcional por compatibilidad: las cuentas antiguas lo back-derivan al cargar.
+   */
+  openingBalance?: number
   last4:   string | null
   limit?:  number
   overdraftPolicy?: OverdraftPolicy

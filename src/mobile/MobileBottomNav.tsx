@@ -3,16 +3,16 @@ import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
 import { playOpenSound } from '@/lib/sound'
 
-export type MobileRoute = 'home' | 'analytics' | 'add' | 'reports' | 'profile'
+export type MobileRoute = 'home' | 'analysis' | 'add' | 'accounts' | 'profile'
 export type QuickAddMode = 'expense' | 'income'
 
-type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name'] }
+type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name']; labelKey: 'home' | 'analysisTab' | 'accounts' | 'profile' }
 
 const ITEMS: NavItem[] = [
-  { route: 'home',      icon: 'grid'  },
-  { route: 'analytics', icon: 'chart' },
-  { route: 'reports',   icon: 'list'  },
-  { route: 'profile',   icon: 'settings' },
+  { route: 'home',     icon: 'grid',  labelKey: 'home' },
+  { route: 'analysis', icon: 'chart', labelKey: 'analysisTab' },
+  { route: 'accounts', icon: 'cards', labelKey: 'accounts' },
+  { route: 'profile',  icon: 'settings', labelKey: 'profile' },
 ]
 
 const LONG_PRESS_MS = 420
@@ -60,7 +60,7 @@ export function MobileBottomNav({ route, onRoute, onQuickAdd }: {
           aria-current={route === item.route ? 'page' : undefined}
           onClick={() => onRoute(item.route)}>
           <Icon name={item.icon} size={21} />
-          <span>{t(item.route as Parameters<typeof t>[0])}</span>
+          <span>{t(item.labelKey)}</span>
         </button>
       ))}
 
@@ -92,7 +92,7 @@ export function MobileBottomNav({ route, onRoute, onQuickAdd }: {
           aria-current={route === item.route ? 'page' : undefined}
           onClick={() => onRoute(item.route)}>
           <Icon name={item.icon} size={21} />
-          <span>{t(item.route as Parameters<typeof t>[0])}</span>
+          <span>{t(item.labelKey)}</span>
         </button>
       ))}
     </nav>

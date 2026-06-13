@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { makeDemo, makeEmpty, newId } from '@/data/seed'
+import { accountMovementsTotal } from '@/data/helpers'
 import { createRecoverySnapshot } from '@/data/recovery'
+import { tt } from '@/i18n'
 import { useSettings } from '@/store/settings'
 import type { Account, Category, Transaction, Goal, GoalContribution, CurrencyCode, OverdraftPolicy } from '@/types'
 
@@ -72,10 +74,32 @@ export function sanitizeFinanceData(value: unknown): FinanceData {
     text(contribution.id) && text(contribution.goalId) && text(contribution.fromAccountId)
     && goalIds.has(contribution.goalId) && accountIds.has(contribution.fromAccountId)
     && amount(contribution.amount) && contribution.amount > 0 && date(contribution.date))
+  // Back-derivar el saldo de apertura de cuentas antiguas (sin tocar el saldo
+  // mostrado): opening = saldo actual − movimientos. Una vez fijado, persiste y
+  // permite auditar/recalcular más adelante.
+  const accountsWithOpening = accounts.map(account =>
+    amount(account.openingBalance)
+      ? account
+      : { ...account, openingBalance: account.balance - accountMovementsTotal(account.id, transactions, goalContributions) })
   return {
-    accounts, categories, goals, transactions, goalContributions,
+    accounts: accountsWithOpening, categories, goals, transactions, goalContributions,
     currency: ['DOP','USD','EUR','MXN','GBP','COP','ARS','BRL','CAD'].includes(data.currency ?? '') ? data.currency! : 'DOP',
   }
+}
+
+/**
+ * Recalcula el saldo de cada cuenta desde su saldo de apertura inmutable más la
+ * suma de todos sus movimientos. Devuelve las cuentas corregidas; es idempotente
+ * cuando no hay deriva.
+ */
+export function recomputeAccountBalances(
+  accounts: Account[], txns: Transaction[], contributions: GoalContribution[],
+): Account[] {
+  return accounts.map(account => {
+    const opening = account.openingBalance ?? account.balance - accountMovementsTotal(account.id, txns, contributions)
+    const balance = opening + accountMovementsTotal(account.id, txns, contributions)
+    return { ...account, openingBalance: opening, balance }
+  })
 }
 
 // ── Helpers de balance (inmutables) ──────────────────────
@@ -101,14 +125,14 @@ function sortTxns(txns: Transaction[]): Transaction[] {
 
 export function assertAvailableBalance(accounts: Account[], accountId: string, amount: number): void {
   const account = accounts.find(a => a.id === accountId)
-  if (!account) throw new Error('La cuenta seleccionada no existe.')
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error('El monto debe ser mayor que cero.')
+  if (!account) throw new Error(tt('errAccountNotExist'))
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error(tt('errAmountPositive'))
   if (account.type === 'credit') {
     if (account.limit !== undefined && account.balance - amount < -account.limit)
-      throw new Error(`Límite de crédito excedido en ${account.name}.`)
+      throw new Error(tt('errCreditLimitExceeded', { name: account.name }))
     return
   }
-  if (account.balance < amount) throw new Error(`Saldo insuficiente en ${account.name}.`)
+  if (account.balance < amount) throw new Error(tt('errInsufficientBalance', { name: account.name }))
 }
 
 export function canDeleteAccount(accountId: string, txns: Transaction[]): boolean {
@@ -176,6 +200,10 @@ export interface FinanceState {
   // Config
   setCurrency: (code: CurrencyCode) => void
 
+  // Integridad: recalcula los saldos desde apertura + movimientos.
+  // Devuelve cuántas cuentas estaban derivadas (se corrigieron).
+  recomputeBalances: () => number
+
   // Datos
   startDemo:  () => void
   startEmpty: () => void
@@ -185,7 +213,7 @@ export interface FinanceState {
 // ── Store ─────────────────────────────────────────────────
 export const useFinance = create<FinanceState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...makeDemo(),
       goalContributions: [],
       currency: 'DOP',
@@ -232,9 +260,9 @@ export const useFinance = create<FinanceState>()(
       }),
 
       transfer: ({ fromAccount, toAccount, amount, date, note }) => set(s => {
-        if (fromAccount === toAccount) throw new Error('Selecciona dos cuentas distintas.')
+        if (fromAccount === toAccount) throw new Error(tt('errSameAccount'))
         assertAvailableBalance(s.accounts, fromAccount, amount)
-        if (!s.accounts.some(a => a.id === toAccount)) throw new Error('La cuenta de destino no existe.')
+        if (!s.accounts.some(a => a.id === toAccount)) throw new Error(tt('errDestAccountNotExist'))
         const tx: Transaction = {
           id: newId(), type: 'transfer',
           amount, fromAccount, toAccount,
@@ -248,22 +276,32 @@ export const useFinance = create<FinanceState>()(
 
       // Cuentas
       addAccount: (account) => set(s => ({
-        accounts: [...s.accounts, { id: 'acc_' + Date.now().toString(36), ...account }],
+        // Cuenta nueva sin movimientos: el saldo de apertura es el saldo inicial.
+        accounts: [...s.accounts, { id: newId('acc_'), ...account, openingBalance: account.openingBalance ?? account.balance }],
       })),
 
       updateAccount: (id, fields) => set(s => ({
-        accounts: s.accounts.map(account => account.id === id ? { ...account, ...fields } : account),
+        accounts: s.accounts.map(account => {
+          if (account.id !== id) return account
+          const next = { ...account, ...fields }
+          // Editar el saldo a mano es una corrección del saldo actual: ajustamos
+          // el saldo de apertura para preservar la invariante opening + movimientos.
+          if (fields.balance !== undefined && fields.openingBalance === undefined) {
+            next.openingBalance = fields.balance - accountMovementsTotal(id, s.transactions, s.goalContributions)
+          }
+          return next
+        }),
       })),
 
       deleteAccount: (id) => set(s => {
-        if (!canDeleteAccount(id, s.transactions)) throw new Error('No puedes eliminar una cuenta con movimientos registrados.')
-        if (s.goalContributions.some(contribution => contribution.fromAccountId === id)) throw new Error('No puedes eliminar una cuenta con aportes a metas registrados.')
+        if (!canDeleteAccount(id, s.transactions)) throw new Error(tt('errDeleteAccountWithTxns'))
+        if (s.goalContributions.some(contribution => contribution.fromAccountId === id)) throw new Error(tt('errDeleteAccountWithContribs'))
         return { accounts: s.accounts.filter(account => account.id !== id) }
       }),
 
       // ── Metas ──────────────────────────────────────────
       addGoal: (g) => set(s => ({
-        goals: [...s.goals, { id: 'goal_' + Date.now().toString(36), ...g, saved: g.saved ?? 0 }],
+        goals: [...s.goals, { id: newId('goal_'), ...g, saved: g.saved ?? 0 }],
       })),
 
       updateGoal: (id, fields) => set(s => ({
@@ -277,9 +315,9 @@ export const useFinance = create<FinanceState>()(
 
       contribute: (goalId, amount, fromAccountId, note) => set(s => {
         assertAvailableBalance(s.accounts, fromAccountId, amount)
-        if (!s.goals.some(g => g.id === goalId)) throw new Error('La meta seleccionada no existe.')
+        if (!s.goals.some(g => g.id === goalId)) throw new Error(tt('errGoalNotExist'))
         const contribution: GoalContribution = {
-          id: 'contrib_' + Date.now().toString(36),
+          id: newId('contrib_'),
           goalId,
           amount,
           fromAccountId,
@@ -296,7 +334,7 @@ export const useFinance = create<FinanceState>()(
       // ── Categorías ─────────────────────────────────────
       addCategory: (c) => set(s => {
         if (!text(c.name) || !/\p{L}/u.test(c.name)) throw new Error('Escribe un nombre válido para la categoría.')
-        return { categories: [...s.categories, { id: 'cat_' + Date.now().toString(36), ...c, name: c.name.trim() }] }
+        return { categories: [...s.categories, { id: newId('cat_'), ...c, name: c.name.trim() }] }
       }),
 
       updateCategory: (id, fields) => set(s => {
@@ -305,12 +343,22 @@ export const useFinance = create<FinanceState>()(
       }),
 
       deleteCategory: (id) => set(s => {
-        if (!canDeleteCategory(id, s.transactions)) throw new Error('No puedes eliminar una categoría con movimientos registrados.')
+        if (!canDeleteCategory(id, s.transactions)) throw new Error(tt('errDeleteCategoryWithTxns'))
         return { categories: s.categories.filter(c => c.id !== id) }
       }),
 
       // ── Config ─────────────────────────────────────────
       setCurrency: (currency) => set({ currency }),
+
+      // ── Integridad de saldos ───────────────────────────
+      recomputeBalances: () => {
+        const { accounts, transactions, goalContributions } = get()
+        const recomputed = recomputeAccountBalances(accounts, transactions, goalContributions)
+        const drifted = recomputed.reduce((n, account, i) =>
+          Math.abs(account.balance - accounts[i].balance) > 0.005 ? n + 1 : n, 0)
+        set({ accounts: recomputed })
+        return drifted
+      },
 
       // ── Datos demo / vacío ─────────────────────────────
       startDemo:  () => set({ ...makeDemo(), goalContributions: [], currency: 'DOP' }),

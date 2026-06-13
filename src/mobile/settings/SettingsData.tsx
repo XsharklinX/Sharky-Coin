@@ -134,6 +134,13 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
           ))}
         </div>
         <div className="mset-card">
+          <SettingsRow icon="refresh" iconColor="#f59e0b" label={t('recalcBalancesLabel')}
+            value={health.driftedAccounts > 0 ? String(health.driftedAccounts) : undefined}
+            onClick={() => {
+              const fixed = finance.recomputeBalances()
+              toast(fixed > 0 ? t('balancesFixed').replace('{n}', String(fixed)) : t('balancesOk'),
+                { icon: 'check', type: 'ok' })
+            }} />
           <SettingsRow icon="download" iconColor="#35d0a2" label={t('exportData')}
             onClick={() => onOpen('export')} />
           <SettingsRow icon="upload" iconColor="#5bc0ff" label={t('restoreBackup')}

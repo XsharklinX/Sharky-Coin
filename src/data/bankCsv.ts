@@ -1,3 +1,4 @@
+import { tt } from '@/i18n'
 import type { Category, Transaction } from '@/types'
 
 export type BankId =
@@ -252,7 +253,7 @@ function isDuplicateImportedRow(existing: Transaction[], row: Pick<Transaction, 
 
 function parseCsv(csv: string) {
   const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean)
-  if (lines.length < 2) throw new Error('El archivo CSV no contiene movimientos.')
+  if (lines.length < 2) throw new Error(tt('errCsvNoMovements'))
   const delimiter = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ';' : ','
   const headers = splitCsvLine(lines[0], delimiter)
   return { lines, delimiter, headers }
@@ -318,7 +319,7 @@ export function parseBankCsv(
   const analysis = analyzeBankCsv(csv, bank, overrides)
   const columns = analysis.columns
   if (!columns.date || !columns.note || (!columns.amount && !columns.debit && !columns.credit)) {
-    throw new Error('No pudimos detectar las columnas de fecha, monto y descripcion.')
+    throw new Error(tt('errCsvNoColumns'))
   }
 
   return lines.slice(1).map(line => {

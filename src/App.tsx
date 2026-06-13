@@ -12,6 +12,7 @@ import { useRecurring } from '@/hooks/useRecurring'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useNotificationActions } from '@/hooks/useNotificationActions'
 import { useLocalReminders } from '@/hooks/useLocalReminders'
+import { useHomeWidget } from '@/hooks/useHomeWidget'
 import { useSharedReceipt } from '@/hooks/useSharedReceipt'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { useAppShortcut } from '@/hooks/useAppShortcut'
@@ -75,6 +76,7 @@ export default function App() {
   useNotifications()
   useNotificationActions()
   useLocalReminders()
+  useHomeWidget()
   const [sharedReceipt, consumeSharedReceipt] = useSharedReceipt()
   const [appShortcut, consumeAppShortcut] = useAppShortcut()
   useAutoBackup()
@@ -129,7 +131,16 @@ export default function App() {
     toast(t('movementDeleted'), {
       icon: 'trash',
       duration: 5000,
-      action: { label: t('undo'), onClick: () => addTx(tx) },
+      action: {
+        label: t('undo'),
+        onClick: () => {
+          try {
+            addTx(tx)
+          } catch (error) {
+            toast(error instanceof Error ? error.message : t('couldNotSave'), { icon: 'alert' })
+          }
+        },
+      },
     })
   }
 

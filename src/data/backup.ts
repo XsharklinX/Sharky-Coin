@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { CURRENCY_CODES } from '@/constants'
+import { tt } from '@/i18n'
 import type { FinanceState } from '@/store/finance'
 import type { Account, Category, CurrencyCode, Goal, GoalContribution, IconName, Transaction } from '@/types'
 
@@ -150,7 +151,7 @@ export function parseBackup(value: string): FinanceBackup['data'] {
   try {
     backup = JSON.parse(value)
   } catch {
-    throw new Error('El archivo no es un JSON válido.')
+    throw new Error(tt('errNotValidJson'))
   }
 
   const result = FinanceBackupSchema.safeParse(backup)
@@ -159,13 +160,13 @@ export function parseBackup(value: string): FinanceBackup['data'] {
     if (customIssue) throw new Error(customIssue.message)
 
     const paths = new Set(result.error.issues.map(issue => issue.path[1]))
-    if (paths.has('accounts')) throw new Error('El backup contiene cuentas inválidas.')
-    if (paths.has('categories')) throw new Error('El backup contiene categorías inválidas.')
-    if (paths.has('goals')) throw new Error('El backup contiene metas inválidas.')
-    if (paths.has('transactions')) throw new Error('El backup contiene transacciones inválidas o referencias inexistentes.')
-    if (paths.has('goalContributions')) throw new Error('El backup contiene aportes a metas inválidos o referencias inexistentes.')
-    if (paths.has('currency')) throw new Error('El backup contiene una moneda no compatible.')
-    throw new Error('El archivo no es un backup válido de $harky.')
+    if (paths.has('accounts')) throw new Error(tt('errBackupAccounts'))
+    if (paths.has('categories')) throw new Error(tt('errBackupCategories'))
+    if (paths.has('goals')) throw new Error(tt('errBackupGoals'))
+    if (paths.has('transactions')) throw new Error(tt('errBackupTransactions'))
+    if (paths.has('goalContributions')) throw new Error(tt('errBackupContributions'))
+    if (paths.has('currency')) throw new Error(tt('errBackupCurrency'))
+    throw new Error(tt('errNotValidBackup'))
   }
 
   return result.data.data

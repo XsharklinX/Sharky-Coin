@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { toast } from '@/components/ui/Toast'
+import { tt } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import type { RecurrenceFrequency, Transaction } from '@/types'
 
@@ -23,6 +24,7 @@ export function useRecurring(): void {
     ran.current = true
     const today = new Date().toISOString().slice(0, 10)
     let created = 0
+    let skipped = 0
 
     transactions.filter(tx => tx.recurring).forEach(template => {
       let next = firstRecurrenceDate(template)
@@ -31,12 +33,18 @@ export function useRecurring(): void {
         const exists = transactions.some(tx => tx.date === next && tx.note === template.note
           && tx.categoryId === template.categoryId && tx.accountId === template.accountId)
         if (!exists) {
-          addTx({
-            type: template.type, amount: template.amount, note: template.note,
-            date: next, accountId: template.accountId, categoryId: template.categoryId,
-            tags: template.tags,
-          })
-          created++
+          // Un recurrente nunca debe poder tumbar el arranque: si el saldo no
+          // alcanza (política "bloquear") lo saltamos y seguimos generando el resto.
+          try {
+            addTx({
+              type: template.type, amount: template.amount, note: template.note,
+              date: next, accountId: template.accountId, categoryId: template.categoryId,
+              tags: template.tags,
+            })
+            created++
+          } catch {
+            skipped++
+          }
         }
         next = advanceRecurrenceDate(next, template.recurring!)
         generated++
@@ -44,8 +52,13 @@ export function useRecurring(): void {
       if (next !== template.recurringNext) updateTx(template.id, { recurringNext: next })
     })
 
-    if (created > 0) toast(`${created} movimiento${created > 1 ? 's' : ''} recurrente${created > 1 ? 's' : ''} generado${created > 1 ? 's' : ''}`, {
-      icon: 'calendar', type: 'ok',
-    })
+    if (created > 0) toast(
+      tt(created > 1 ? 'recurringGeneratedMany' : 'recurringGeneratedOne', { n: created }),
+      { icon: 'calendar', type: 'ok' },
+    )
+    if (skipped > 0) toast(
+      tt(skipped > 1 ? 'recurringSkippedMany' : 'recurringSkippedOne', { n: skipped }),
+      { icon: 'alert' },
+    )
   }, [addTx, transactions, updateTx])
 }

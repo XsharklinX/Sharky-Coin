@@ -80,6 +80,10 @@ export function MobileTransactionList({
   const [filter, setFilter] = useState<TxFilter>('all')
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [fAccount, setFAccount] = useState('all')
+  const [fCategory, setFCategory] = useState('all')
+  const [fFrom, setFFrom] = useState('')
+  const [fTo, setFTo] = useState('')
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [openActionId, setOpenActionId] = useState<string | null>(null)
   const containerRef = useRef<HTMLElement>(null)
@@ -97,13 +101,21 @@ export function MobileTransactionList({
     const q = query.trim().toLowerCase()
     return transactions
       .filter(tx => filter === 'all' || tx.type === filter)
+      .filter(tx => fAccount === 'all'
+        || tx.accountId === fAccount || tx.fromAccount === fAccount || tx.toAccount === fAccount)
+      .filter(tx => fCategory === 'all' || tx.categoryId === fCategory)
+      .filter(tx => !fFrom || tx.date >= fFrom)
+      .filter(tx => !fTo || tx.date <= fTo)
       .filter(tx => {
         if (!q) return true
         const category = getCategory(tx.categoryId, categories)?.name ?? ''
         const account = getAccount(tx.accountId, accounts)?.name ?? ''
         return `${tx.note} ${category} ${account}`.toLowerCase().includes(q)
       })
-  }, [accounts, categories, filter, query, transactions])
+  }, [accounts, categories, filter, query, fAccount, fCategory, fFrom, fTo, transactions])
+
+  const activeFilters = (fAccount !== 'all' ? 1 : 0) + (fCategory !== 'all' ? 1 : 0) + (fFrom ? 1 : 0) + (fTo ? 1 : 0)
+  const clearFilters = () => { setFAccount('all'); setFCategory('all'); setFFrom(''); setFTo(''); setQuery('') }
 
   // Aplanar las filas agrupadas por día en una lista plana para virtualización
   const items = useMemo<ListItem[]>(() => {
@@ -244,9 +256,10 @@ export function MobileTransactionList({
               </button>
             ))}
             {showSearch && (
-              <button className="mobile-search-chip" onClick={() => setSearchOpen(true)}>
+              <button className={`mobile-search-chip${activeFilters > 0 ? ' has-filters' : ''}`} onClick={() => setSearchOpen(true)}>
                 <Icon name="search" size={16} />
                 {t('search')}
+                {activeFilters > 0 && <span className="mobile-filter-badge">{activeFilters}</span>}
               </button>
             )}
           </div>
@@ -289,13 +302,42 @@ export function MobileTransactionList({
         <div ref={searchRef} className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label={t('searchMovementsLabel')}>
           <div className="mobile-search-head">
             <button onClick={() => setSearchOpen(false)}>{t('cancel')}</button>
-            <strong>{t('search')}</strong>
-            <span />
+            <strong>{t('searchAndFilter')}</strong>
+            <button className="mobile-search-clear" disabled={activeFilters === 0 && !query} onClick={clearFilters}>{t('clearFiltersLabel')}</button>
           </div>
           <label className="mobile-search-input">
             <Icon name="search" size={18} />
             <input value={query} placeholder={t('noteCategoryAccountPlaceholder')} onChange={event => setQuery(event.target.value)} />
           </label>
+
+          <div className="mobile-filter-panel">
+            <div className="mobile-filter-field">
+              <label>{t('account')}</label>
+              <select value={fAccount} onChange={event => setFAccount(event.target.value)}>
+                <option value="all">{t('allAccountsOption')}</option>
+                {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+              </select>
+            </div>
+            <div className="mobile-filter-field">
+              <label>{t('category')}</label>
+              <select value={fCategory} onChange={event => setFCategory(event.target.value)}>
+                <option value="all">{t('allCategoriesOption')}</option>
+                {categories.map(category => <option key={category.id} value={category.id}>{translateCategoryName(category, lang)}</option>)}
+              </select>
+            </div>
+            <div className="mobile-filter-dates">
+              <div className="mobile-filter-field">
+                <label>{t('fromDateLabel')}</label>
+                <input type="date" value={fFrom} max={fTo || undefined} onChange={event => setFFrom(event.target.value)} />
+              </div>
+              <div className="mobile-filter-field">
+                <label>{t('toDateLabel')}</label>
+                <input type="date" value={fTo} min={fFrom || undefined} onChange={event => setFTo(event.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="mobile-filter-results">{t('resultsCount').replace('{n}', String(rows.length))}</div>
           <MobileTransactionList transactions={rows} onEdit={onEdit} onDelete={onDelete} compact />
         </div>
       )}

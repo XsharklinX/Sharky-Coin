@@ -37,14 +37,14 @@ export function MobileTopBar({
   const t = useT()
 
   const TITLES: Record<MobileRoute, string> = {
-    home:      t('home'),
-    analytics: t('analytics'),
-    add:       t('add'),
-    reports:   t('reports'),
-    profile:   t('profile'),
+    home:     t('home'),
+    analysis: t('analysisTab'),
+    add:      t('add'),
+    accounts: t('accounts'),
+    profile:  t('profile'),
   }
 
-  const showMonth = route !== 'add' && route !== 'profile'
+  const showMonth = route === 'home' || route === 'analysis'
   const monthLabel = (() => {
     const [y, m] = mkey.split('-').map(Number)
     return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })

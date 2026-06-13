@@ -5,6 +5,7 @@ import type { AppShortcut } from '@/hooks/useAppShortcut'
 import type { SharedReceipt } from '@/hooks/useTauri'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
+import { MobileAccounts } from './MobileAccounts'
 import { MobileAnalytics } from './MobileAnalytics'
 import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
@@ -24,14 +25,15 @@ import { useMobileBackDismiss } from './useMobileBackDismiss'
 type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 
 function routeFromView(view: ViewId): MobileRoute {
-  if (view === 'stats') return 'analytics'
-  if (view === 'annual' || view === 'budgets' || view === 'goals' || view === 'calendar' || view === 'reports' || view === 'subscriptions' || view === 'debt') return 'reports'
+  if (view === 'stats' || view === 'reports' || view === 'annual' || view === 'calendar' ||
+      view === 'budgets' || view === 'subscriptions' || view === 'debt') return 'analysis'
+  if (view === 'accounts' || view === 'goals') return 'accounts'
   return 'home'
 }
 
 function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
-  if (route === 'analytics') return 'stats'
-  if (route === 'reports') return 'reports'
+  if (route === 'analysis') return 'stats'
+  if (route === 'accounts') return 'accounts'
   return 'dashboard'
 }
 
@@ -40,8 +42,6 @@ function internalTitles(t: ReturnType<typeof useT>): Partial<Record<ViewId, stri
     annual:        t('annualReport'),
     calendar:      t('calendarLabel'),
     budgets:       t('budgets'),
-    goals:         t('goals'),
-    reports:       t('reports'),
     subscriptions: t('subscriptions'),
     debt:          t('debtCalculator'),
   }
@@ -98,15 +98,25 @@ export function MobileShell({
     prevIsAdd.current = route === 'add'
   }, [route])
 
+  // Navega a una vista, ajustando la pestaña inferior correspondiente
+  const gotoView = (next: ViewId) => {
+    setRoute(routeFromView(next))
+    setView(next)
+  }
+
   // Back navigation: add-flow → home
   useMobileBackDismiss(route === 'add', () => {
     setRoute('home')
     setView('dashboard')
     onConsumeSharedReceipt?.()
   })
-  // Back navigation: sub-views inside reports → main reports
-  const isInSubView = route === 'reports' && view !== 'reports'
-  useMobileBackDismiss(isInSubView, () => setView('reports'))
+  // Back navigation: sub-vistas dentro de Análisis → segmento Resumen/Informes activo
+  const lastAnalysisHome = useRef<ViewId>('stats')
+  useEffect(() => {
+    if (view === 'stats' || view === 'reports') lastAnalysisHome.current = view
+  }, [view])
+  const isInAnalysisSub = route === 'analysis' && view !== 'stats' && view !== 'reports'
+  useMobileBackDismiss(isInAnalysisSub, () => setView(lastAnalysisHome.current))
   // Recibo compartido desde otra app (Galería, WhatsApp, etc.) → abrir "agregar gasto" con vista previa
   useEffect(() => {
     if (!sharedReceipt) return
@@ -121,8 +131,7 @@ export function MobileShell({
     if (appShortcut === 'add-expense' || appShortcut === 'add-income') {
       setQuickAddSheet(appShortcut === 'add-expense' ? 'expense' : 'income')
     } else if (appShortcut === 'reports') {
-      setRoute('reports')
-      setView('reports')
+      gotoView('reports')
     }
     onConsumeAppShortcut?.()
   }, [appShortcut])
@@ -165,29 +174,67 @@ export function MobileShell({
       )
     }
 
-    if (route === 'analytics') {
-      return (
-        <MobileAnalytics
-          mkey={mkey}
-          onBudgets={() => { setRoute('reports'); setView('budgets') }}
-        />
-      )
-    }
-
-    if (route === 'reports') {
+    if (route === 'analysis') {
       if (view === 'annual') return <MobileAnnual mkey={mkey} />
       if (view === 'calendar') return <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
       if (view === 'subscriptions') return <MobileSubscriptions />
       if (view === 'debt') return <MobileDebt />
-      const renderer = mobileViews[view]
-      if (renderer) {
-        return (
-          <ViewErrorBoundary resetKey={`${route}:${view}`}>
-            {renderer(viewProps)}
-          </ViewErrorBoundary>
-        )
+      if (view !== 'stats' && view !== 'reports') {
+        const renderer = mobileViews[view]
+        if (renderer) {
+          return (
+            <ViewErrorBoundary resetKey={`${route}:${view}`}>
+              {renderer(viewProps)}
+            </ViewErrorBoundary>
+          )
+        }
       }
-      return <MobileReports goto={v => setView(v)} onImport={() => setCsvOpen(true)} mkey={mkey} />
+      return (
+        <>
+          <div className="mobile-tab-segment">
+            <div className="mobile-segment mobile-segment-2" role="tablist" aria-label={t('analysisTab')}>
+              <button className={view === 'stats' ? 'on' : ''} role="tab"
+                aria-selected={view === 'stats'} onClick={() => gotoView('stats')}>
+                {t('summaryTab')}
+              </button>
+              <button className={view === 'reports' ? 'on' : ''} role="tab"
+                aria-selected={view === 'reports'} onClick={() => gotoView('reports')}>
+                {t('reports')}
+              </button>
+            </div>
+          </div>
+          {view === 'reports'
+            ? <MobileReports onImport={() => setCsvOpen(true)} mkey={mkey} />
+            : <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} />}
+        </>
+      )
+    }
+
+    if (route === 'accounts') {
+      const goalsRenderer = mobileViews.goals
+      return (
+        <>
+          <div className="mobile-tab-segment">
+            <div className="mobile-segment mobile-segment-2" role="tablist" aria-label={t('accounts')}>
+              <button className={view === 'accounts' ? 'on' : ''} role="tab"
+                aria-selected={view === 'accounts'} onClick={() => gotoView('accounts')}>
+                {t('accounts')}
+              </button>
+              <button className={view === 'goals' ? 'on' : ''} role="tab"
+                aria-selected={view === 'goals'} onClick={() => gotoView('goals')}>
+                {t('goals')}
+              </button>
+            </div>
+          </div>
+          {view === 'goals'
+            ? (goalsRenderer && (
+                <ViewErrorBoundary resetKey={`${route}:goals`}>
+                  {goalsRenderer(viewProps)}
+                </ViewErrorBoundary>
+              ))
+            : <MobileAccounts mkey={mkey} createRequest={viewProps.createRequest} />}
+        </>
+      )
     }
 
     if (route === 'profile') {
@@ -195,8 +242,7 @@ export function MobileShell({
         <MobileProfile
           userName={userName}
           onSettings={onSettings}
-          createRequest={viewProps.createRequest}
-          goto={next => { setRoute('reports'); setView(next) }}
+          goto={gotoView}
         />
       )
     }
@@ -216,22 +262,22 @@ export function MobileShell({
         <MobileGlobalSearch
           onClose={() => setSearchOpen(false)}
           onEditTx={onEditTx}
-          onGotoAccounts={() => setRoute('profile')}
-          onGotoCategories={() => { setRoute('reports'); setView('budgets') }}
-          onGotoGoals={() => { setRoute('reports'); setView('goals') }}
+          onGotoAccounts={() => gotoView('accounts')}
+          onGotoCategories={() => gotoView('budgets')}
+          onGotoGoals={() => gotoView('goals')}
         />
       )}
       <MobileTopBar
         route={route}
         mkey={activeMkey}
-        title={route === 'reports' ? internalTitles(t)[view] : undefined}
+        title={route === 'analysis' ? internalTitles(t)[view] : undefined}
         canGoBack={mIdx > 0}
         canGoForward={mIdx >= 0 && mIdx < keys.length - 1}
         onPrevMonth={() => mIdx > 0 && onMonth(keys[mIdx - 1])}
         onNextMonth={() => mIdx >= 0 && mIdx < keys.length - 1 && onMonth(keys[mIdx + 1])}
         onSettings={onSettings}
         onCurrency={() => setCurrencyOpen(true)}
-        onCalendar={route === 'home' ? () => { setRoute('reports'); setView('calendar') } : undefined}
+        onCalendar={route === 'home' ? () => gotoView('calendar') : undefined}
         onSearch={() => setSearchOpen(true)}
       />
       {route === 'add' ? (

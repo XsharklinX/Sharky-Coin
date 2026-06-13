@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createBackup, parseBackup } from '@/data/backup'
 import { recordAuditEvent } from '@/data/audit'
+import { tt } from '@/i18n'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { useFinance } from '@/store/finance'
@@ -80,10 +81,10 @@ export async function decryptCloudBackupPayload(value: string, passphrase: strin
   try {
     envelope = JSON.parse(value) as EncryptedEnvelope
   } catch {
-    throw new Error('El backup cifrado está corrupto.')
+    throw new Error(tt('errEncBackupCorrupt'))
   }
   if (envelope.version !== 1 || envelope.algorithm !== 'AES-GCM' || envelope.iterations !== ITERATIONS) {
-    throw new Error('El formato del backup cifrado no es compatible.')
+    throw new Error(tt('errEncBackupFormat'))
   }
   try {
     const key = await deriveKey(passphrase, base64ToBytes(envelope.salt))
@@ -92,18 +93,18 @@ export async function decryptCloudBackupPayload(value: string, passphrase: strin
     const clear = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
     return decoder.decode(clear)
   } catch {
-    throw new Error('La frase secreta no es correcta o el backup está dañado.')
+    throw new Error(tt('errPassphraseWrong'))
   }
 }
 
 function requireCloudUser(): string {
   const user = useAuth.getState().user
-  if (!supabase || user?.mode !== 'cloud' || !user.id) throw new Error('Inicia sesión con una cuenta cloud.')
+  if (!supabase || user?.mode !== 'cloud' || !user.id) throw new Error(tt('errSignInCloud'))
   return user.id
 }
 
 function requirePassphrase(): string {
-  if (!sessionPassphrase) throw new Error('Desbloquea los backups con tu frase secreta.')
+  if (!sessionPassphrase) throw new Error(tt('errUnlockBackups'))
   return sessionPassphrase
 }
 
@@ -146,7 +147,7 @@ export const useCloudBackup = create<CloudBackupState>((set) => ({
   versions: [],
 
   unlock: (passphrase) => {
-    if (passphrase.trim().length < 10) throw new Error('Usa una frase secreta de al menos 10 caracteres.')
+    if (passphrase.trim().length < 10) throw new Error(tt('errPassphraseShort'))
     sessionPassphrase = passphrase
     set({ unlocked: true, error: undefined })
   },
@@ -180,7 +181,7 @@ export const useCloudBackup = create<CloudBackupState>((set) => ({
   restore: async (path) => {
     set({ busy: true, error: undefined })
     try {
-      if (!supabase) throw new Error('La conexión cloud no está configurada.')
+      if (!supabase) throw new Error(tt('errCloudNotConfigured'))
       const { data, error } = await supabase.storage.from(BUCKET).download(path)
       if (error) throw new Error(error.message)
       useFinance.getState().restoreBackup(parseBackup(await decryptCloudBackupPayload(await data.text(), requirePassphrase())))

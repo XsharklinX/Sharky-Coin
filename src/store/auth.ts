@@ -4,6 +4,7 @@ import { getAuthRedirectUrl } from '@/lib/authRedirect'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { isTauri } from '@/hooks/useTauri'
 import { toast } from '@/components/ui/Toast'
+import { tt } from '@/i18n'
 import { log } from '@/lib/logger'
 
 const LOCAL_USER_KEY = 'sharky-user-v1'
@@ -93,7 +94,7 @@ function mapCloudUser(user: { id: string; email?: string; user_metadata?: Record
 }
 
 function requireSupabase() {
-  if (!supabase) throw new Error('La conexión cloud no está configurada en este dispositivo.')
+  if (!supabase) throw new Error(tt('errCloudNotConfiguredDevice'))
   return supabase
 }
 
@@ -194,7 +195,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const client = requireSupabase()
     const normalizedEmail = email.trim().toLowerCase()
     const { data, error } = await client.auth.signInWithPassword({ email: normalizedEmail, password })
-    if (error) throw new Error('Correo o contraseña incorrectos, o correo aún no confirmado.')
+    if (error) throw new Error(tt('errBadCredentialsUnconfirmed'))
     set({ user: mapCloudUser(data.user) })
     recordAuditEvent('account', 'Inicio de sesión cloud', normalizedEmail)
   },
@@ -232,7 +233,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   registerLocal: async ({ name, email, password }) => {
-    if (readLocalUser()) throw new Error('Ya existe un usuario local en este dispositivo.')
+    if (readLocalUser()) throw new Error(tt('errLocalUserExists'))
     const salt = crypto.getRandomValues(new Uint8Array(16))
     const normalizedEmail = email.trim().toLowerCase()
     const stored: StoredLocalUser = {
@@ -250,9 +251,9 @@ export const useAuth = create<AuthState>((set, get) => ({
   loginLocal: async ({ email, password }) => {
     const stored = readLocalUser()
     const normalizedEmail = email.trim().toLowerCase()
-    if (!stored || stored.email !== normalizedEmail) throw new Error('Correo o contraseña incorrectos.')
+    if (!stored || stored.email !== normalizedEmail) throw new Error(tt('errBadCredentials'))
     const passwordHash = await hashPassword(password, base64ToBytes(stored.salt))
-    if (passwordHash !== stored.passwordHash) throw new Error('Correo o contraseña incorrectos.')
+    if (passwordHash !== stored.passwordHash) throw new Error(tt('errBadCredentials'))
     sessionStorage.setItem(LOCAL_SESSION_KEY, stored.email)
     recordAuditEvent('account', 'Inicio de sesión local', stored.email)
     set({ user: { name: stored.name, email: stored.email, mode: 'local' } })

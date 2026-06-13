@@ -95,8 +95,8 @@ const rand  = (min: number, max: number) => min + (max - min) * rng()
 const pick  = (arr: string[]) => arr[Math.floor(rng() * arr.length)]
 const jitter = (base: number, pct: number) => Math.round(base * (1 + (rng() - 0.5) * 2 * pct))
 
-export function newId(): string {
-  return 'tx_' + Date.now().toString(36) + '_' + Math.floor(rng() * 1e6).toString(36)
+export function newId(prefix = 'tx_'): string {
+  return prefix + Date.now().toString(36) + '_' + Math.floor(rng() * 1e6).toString(36)
 }
 
 function iso(y: number, m: number, d: number): string {

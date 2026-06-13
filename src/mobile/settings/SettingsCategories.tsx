@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
 import { CAT_COLORS } from '@/constants'
 import { useCategoryName, useT } from '@/i18n'
+import { playConfirmSound, playDeleteSound } from '@/lib/sound'
 import type { Category, IconName } from '@/types'
 import { useMobileBackDismiss } from '../useMobileBackDismiss'
 import { useDialogA11y } from '../useDialogA11y'
@@ -30,9 +31,11 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
     try {
       if (editingCat === 'new-expense' || editingCat === 'new-income') {
         finance.addCategory({ name: fields.name.trim(), type: fields.type, budget: fields.budget, color: fields.color, icon: fields.icon })
+        playConfirmSound()
         toast(t('categoryCreatedSimple'), { icon: 'check', type: 'ok' })
       } else if (editingCat) {
         finance.updateCategory(editingCat.id, { name: fields.name.trim(), budget: fields.budget, color: fields.color, icon: fields.icon })
+        playConfirmSound()
         toast(t('categoryUpdated'), { icon: 'check', type: 'ok' })
       }
       setEditingCat(null)
@@ -44,6 +47,7 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
   const removeCategory = (cat: Category) => {
     try {
       finance.deleteCategory(cat.id)
+      playDeleteSound()
       toast(t('categoryDeleted'), { icon: 'trash' })
       setEditingCat(null)
     } catch (e) {

@@ -377,6 +377,9 @@
     min-height: 52px;
     overflow: hidden;
   }
+  .mobile-segment.mobile-segment-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .mobile-segment button {
     background: transparent;
     border: 0;

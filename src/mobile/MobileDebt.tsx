@@ -5,6 +5,7 @@ import { fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
 import { useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
+import { playConfirmSound, playDeleteSound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
@@ -176,11 +177,13 @@ export function MobileDebt() {
           onSave={d => {
             if (editing === 'new') addDebt(d)
             else updateDebt(editing.id, d)
+            playConfirmSound()
             toast(editing === 'new' ? t('debtAdded') : t('debtUpdated'), { icon: 'check', type: 'ok' })
             setEditing(null)
           }}
           onDelete={editing !== 'new' ? () => {
             deleteDebt(editing.id)
+            playDeleteSound()
             toast(t('debtDeleted'), { icon: 'trash' })
             setEditing(null)
           } : undefined}

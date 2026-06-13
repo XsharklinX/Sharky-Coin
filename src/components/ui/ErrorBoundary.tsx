@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { APP_VERSION } from '@/data/release'
 import { captureErrorReport } from '@/data/telemetry'
+import { tt } from '@/i18n'
 import { log } from '@/lib/logger'
 
 interface Props {
@@ -45,14 +46,14 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.failed) return this.props.children
     return <main className="fatal-error">
       <span className="empty-ico"><Icon name="shark" size={30} /></span>
-      <h1>No pudimos cargar $harky</h1>
-      <p>Ocurrió un error inesperado. Recarga la aplicación para volver a intentarlo.</p>
-      {this.state.diagnostic && <small className="diagnostic-code">Diagnóstico: {this.state.diagnostic}</small>}
+      <h1>{tt('fatalErrorTitle')}</h1>
+      <p>{tt('fatalErrorBody')}</p>
+      {this.state.diagnostic && <small className="diagnostic-code">{tt('diagnosticLabel')}: {this.state.diagnostic}</small>}
       {this.state.details && <pre className="diagnostic-details">{this.state.details}</pre>}
       <button className="btn-ghost" onClick={this.copyDiagnostic}>
-        {this.state.copied ? 'Diagnóstico copiado' : 'Copiar diagnóstico'}
+        {this.state.copied ? tt('diagnosticCopied') : tt('copyDiagnostic')}
       </button>
-      <button className="btn-primary lg" onClick={() => window.location.reload()}>Recargar</button>
+      <button className="btn-primary lg" onClick={() => window.location.reload()}>{tt('reloadLabel')}</button>
     </main>
   }
 }
@@ -94,15 +95,15 @@ export class ViewErrorBoundary extends Component<Props & { resetKey: string }, S
     return <section className="card view-error">
       <Icon name="alert" size={20} />
       <div>
-        <h2>No pudimos cargar esta sección</h2>
-        <p>El resto de la app sigue disponible. Puedes reintentar esta sección o cambiar de apartado.</p>
-        {this.state.diagnostic && <small className="diagnostic-code">Diagnóstico: {this.state.diagnostic}</small>}
+        <h2>{tt('viewErrorTitle')}</h2>
+        <p>{tt('viewErrorBody')}</p>
+        {this.state.diagnostic && <small className="diagnostic-code">{tt('diagnosticLabel')}: {this.state.diagnostic}</small>}
         {this.state.details && <pre className="diagnostic-details">{this.state.details}</pre>}
         <div className="error-actions">
           <button className="btn-ghost" onClick={this.copyDiagnostic}>
-            {this.state.copied ? 'Diagnóstico copiado' : 'Copiar diagnóstico'}
+            {this.state.copied ? tt('diagnosticCopied') : tt('copyDiagnostic')}
           </button>
-          <button className="btn-ghost" onClick={() => this.setState({ failed: false, diagnostic: null, details: null, copied: false })}>Reintentar sección</button>
+          <button className="btn-ghost" onClick={() => this.setState({ failed: false, diagnostic: null, details: null, copied: false })}>{tt('retrySection')}</button>
         </div>
       </div>
     </section>

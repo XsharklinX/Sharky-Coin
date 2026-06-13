@@ -1,6 +1,6 @@
 [package]
 name        = "sharky"
-version     = "1.6.2"
+version     = "1.6.3"
 description = "$harky - Finanzas personales"
 edition     = "2021"
 
@@ -23,6 +23,7 @@ tauri-plugin-mlkit-ocr   = { path = "../../sharky-mlkit-ocr-plugin" }
 tauri-plugin-local-reminders = { path = "../../sharky-local-reminders-plugin" }
 tauri-plugin-bank-notifications = { path = "../../sharky-bank-notifications-plugin" }
 tauri-plugin-keystore = { path = "../../sharky-keystore-plugin" }
+tauri-plugin-home-widget = { path = "../../sharky-home-widget-plugin" }
 serde                    = { version = "1", features = ["derive"] }
 serde_json               = "1"
 keyring                  = { version = "3", features = ["windows-native"] }

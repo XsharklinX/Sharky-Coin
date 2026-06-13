@@ -72,13 +72,21 @@
     border-radius: 50%;
     display: grid;
     gap: 2px;
-    height: 102px;
+    height: 112px;
+    width: 112px;
+    padding: 6px;
     place-items: center;
     text-align: center;
-    width: 102px;
+    overflow: hidden;
   }
   .man-donut small { color: var(--text-dim); font-size: 10px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
-  .man-donut strong { font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 900; }
+  .man-donut strong {
+    font-variant-numeric: tabular-nums;
+    font-weight: 900;
+    line-height: 1.15;
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
   .man-donut-legend { display: grid; gap: 8px; }
   .man-legend-row {
     align-items: center;
@@ -95,9 +103,17 @@
   .man-legend-right {
     align-items: center;
     display: flex;
+    flex-shrink: 0;
     gap: 6px;
   }
-  .man-legend-right strong { font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 850; }
+  .man-legend-values {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .man-legend-values strong { font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 850; }
+  .man-legend-pct { color: var(--text-dim); font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 700; }
   .man-budget-chip {
     background: color-mix(in oklab, var(--text) 6%, transparent);
     border-radius: 999px;

@@ -1,6 +1,6 @@
 import { CURRENCIES } from './seed'
 import type {
-  Transaction, Category, Account,
+  Transaction, Category, Account, GoalContribution,
   Totals, CategoryTotal, MonthSeries, WeekBucket,
   CurrencyCode, FmtOptions,
 } from '@/types'
@@ -121,6 +121,59 @@ export function weeklySeries(txns: Transaction[]): WeekBucket[] {
     buckets[Math.min(4, Math.floor((day - 1) / 7))] += t.amount
   })
   return buckets.map((value, i) => ({ label: `Sem ${i + 1}`, value }))
+}
+
+export interface AccountMonthBucket { key: string; label: string; inflow: number; outflow: number }
+
+export function accountActivity(txns: Transaction[], accountId: string): Transaction[] {
+  return txns.filter(t =>
+    t.accountId === accountId || t.fromAccount === accountId || t.toAccount === accountId)
+}
+
+/**
+ * Efecto neto de todos los movimientos sobre una cuenta (ingresos +, gastos −,
+ * transferencias según dirección, aportes a metas −). El saldo real de la
+ * cuenta es `openingBalance + accountMovementsTotal(...)`.
+ */
+export function accountMovementsTotal(
+  accountId: string,
+  txns: Transaction[],
+  contributions: GoalContribution[] = [],
+): number {
+  let total = 0
+  for (const t of txns) {
+    if (t.type === 'income' && t.accountId === accountId) total += t.amount
+    else if (t.type === 'expense' && t.accountId === accountId) total -= t.amount
+    else if (t.type === 'transfer') {
+      if (t.toAccount === accountId) total += t.amount
+      if (t.fromAccount === accountId) total -= t.amount
+    }
+  }
+  for (const c of contributions) {
+    if (c.fromAccountId === accountId) total -= c.amount
+  }
+  return total
+}
+
+export function monthlyAccountSeries(
+  txns: Transaction[], accountId: string, mkey: string, locale = 'es-DO',
+): AccountMonthBucket[] {
+  const activity = accountActivity(txns, accountId)
+  const [y, m] = mkey.split('-').map(Number)
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(y, m - 1 - (5 - i), 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    let inflow = 0, outflow = 0
+    txForMonth(activity, key).forEach(t => {
+      if (t.type === 'income' && t.accountId === accountId) inflow += t.amount
+      else if (t.type === 'expense' && t.accountId === accountId) outflow += t.amount
+      else if (t.type === 'transfer') {
+        if (t.toAccount === accountId) inflow += t.amount
+        if (t.fromAccount === accountId) outflow += t.amount
+      }
+    })
+    return { key, label: shortMonth(key, locale), inflow, outflow }
+  })
 }
 
 // ── Lookup helpers ────────────────────────────────────────

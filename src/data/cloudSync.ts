@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { recordAuditEvent } from '@/data/audit'
 import { maybeCreateAutoCloudBackup } from '@/data/cloudBackup'
+import { tt } from '@/i18n'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { useFinance, type FinanceState } from '@/store/finance'
@@ -209,7 +210,7 @@ export function mergeTable<T extends SyncEntity>(
 }
 
 async function readRows(table: SyncTable): Promise<Record<string, unknown>[]> {
-  if (!supabase) throw new Error('La conexión cloud no está configurada.')
+  if (!supabase) throw new Error(tt('errCloudNotConfigured'))
   const { data, error } = await supabase.from(table).select('*')
   if (error) throw new Error(error.message)
   return data as Record<string, unknown>[]
@@ -228,9 +229,9 @@ async function upsert(table: SyncTable, rows: Record<string, unknown>[]): Promis
 }
 
 async function synchronize(): Promise<{ lastSyncAt: string; conflicts: SyncConflict[] }> {
-  if (!supabase) throw new Error('La conexión cloud no está configurada.')
+  if (!supabase) throw new Error(tt('errCloudNotConfigured'))
   const authUser = useAuth.getState().user
-  if (!authUser?.id || authUser.mode !== 'cloud') throw new Error('Inicia sesión con una cuenta cloud para sincronizar.')
+  if (!authUser?.id || authUser.mode !== 'cloud') throw new Error(tt('errSignInCloudSync'))
   const userId = authUser.id
   const state = useFinance.getState()
   const metadata = readMetadata(userId)
@@ -416,7 +417,7 @@ export async function resolveConflict(conflict: SyncConflict, action: 'local' | 
   }
 
   const authUser = useAuth.getState().user
-  if (!authUser?.id || authUser.mode !== 'cloud') throw new Error('Inicia sesión con una cuenta cloud para sincronizar.')
+  if (!authUser?.id || authUser.mode !== 'cloud') throw new Error(tt('errSignInCloudSync'))
   const userId = authUser.id
   const remoteHash = fingerprint(conflict.remote)
 
@@ -426,7 +427,7 @@ export async function resolveConflict(conflict: SyncConflict, action: 'local' | 
   } else if (action === 'local') {
     setBaselineEntry(userId, conflict.table, conflict.localId, remoteHash)
   } else {
-    if (!conflict.local || !conflict.remote) throw new Error('Solo se puede mantener ambos cuando hay datos en los dos lados.')
+    if (!conflict.local || !conflict.remote) throw new Error(tt('errKeepBothNeedsData'))
     const dupId = `${conflict.localId}_dup_${Date.now().toString(36)}`
     applyEntityToFinance(conflict.table, conflict.localId, conflict.remote, dupId)
     setBaselineEntry(userId, conflict.table, conflict.localId, remoteHash)

@@ -95,7 +95,9 @@ describe('resolveConflict', () => {
 
   it('cloud: aplica la versión remota y deja el baseline al día', async () => {
     await resolveConflict(conflict, 'cloud')
-    expect(useFinance.getState().accounts).toEqual([remote])
+    // La versión remota pasa por sanitize, que back-deriva el saldo de apertura
+    // (sin movimientos en el fixture: opening = balance).
+    expect(useFinance.getState().accounts).toEqual([{ ...remote, openingBalance: remote.balance }])
     expect(useCloudSync.getState().conflicts).toEqual([])
     const metadata = JSON.parse(localStorage.getItem(metadataKey)!)
     expect(metadata.baseline.accounts[base.id]).toBe(JSON.stringify(remote))
@@ -105,7 +107,7 @@ describe('resolveConflict', () => {
     await resolveConflict(conflict, 'duplicate')
     const accounts = useFinance.getState().accounts
     expect(accounts).toHaveLength(2)
-    expect(accounts[0]).toEqual(local)
+    expect(accounts[0]).toEqual({ ...local, openingBalance: local.balance })
     expect(accounts[1]).toMatchObject({ ...remote, id: expect.stringContaining(`${base.id}_dup_`) })
     expect(useCloudSync.getState().conflicts).toEqual([])
     const metadata = JSON.parse(localStorage.getItem(metadataKey)!)

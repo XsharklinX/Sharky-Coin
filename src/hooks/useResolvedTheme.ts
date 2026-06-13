@@ -15,8 +15,8 @@ function subscribe(callback: () => void): () => void {
   return () => mql.removeEventListener('change', callback)
 }
 
-/** Tema 'dark' | 'light' resuelto: si el usuario eligió 'system', sigue `prefers-color-scheme` del SO. */
-export function useResolvedTheme(): 'dark' | 'light' {
+/** Tema resuelto: si el usuario eligió 'system', sigue `prefers-color-scheme` del SO. */
+export function useResolvedTheme(): 'dark' | 'light' | 'amoled' {
   const theme = useSettings(s => s.theme)
   const systemTheme = useSyncExternalStore(subscribe, getSystemTheme, getSystemTheme)
   return theme === 'system' ? systemTheme : theme
