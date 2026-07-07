@@ -14,13 +14,10 @@ export const CURRENCY_CODES = [
 ] as const
 
 // Debounce del auto-backup local (ms)
-export const BACKUP_DEBOUNCE_MS = 1_200
+export const BACKUP_DEBOUNCE_MS = 3_000
 
 // Debounce de la sincronización cloud (ms)
 export const SYNC_DEBOUNCE_MS = 1_800
-
-// Cantidad máxima de snapshots de recuperación local
-export const BACKUP_RETENTION = 5
 
 // Umbral de almacenamiento para advertencia (70%) y crítico (90%)
 export const STORAGE_WARN_RATIO = 0.7

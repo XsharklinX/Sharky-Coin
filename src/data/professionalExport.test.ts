@@ -3,7 +3,10 @@ import { createExecutiveSummary } from './professionalExport'
 import type { FinanceState } from '@/store/finance'
 
 const state = {
-  accounts: [],
+  accounts: [
+    { id: 'cash', name: 'Principal', short: 'CTA', type: 'debit', color: '#fff', balance: 40000, last4: null },
+    { id: 'save', name: 'Ahorro', short: 'AHO', type: 'savings', color: '#0f0', balance: 10000, last4: null, includeInTotal: false },
+  ],
   categories: [
     { id: 'food', name: 'Restaurantes', type: 'expense', color: '#fff', budget: 0, icon: 'food' },
     { id: 'salary', name: 'Salario', type: 'income', color: '#fff', budget: 0, icon: 'wallet' },
@@ -28,7 +31,7 @@ describe('professional exports', () => {
       topCategory: 'Restaurantes',
       topCategoryAmount: 10000,
     })
-    expect(summary.savingsRate).toBe(80)
+    expect(summary.savingsRate).toBe(20)
     expect(summary.headline).toContain('Buen ritmo')
   })
 })

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
 import type { IconName } from '@/types'
@@ -7,7 +8,7 @@ import { useDialogA11y } from '../useDialogA11y'
 export type Sheet =
   | 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
   | 'comments' | 'about' | 'privacy' | 'terms' | 'export' | 'pin' | 'categories' | 'bankNotifications'
-  | 'syncConflicts'
+  | 'syncConflicts' | 'widgetAccounts' | 'backupSchedule' | 'soundProfile'
 
 export interface SheetProps {
   activeSheet: Sheet | null
@@ -36,7 +37,7 @@ export function SettingsRow({ icon, iconColor, label, value, danger, onClick, ri
       {right ?? (
         <>
           {value && <span className="mset-value">{value}</span>}
-          <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: '#4a4a4a', flexShrink: 0 }} />
+          <Icon name="arrowUp" size={13} className="mset-chevron" />
         </>
       )}
     </button>
@@ -52,11 +53,23 @@ interface SettingsSheetContainerProps {
 
 export function SettingsSheet({ title, onClose, children }: SettingsSheetContainerProps) {
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
+  const startY = useRef(0)
   const t = useT()
   return (
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
-      <section onClick={e => e.stopPropagation()}>
-        <header>
+    <div
+      ref={dialogRef}
+      className="mobile-detail-sheet"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      onTouchStart={event => { startY.current = event.touches[0]?.clientY ?? 0 }}
+      onTouchEnd={event => {
+        const delta = (event.changedTouches[0]?.clientY ?? 0) - startY.current
+        if (delta > 88) onClose()
+      }}
+    >
+      <section className="mset-sheet" onClick={e => e.stopPropagation()}>
+        <header className="mset-sheet-header">
           <span>{title}</span>
           <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>

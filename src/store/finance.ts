@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { makeDemo, makeEmpty, newId } from '@/data/seed'
-import { accountMovementsTotal } from '@/data/helpers'
+import { makeDemo, makeEmpty, newId, CURRENCIES } from '@/data/seed'
+import { learnCategoryRule } from '@/data/bankCsv'
+import { convertCurrency } from '@/data/currencies'
+import { accountMovementsTotal, localToday } from '@/data/helpers'
 import { createRecoverySnapshot } from '@/data/recovery'
 import { tt } from '@/i18n'
 import { useSettings } from '@/store/settings'
@@ -123,6 +125,42 @@ function sortTxns(txns: Transaction[]): Transaction[] {
   return [...txns].sort((a, b) => (a.date < b.date ? 1 : -1))
 }
 
+function assertTransactionShape(tx: Transaction, accounts: Account[], categories: Category[]): void {
+  if (!['income', 'expense', 'transfer'].includes(tx.type)) throw new Error(tt('errInvalidTransaction'))
+  if (!Number.isFinite(tx.amount) || tx.amount <= 0) throw new Error(tt('errAmountPositive'))
+  if (!date(tx.date) || !text(tx.note)) throw new Error(tt('fillAllError'))
+
+  const accountIds = new Set(accounts.map(account => account.id))
+  const categoryIds = new Set(categories.map(category => category.id))
+
+  if (tx.type === 'transfer') {
+    if (!tx.fromAccount || !tx.toAccount || tx.fromAccount === tx.toAccount) throw new Error(tt('errSameAccount'))
+    if (!accountIds.has(tx.fromAccount)) throw new Error(tt('errAccountNotExist'))
+    if (!accountIds.has(tx.toAccount)) throw new Error(tt('errDestAccountNotExist'))
+    return
+  }
+
+  if (!tx.accountId || !accountIds.has(tx.accountId)) throw new Error(tt('errAccountNotExist'))
+  if (tx.categoryId && categoryIds.size > 0 && !categoryIds.has(tx.categoryId)) throw new Error(tt('categoryError'))
+}
+
+function normalizeTransaction(tx: Transaction): Transaction {
+  if (tx.type === 'transfer') {
+    const { id, type, amount, date, note, fromAccount, toAccount, tags } = tx
+    return { id, type, amount, date, note, fromAccount, toAccount, ...(tags?.length ? { tags } : {}) }
+  }
+
+  const {
+    id, type, amount, date, note, categoryId, accountId,
+    recurring, recurringStart, recurringEnd, recurringNext, skippedDates, tags,
+  } = tx
+  return {
+    id, type, amount, date, note, categoryId, accountId,
+    ...(recurring ? { recurring, recurringStart, recurringEnd, recurringNext, skippedDates } : {}),
+    ...(tags?.length ? { tags } : {}),
+  }
+}
+
 export function assertAvailableBalance(accounts: Account[], accountId: string, amount: number): void {
   const account = accounts.find(a => a.id === accountId)
   if (!account) throw new Error(tt('errAccountNotExist'))
@@ -185,12 +223,13 @@ export interface FinanceState {
   addAccount:    (account: Omit<Account, 'id'>) => void
   updateAccount: (id: string, fields: Partial<Omit<Account, 'id'>>) => void
   deleteAccount: (id: string) => void
+  reconcileAccount: (id: string, balance: number) => void
 
   // Metas
   addGoal:     (g: Omit<Goal, 'id'>) => void
   updateGoal:  (id: string, fields: Partial<Goal>) => void
   deleteGoal:  (id: string) => void
-  contribute:  (goalId: string, amount: number, fromAccountId: string, note?: string) => void
+  contribute:  (goalId: string, amount: number, fromAccountId: string, note?: string, date?: string) => void
 
   // Categorías
   addCategory:    (c: Omit<Category, 'id'>) => void
@@ -220,8 +259,11 @@ export const useFinance = create<FinanceState>()(
 
       // ── Transacciones ──────────────────────────────────
       addTx: (tx) => set(s => {
-        const full: Transaction = { id: newId(), ...tx } as Transaction
+        const full: Transaction = normalizeTransaction({ id: newId(), ...tx } as Transaction)
+        assertTransactionShape(full, s.accounts, s.categories)
+        if (full.type === 'transfer') assertAvailableBalance(s.accounts, full.fromAccount!, full.amount)
         assertManualExpenseBalance(s.accounts, full)
+        if (full.type !== 'transfer' && full.categoryId) learnCategoryRule(full.note, full.categoryId)
         return {
           transactions: sortTxns([full, ...s.transactions]),
           accounts:     applyBalance(s.accounts, full, 1),
@@ -229,7 +271,8 @@ export const useFinance = create<FinanceState>()(
       }),
 
       importTxs: (txs) => set(s => {
-        const full = txs.map(tx => ({ id: newId(), ...tx } as Transaction))
+        const full = txs.map(tx => normalizeTransaction({ id: newId(), ...tx } as Transaction))
+        full.forEach(tx => assertTransactionShape(tx, s.accounts, s.categories))
         const accounts = applyImportedBalances(s.accounts, full, useSettings.getState().overdraftPolicy)
         return {
           transactions: sortTxns([...full, ...s.transactions]),
@@ -241,9 +284,16 @@ export const useFinance = create<FinanceState>()(
         const idx = s.transactions.findIndex(t => t.id === id)
         if (idx < 0) return s
         const old  = s.transactions[idx]
-        const next = { ...old, ...fields }
+        if (old.type === 'transfer' && fields.type && fields.type !== 'transfer') throw new Error(tt('errEditTransferAsMovement'))
+        if (old.type !== 'transfer' && fields.type === 'transfer') throw new Error(tt('errUseTransferFlow'))
+        const next = normalizeTransaction({ ...old, ...fields } as Transaction)
+        assertTransactionShape(next, s.accounts, s.categories)
         const reverted = applyBalance(s.accounts, old, -1)
+        if (next.type === 'transfer') assertAvailableBalance(reverted, next.fromAccount!, next.amount)
         assertManualExpenseBalance(reverted, next)
+        if (next.type !== 'transfer' && next.categoryId && next.categoryId !== old.categoryId) {
+          learnCategoryRule(next.note, next.categoryId)
+        }
         const accs = applyBalance(reverted, next, 1)
         const txns = [...s.transactions]
         txns[idx]  = next
@@ -299,6 +349,16 @@ export const useFinance = create<FinanceState>()(
         return { accounts: s.accounts.filter(account => account.id !== id) }
       }),
 
+      reconcileAccount: (id, balance) => set(s => ({
+        accounts: s.accounts.map(account => account.id === id
+          ? {
+              ...account,
+              balance,
+              openingBalance: balance - accountMovementsTotal(id, s.transactions, s.goalContributions),
+            }
+          : account),
+      })),
+
       // ── Metas ──────────────────────────────────────────
       addGoal: (g) => set(s => ({
         goals: [...s.goals, { id: newId('goal_'), ...g, saved: g.saved ?? 0 }],
@@ -313,7 +373,7 @@ export const useFinance = create<FinanceState>()(
         goalContributions: s.goalContributions.filter(contribution => contribution.goalId !== id),
       })),
 
-      contribute: (goalId, amount, fromAccountId, note) => set(s => {
+      contribute: (goalId, amount, fromAccountId, note, date) => set(s => {
         assertAvailableBalance(s.accounts, fromAccountId, amount)
         if (!s.goals.some(g => g.id === goalId)) throw new Error(tt('errGoalNotExist'))
         const contribution: GoalContribution = {
@@ -321,7 +381,7 @@ export const useFinance = create<FinanceState>()(
           goalId,
           amount,
           fromAccountId,
-          date: new Date().toISOString().slice(0, 10),
+          date: date ?? localToday(),
           note: note?.trim() || undefined,
         }
         return {
@@ -348,7 +408,35 @@ export const useFinance = create<FinanceState>()(
       }),
 
       // ── Config ─────────────────────────────────────────
-      setCurrency: (currency) => set({ currency }),
+      // Cambia la moneda activa y convierte todos los montos ya
+      // registrados (cuentas, transacciones, metas, presupuestos) a su
+      // equivalente real en la nueva moneda, según las tasas de cambio.
+      setCurrency: (currency) => set(s => {
+        if (currency === s.currency) return { currency }
+
+        const decimals = CURRENCIES[currency].decimals
+        const factor = 10 ** decimals
+        const conv = (n: number) => Math.round(convertCurrency(n, s.currency, currency) * factor) / factor
+
+        return {
+          currency,
+          accounts: s.accounts.map(a => ({
+            ...a,
+            balance: conv(a.balance),
+            ...(a.openingBalance !== undefined ? { openingBalance: conv(a.openingBalance) } : {}),
+            ...(a.limit !== undefined ? { limit: conv(a.limit) } : {}),
+          })),
+          transactions: s.transactions.map(t => ({ ...t, amount: conv(t.amount) })),
+          categories: s.categories.map(c => ({
+            ...c,
+            budget: conv(c.budget),
+            ...(c.weeklyBudget !== undefined ? { weeklyBudget: conv(c.weeklyBudget) } : {}),
+            ...(c.annualBudget !== undefined ? { annualBudget: conv(c.annualBudget) } : {}),
+          })),
+          goals: s.goals.map(g => ({ ...g, target: conv(g.target), saved: conv(g.saved) })),
+          goalContributions: s.goalContributions.map(gc => ({ ...gc, amount: conv(gc.amount) })),
+        }
+      }),
 
       // ── Integridad de saldos ───────────────────────────
       recomputeBalances: () => {

@@ -4,6 +4,8 @@
  * equivalente web (download/upload por archivo).
  */
 
+import { localToday } from '@/data/helpers'
+
 /** True cuando la app corre dentro de Tauri (no en el browser). */
 export const isTauri = (): boolean =>
   typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)
@@ -44,8 +46,7 @@ export async function saveFile(blob: Blob, filename: string, title: string, exte
     if (!yes) return false
 
     const buffer = await blob.arrayBuffer()
-    const contents = Array.from(new Uint8Array(buffer))
-    const savedPath = await tauriInvoke<string>('save_to_downloads', { filename, contents })
+    const savedPath = await tauriInvoke<string>('save_to_downloads', { filename, contents: new Uint8Array(buffer) })
     
     await message(`Archivo guardado con éxito en:\n${savedPath}`, { title: 'Exportación completada', kind: 'info' })
     return true
@@ -59,8 +60,7 @@ export async function saveFile(blob: Blob, filename: string, title: string, exte
     })
     if (!path) return false
     const buffer = await blob.arrayBuffer()
-    const contents = Array.from(new Uint8Array(buffer))
-    await tauriInvoke('write_file', { path, contents })
+    await tauriInvoke('write_file', { path, contents: new Uint8Array(buffer) })
     return true
   }
 
@@ -111,11 +111,27 @@ export async function saveFile(blob: Blob, filename: string, title: string, exte
 }
 
 /**
- * Guarda un backup JSON permitiendo al usuario elegir la ubicación.
+ * Guarda un archivo en la carpeta "Sharky Finance" (Descargas en Android,
+ * Documentos en desktop), sin diálogo y sobrescribiendo si ya existe.
+ * Solo disponible en Tauri.
+ */
+export async function saveToAppFolder(blob: Blob, filename: string): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  return tauriInvoke<string>('save_to_app_folder', { filename, contents: new Uint8Array(buffer) })
+}
+
+/**
+ * Guarda un backup JSON.
+ * - Tauri: se guarda directo en la carpeta "Sharky Finance", sin diálogo.
+ * - Web/PWA: el usuario elige la ubicación (selector de archivos / share sheet).
  */
 export async function saveBackup(json: string): Promise<boolean> {
-  const filename = `sharky-backup-${new Date().toISOString().slice(0, 10)}.json`
+  const filename = `sharky-backup-${localToday()}.json`
   const blob = new Blob([json], { type: 'application/json' })
+  if (isTauri()) {
+    await saveToAppFolder(blob, filename)
+    return true
+  }
   return saveFile(blob, filename, 'Backup de $harky', ['json'])
 }
 

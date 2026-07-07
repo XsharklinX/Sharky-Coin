@@ -13,6 +13,7 @@ export function useHomeWidget(): void {
   const categories = useFinance(s => s.categories)
   const currency = useFinance(s => s.currency)
   const language = useSettings(s => s.language)
+  const widgetAccountIds = useSettings(s => s.widgetAccountIds)
   const isFirstSync = useRef(true)
 
   useEffect(() => {
@@ -20,5 +21,5 @@ export function useHomeWidget(): void {
     isFirstSync.current = false
     const id = setTimeout(() => { void syncHomeWidgetSnapshot() }, delay)
     return () => clearTimeout(id)
-  }, [accounts, transactions, categories, currency, language])
+  }, [accounts, transactions, categories, currency, language, widgetAccountIds])
 }

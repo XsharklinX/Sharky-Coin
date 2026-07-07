@@ -2,22 +2,23 @@ import { useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { byCategory, fmt, fmtCompact, monthlySeries, totals } from '@/data/helpers'
+import { accountSavingsRate, byCategory, fmt, fmtCompact, monthlySeries, totals, transactionsForTotals } from '@/data/helpers'
 import { exportElementPng } from '@/data/imageExport'
 import { useFinance } from '@/store/finance'
 import type { ViewProps } from '@/types'
 import { BusyButton, Card } from './shared'
 
 export function Annual({ txns, mkey }: ViewProps) {
-  const { categories, currency } = useFinance()
+  const { accounts, categories, currency } = useFinance()
   const capture = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
   const year = Number(mkey.slice(0, 4))
-  const yearTx = txns.filter(tx => tx.date.startsWith(String(year)))
-  const summary = totals(yearTx), months = monthlySeries(txns, year)
+  const visTx = transactionsForTotals(txns, accounts)
+  const yearTx = visTx.filter(tx => tx.date.startsWith(String(year)))
+  const summary = totals(yearTx), months = monthlySeries(visTx, year)
   const expenses = byCategory(yearTx, 'expense', categories)
   const topMonth = months.reduce((best, month) => month.expense > best.expense ? month : best, months[0])
-  const savingsRate = summary.income ? summary.net / summary.income * 100 : 0
+  const savingsRate = accountSavingsRate(accounts)
 
   return <div className="view">
     <div className="view-actions"><BusyButton className="btn-primary" busy={exporting} busyLabel="Generando imagen…" onClick={async () => { if (!capture.current) return; setExporting(true); try { await exportElementPng(capture.current, `sharky-reporte-anual-${year}`); toast('Reporte anual exportado', { icon: 'download', type: 'ok' }) } catch { toast('No se pudo exportar el reporte anual.', { icon: 'alert' }) } finally { setExporting(false) } }}><Icon name="download" size={15} /> Exportar imagen</BusyButton></div>

@@ -1,8 +1,9 @@
-import { byCategory, fmt, getAccount, getCategory, monthLabel, monthlySeries, totals, txForMonth } from './helpers'
+import { accountSavingsRate, byCategory, dateLocale, fmt, getAccount, getCategory, localToday, monthLabel, monthlySeries, savingsBalance, totals, transactionsForTotals, txForMonth, visibleAccounts } from './helpers'
 import type { FinanceState } from '@/store/finance'
 import { saveFile } from '@/hooks/useTauri'
+import { tt } from '@/i18n'
 
-const downloadName = (prefix: string, extension: string) => `${prefix}-${new Date().toISOString().slice(0, 10)}.${extension}`
+const downloadName = (prefix: string, extension: string) => `${prefix}-${localToday()}.${extension}`
 
 export interface ReportExecutiveSummary {
   income: number
@@ -15,17 +16,19 @@ export interface ReportExecutiveSummary {
 }
 
 export function createExecutiveSummary(state: FinanceState, month?: string): ReportExecutiveSummary {
-  const rows = month ? txForMonth(state.transactions, month) : state.transactions
+  const visTx = transactionsForTotals(state.transactions, state.accounts)
+  const rows = month ? txForMonth(visTx, month) : visTx
   const summary = totals(rows)
   const topCategory = byCategory(rows, 'expense', state.categories)[0]
-  const savingsRate = summary.income ? summary.net / summary.income * 100 : 0
+  const savingsRate = accountSavingsRate(state.accounts)
+  const savedAmount = savingsBalance(state.accounts)
   const headline = summary.net < 0
-    ? 'El periodo cerro en negativo; revisa gastos variables y categorias top.'
-    : savingsRate >= 20
-      ? 'Buen ritmo de ahorro; el periodo supera el objetivo recomendado del 20%.'
-      : savingsRate > 0
-        ? 'El periodo cerro positivo, pero hay espacio para mejorar la tasa de ahorro.'
-        : 'No hay ingresos registrados suficientes para evaluar ahorro.'
+    ? tt('reportHeadlineNegative')
+    : savedAmount > 0 && savingsRate >= 20
+      ? tt('reportHeadlineGreatSavings')
+      : savedAmount > 0
+        ? tt('reportHeadlinePositive')
+        : tt('reportHeadlineNoIncome')
   return {
     income: summary.income,
     expense: summary.expense,
@@ -63,19 +66,20 @@ export async function exportExcel(state: FinanceState): Promise<void> {
     { Indicador: 'Ingresos totales', Valor: executive.income, Nota: '' },
     { Indicador: 'Gastos totales', Valor: executive.expense, Nota: executive.topCategory ? `Categoria principal: ${executive.topCategory}` : '' },
     { Indicador: 'Ahorro neto', Valor: executive.net, Nota: executive.headline },
-    { Indicador: 'Tasa de ahorro (%)', Valor: Number(executive.savingsRate.toFixed(2)), Nota: '' },
+    { Indicador: 'Ahorro en cuentas', Valor: savingsBalance(state.accounts), Nota: `Tasa ahorro: ${Number(executive.savingsRate.toFixed(2))}%` },
     { Indicador: 'Categoria top', Valor: executive.topCategoryAmount, Nota: executive.topCategory ?? 'Sin datos' },
   ])
 
-  const years = Array.from(new Set(state.transactions.map(tx => Number(tx.date.slice(0, 4))))).sort()
+  const visTx = transactionsForTotals(state.transactions, state.accounts)
+  const years = Array.from(new Set(visTx.map(tx => Number(tx.date.slice(0, 4))))).sort()
   const annualRows = years.flatMap(year =>
-    monthlySeries(state.transactions, year).map(m => ({
+    monthlySeries(visTx, year).map(m => ({
       Ano: year,
       Mes: m.label,
       Ingresos: m.income,
       Gastos: m.expense,
       Ahorro: m.net,
-      'Tasa ahorro %': m.income ? Number((m.net / m.income * 100).toFixed(2)) : 0,
+      'Flujo neto %': m.income ? Number((m.net / m.income * 100).toFixed(2)) : 0,
     }))
   )
   addSheet('Resumen anual', annualRows)
@@ -128,10 +132,35 @@ export async function exportExcel(state: FinanceState): Promise<void> {
   await saveFile(blob, filename, 'Reporte de $harky', ['xlsx'])
 }
 
-export async function exportMonthlyPdf(state: FinanceState, month: string, ownerName: string): Promise<void> {
+const csvField = (value: string | number): string => {
+  const s = String(value)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+export async function exportCsv(state: FinanceState): Promise<void> {
+  const header = ['Fecha', 'Tipo', 'Categoria', 'Cuenta', 'Descripcion', 'Tags', 'Monto']
+  const rows = state.transactions.map(tx => [
+    tx.date,
+    tx.type === 'income' ? 'Ingreso' : tx.type === 'expense' ? 'Gasto' : 'Transferencia',
+    getCategory(tx.categoryId, state.categories)?.name ?? '',
+    tx.type === 'transfer'
+      ? `${getAccount(tx.fromAccount, state.accounts)?.name ?? ''} -> ${getAccount(tx.toAccount, state.accounts)?.name ?? ''}`
+      : getAccount(tx.accountId, state.accounts)?.name ?? '',
+    tx.note,
+    (tx.tags ?? []).join(', '),
+    tx.type === 'expense' ? -tx.amount : tx.amount,
+  ])
+  const csv = [header, ...rows].map(row => row.map(csvField).join(',')).join('\r\n')
+  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' })
+  const filename = downloadName('sharky-movimientos', 'csv')
+  await saveFile(blob, filename, 'Movimientos de $harky', ['csv'])
+}
+
+export async function exportMonthlyPdf(state: FinanceState, month: string, ownerName: string, lang: 'en' | 'es' = 'es'): Promise<void> {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF()
-  const rows = txForMonth(state.transactions, month)
+  const locale = dateLocale(lang)
+  const rows = txForMonth(transactionsForTotals(state.transactions, state.accounts), month)
   const summary = totals(rows)
   const executive = createExecutiveSummary(state, month)
   const categories = byCategory(rows, 'expense', state.categories)
@@ -147,14 +176,14 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
   doc.text('$harky', 40, 25)
   doc.setFontSize(10)
   doc.setTextColor(102, 112, 133)
-  doc.text('Estado financiero personal', 40, 31)
-  doc.text(`Titular: ${ownerName}`, 150, 20)
-  doc.text(monthLabel(month), 150, 26)
+  doc.text(tt('pdfTagline'), 40, 31)
+  doc.text(tt('pdfHolder', { name: ownerName }), 150, 20)
+  doc.text(monthLabel(month, locale), 150, 26)
 
   y = 48
   doc.setFontSize(12)
   doc.setTextColor(23, 32, 51)
-  doc.text('Resumen ejecutivo', 16, y)
+  doc.text(tt('pdfExecutiveSummary'), 16, y)
   y += 7
   doc.setFontSize(9)
   doc.setTextColor(102, 112, 133)
@@ -164,9 +193,9 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
   doc.setFillColor(244, 247, 251)
   doc.roundedRect(16, y, 178, 24, 4, 4, 'F')
   doc.setTextColor(102, 112, 133)
-  doc.text('INGRESOS', 24, y + 8)
-  doc.text('GASTOS', 83, y + 8)
-  doc.text('AHORRO', 142, y + 8)
+  doc.text(tt('pdfIncome'), 24, y + 8)
+  doc.text(tt('pdfExpense'), 83, y + 8)
+  doc.text(tt('pdfSavings'), 142, y + 8)
   doc.setTextColor(23, 32, 51)
   doc.setFontSize(12)
   doc.text(fmt(summary.income, state.currency), 24, y + 17)
@@ -177,20 +206,20 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
   if (executive.topCategory) {
     doc.setFontSize(9)
     doc.setTextColor(102, 112, 133)
-    doc.text(`Categoria top: ${executive.topCategory} (${fmt(executive.topCategoryAmount, state.currency)})`, 16, y)
+    doc.text(tt('pdfTopCategory', { name: executive.topCategory, amount: fmt(executive.topCategoryAmount, state.currency) }), 16, y)
     y += 10
   }
 
   doc.setFontSize(13)
   doc.setTextColor(23, 32, 51)
-  doc.text('Movimientos', 16, y)
+  doc.text(tt('pdfMovements'), 16, y)
   y += 8
   doc.setFontSize(9)
   doc.setTextColor(102, 112, 133)
-  doc.text('Fecha', 16, y)
-  doc.text('Descripcion', 40, y)
-  doc.text('Categoria', 116, y)
-  doc.text('Monto', 166, y)
+  doc.text(tt('pdfDate'), 16, y)
+  doc.text(tt('pdfDescription'), 40, y)
+  doc.text(tt('pdfCategory'), 116, y)
+  doc.text(tt('pdfAmount'), 166, y)
   y += 3
   doc.setDrawColor(220, 226, 234)
   doc.line(16, y, 194, y)
@@ -201,7 +230,7 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
     doc.setTextColor(23, 32, 51)
     doc.text(tx.date, 16, y)
     doc.text(tx.note.slice(0, 40), 40, y)
-    doc.text((getCategory(tx.categoryId, state.categories)?.name ?? 'Transferencia').slice(0, 22), 116, y)
+    doc.text((getCategory(tx.categoryId, state.categories)?.name ?? tt('transfersLabel')).slice(0, 22), 116, y)
     const signed = tx.type === 'expense' ? -tx.amount : tx.amount
     doc.text(fmt(signed, state.currency), 166, y)
     y += 7
@@ -211,14 +240,65 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
     if (y > 246) { doc.addPage(); y = 22 }
     y += 6
     doc.setFontSize(13)
-    doc.text('Principales categorias de gasto', 16, y)
+    doc.setTextColor(23, 32, 51)
+    doc.text(tt('pdfTopExpenseCategories'), 16, y)
     y += 8
     doc.setFontSize(9)
+    doc.setTextColor(102, 112, 133)
     categories.slice(0, 5).forEach(category => {
       doc.text(category.category.name, 16, y)
       doc.text(fmt(category.amount, state.currency), 166, y)
       y += 6
     })
+  }
+
+  // Cuentas y patrimonio neto
+  if (state.accounts.length) {
+    if (y > 230) { doc.addPage(); y = 22 }
+    y += 6
+    doc.setFontSize(13)
+    doc.setTextColor(23, 32, 51)
+    doc.text(tt('pdfAccountsSection'), 16, y)
+    y += 8
+    doc.setFontSize(9)
+    doc.setTextColor(102, 112, 133)
+    doc.text(tt('pdfAccount'), 16, y)
+    doc.text(tt('pdfType'), 116, y)
+    doc.text(tt('pdfBalance'), 166, y)
+    y += 3
+    doc.setDrawColor(220, 226, 234)
+    doc.line(16, y, 194, y)
+    y += 6
+
+    state.accounts.forEach(account => {
+      if (y > 278) { doc.addPage(); y = 22 }
+      doc.setTextColor(23, 32, 51)
+      doc.text(account.name.slice(0, 40), 16, y)
+      doc.text(tt(account.type), 116, y)
+      doc.text(fmt(account.balance, state.currency), 166, y)
+      y += 7
+    })
+
+    const netWorth = visibleAccounts(state.accounts).reduce((sum, a) => sum + a.balance, 0)
+    y += 2
+    doc.setDrawColor(220, 226, 234)
+    doc.line(16, y, 194, y)
+    y += 7
+    doc.setFontSize(11)
+    doc.setTextColor(23, 32, 51)
+    doc.text(tt('pdfNetWorth'), 116, y)
+    doc.text(fmt(netWorth, state.currency), 166, y)
+  }
+
+  // Pie de pagina: fecha de generacion y numero de pagina
+  const totalPages = doc.getNumberOfPages()
+  const generatedOn = new Date().toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })
+  for (let page = 1; page <= totalPages; page++) {
+    doc.setPage(page)
+    doc.setFontSize(8)
+    doc.setTextColor(150, 158, 173)
+    doc.text(tt('pdfGeneratedOn', { date: generatedOn }), 16, 290)
+    doc.text(tt('pdfPage', { page, total: totalPages }), 178, 290)
   }
 
   const filename  = downloadName(`sharky-estado-${month}`, 'pdf')

@@ -4,11 +4,14 @@ import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
 import { useDialogs } from '@/components/ui/DialogProvider'
 import { useSettings } from '@/store/settings'
-import { dateLocale, fmt } from '@/data/helpers'
+import { dateLocale, fmt, localToday, savingsBalance } from '@/data/helpers'
+import { CURRENCIES } from '@/data/seed'
 import { playKeySound, playBackspaceSound, playDoneSound, playConfirmSound, playDeleteSound, playAchievementSound } from '@/lib/sound'
 import { useT } from '@/i18n'
+import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { MobileDatePicker } from './MobileDatePicker'
-import type { Goal, IconName, ViewProps } from '@/types'
+import { MobileAmountSheet } from './MobileAmountSheet'
+import type { CurrencyCode, Goal, GoalAutoContribute, IconName, RecurrenceFrequency, ViewProps } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 
@@ -30,11 +33,8 @@ function pct(saved: number, target: number) {
   return Math.min(100, Math.round((saved / target) * 100))
 }
 
-function currencyPrefix(currency: string): string {
-  if (currency === 'DOP') return 'RD$'
-  if (currency === 'USD') return '$'
-  if (currency === 'EUR') return '€'
-  return currency
+function currencyPrefix(currency: CurrencyCode): string {
+  return CURRENCIES[currency].symbol
 }
 
 function fmtAmountText(text: string, prefix: string): string {
@@ -102,6 +102,14 @@ function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; o
         <span>{fmt(goal.saved, cur)}</span>
         <span className="mgl-dim"> {t('of')} {fmt(goal.target, cur)}</span>
       </div>
+      {goal.autoContribute && (
+        <div className="mgl-auto-badge">
+          <Icon name="repeat" size={11} />
+          {t('autoContributeBadge')
+            .replace('{amount}', fmt(goal.autoContribute.amount, cur))
+            .replace('{freq}', goal.autoContribute.frequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))}
+        </div>
+      )}
     </button>
   )
 }
@@ -118,6 +126,7 @@ function GoalForm({
   onClose: () => void
 }) {
   const t = useT()
+  const { accounts } = useFinance()
   const [name, setName]             = useState(initial?.name ?? '')
   const [amountText, setAmountText] = useState(initial?.target?.toString() ?? '')
   const [color, setColor]           = useState(initial?.color ?? COLORS[0])
@@ -126,23 +135,29 @@ function GoalForm({
   const [showNumpad, setShowNumpad] = useState(false)
   const [showDate, setShowDate]     = useState(false)
 
+  const validAccounts = accounts.filter(a => a.type !== 'credit')
+  const [autoEnabled, setAutoEnabled]     = useState(!!initial?.autoContribute)
+  const [autoAmount, setAutoAmount]       = useState(initial?.autoContribute?.amount ?? 0)
+  const [autoFrequency, setAutoFrequency] = useState<RecurrenceFrequency>(initial?.autoContribute?.frequency ?? 'monthly')
+  const [autoAccountId, setAutoAccountId] = useState(initial?.autoContribute?.fromAccountId ?? validAccounts[0]?.id ?? '')
+  const [autoAmountSheet, setAutoAmountSheet] = useState(false)
+
   const lang = useSettings(s => s.language)
-  const prefix = currencyPrefix(currency)
-  const today = new Date().toISOString().slice(0, 10)
+  const cur = currency as CurrencyCode
+  const prefix = currencyPrefix(cur)
+  const today = localToday()
   const deadlinePast = !!deadline && deadline < today
 
-  useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : showDate ? () => setShowDate(false) : onClose)
-  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad && !showDate)
+  useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : showDate ? () => setShowDate(false) : autoAmountSheet ? () => setAutoAmountSheet(false) : onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad && !showDate && !autoAmountSheet)
 
   const pressAmt = (key: string) => {
     if (key === 'back') {
       playBackspaceSound()
-      navigator.vibrate?.(10)
       setAmountText(v => v.slice(0, -1))
       return
     }
     playKeySound()
-    navigator.vibrate?.(8)
     setAmountText(v => {
       if (key === '.') {
         if (v.includes('.')) return v
@@ -158,15 +173,23 @@ function GoalForm({
 
   const handleDone = () => {
     playDoneSound()
-    navigator.vibrate?.(12)
     setShowNumpad(false)
   }
 
   const save = () => {
     const targetVal = parseFloat(amountText)
     if (!name.trim() || !targetVal || targetVal <= 0) return
+    if (autoEnabled && (!autoAmount || autoAmount <= 0 || !autoAccountId)) return
     playConfirmSound()
-    onSave({ name: name.trim(), target: targetVal, color, icon, deadline: deadline || undefined })
+    const autoContribute: GoalAutoContribute | undefined = autoEnabled
+      ? {
+          amount: autoAmount,
+          frequency: autoFrequency,
+          fromAccountId: autoAccountId,
+          nextDate: initial?.autoContribute?.nextDate ?? advanceRecurrenceDate(today, autoFrequency),
+        }
+      : undefined
+    onSave({ name: name.trim(), target: targetVal, color, icon, deadline: deadline || undefined, autoContribute })
   }
 
   const deadlineLabel = deadline
@@ -253,6 +276,61 @@ function GoalForm({
                   ))}
                 </div>
               </div>
+
+              {validAccounts.length > 0 && (
+                <div className="mpr-form-section mpr-toggle-row">
+                  <div className="mpr-toggle-row-text">
+                    <span className="mpr-toggle-row-label">{t('autoContributeLabel')}</span>
+                    <small className="mpr-toggle-row-desc">{t('autoContributeDesc')}</small>
+                  </div>
+                  <label className="mset-toggle-wrap">
+                    <input
+                      type="checkbox"
+                      className="mset-toggle-input"
+                      checked={autoEnabled}
+                      onChange={e => setAutoEnabled(e.target.checked)}
+                    />
+                    <span className="mset-toggle" />
+                  </label>
+                </div>
+              )}
+
+              {autoEnabled && (
+                <>
+                  <div className="mgl-field">
+                    <span>{t('autoContributeAmountLabel')}</span>
+                    <button className="mgl-amount-tap" onClick={() => setAutoAmountSheet(true)}>
+                      <span>{fmt(autoAmount, cur)}</span>
+                      <Icon name="edit" size={14} style={{ opacity: .4 }} />
+                    </button>
+                  </div>
+
+                  <div className="mpr-form-section">
+                    <span className="mpr-overdraft-label">{t('frequencyLabel')}</span>
+                    <div className="mpr-pill-row">
+                      {(['weekly', 'monthly'] as RecurrenceFrequency[]).map(f => (
+                        <button
+                          key={f}
+                          className={`mpr-pill${autoFrequency === f ? ' on' : ''}`}
+                          style={autoFrequency === f ? { borderColor: color, color } : {}}
+                          onClick={() => setAutoFrequency(f)}
+                        >
+                          {f === 'weekly' ? t('weekly') : t('monthly')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="mgl-field">
+                    <span>{t('sourceAccount')}</span>
+                    <select className="mgl-input" value={autoAccountId} onChange={e => setAutoAccountId(e.target.value)}>
+                      {validAccounts.map(a => (
+                        <option key={a.id} value={a.id}>{a.name} — {fmt(a.balance, cur)}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
 
             <div className="mgl-form-actions">
@@ -267,9 +345,19 @@ function GoalForm({
 
       {showDate && (
         <MobileDatePicker
-          value={deadline || new Date().toISOString().slice(0, 10)}
+          value={deadline || localToday()}
           onChange={v => { setDeadline(v); setShowDate(false) }}
           onClose={() => setShowDate(false)}
+        />
+      )}
+
+      {autoAmountSheet && (
+        <MobileAmountSheet
+          title={t('autoContributeAmountLabel')}
+          value={autoAmount}
+          currency={cur}
+          onDone={v => { setAutoAmount(v); setAutoAmountSheet(false) }}
+          onClose={() => setAutoAmountSheet(false)}
         />
       )}
     </div>
@@ -279,26 +367,23 @@ function GoalForm({
 function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: string; onClose: () => void }) {
   const t = useT()
   const { accounts, contribute } = useFinance()
+  const validAccounts = accounts.filter(a => a.type !== 'credit')
   const [amountText, setAmountText] = useState('')
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
+  const [accountId, setAccountId] = useState(validAccounts.find(a => a.type === 'savings')?.id ?? validAccounts[0]?.id ?? '')
   const [showNumpad, setShowNumpad] = useState(true)
   const cur = currency as Parameters<typeof fmt>[1]
-  const prefix = currencyPrefix(currency)
+  const prefix = currencyPrefix(currency as CurrencyCode)
 
   useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : onClose)
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad)
 
-  const validAccounts = accounts.filter(a => a.type !== 'credit')
-
   const pressAmt = (key: string) => {
     if (key === 'back') {
       playBackspaceSound()
-      navigator.vibrate?.(10)
       setAmountText(v => v.slice(0, -1))
       return
     }
     playKeySound()
-    navigator.vibrate?.(8)
     setAmountText(v => {
       if (key === '.') {
         if (v.includes('.')) return v
@@ -314,7 +399,6 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
 
   const handleDone = () => {
     playDoneSound()
-    navigator.vibrate?.(12)
     setShowNumpad(false)
   }
 
@@ -387,14 +471,15 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
 
 export function MobileGoals(_props: ViewProps) {
   const t = useT()
-  const { goals, addGoal, updateGoal, deleteGoal, currency } = useFinance()
+  const { accounts, goals, addGoal, updateGoal, deleteGoal, currency } = useFinance()
   const { confirm } = useDialogs()
   const [sheet, setSheet] = useState<Sheet>(null)
   const [contributeGoal, setContributeGoal] = useState<Goal | null>(null)
 
   const totalSaved  = goals.reduce((s, g) => s + g.saved, 0)
   const totalTarget = goals.reduce((s, g) => s + g.target, 0)
-  const done        = goals.filter(g => g.saved >= g.target).length
+  const backedSavings = savingsBalance(accounts)
+  const savingsCoverage = totalSaved > 0 ? Math.min(999, Math.round(backedSavings / totalSaved * 100)) : 0
   const cur = currency as Parameters<typeof fmt>[1]
 
   return (
@@ -412,8 +497,9 @@ export function MobileGoals(_props: ViewProps) {
           </div>
           <div className="mgl-sum-div" />
           <div className="mgl-sum-item">
-            <span className="mgl-sum-label">{t('doneCountLabel')}</span>
-            <strong className="mgl-sum-value">{done}/{goals.length}</strong>
+            <span className="mgl-sum-label">{t('savings')}</span>
+            <strong className="mgl-sum-value">{savingsCoverage}%</strong>
+            <small className="mgl-sum-hint">{fmt(backedSavings, cur)}</small>
           </div>
         </div>
       )}

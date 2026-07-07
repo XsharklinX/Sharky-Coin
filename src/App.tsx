@@ -9,14 +9,18 @@ import { DialogProvider } from '@/components/ui/DialogProvider'
 import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
 import { TransactionForm } from '@/modals/TransactionForm'
 import { useRecurring } from '@/hooks/useRecurring'
+import { useGoalAutoContributions } from '@/hooks/useGoalAutoContributions'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useUpcomingPaymentAlerts } from '@/hooks/useUpcomingPaymentAlerts'
 import { useNotificationActions } from '@/hooks/useNotificationActions'
 import { useLocalReminders } from '@/hooks/useLocalReminders'
 import { useHomeWidget } from '@/hooks/useHomeWidget'
 import { useSharedReceipt } from '@/hooks/useSharedReceipt'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
+import { useAndroidChrome } from '@/hooks/useAndroidChrome'
 import { useAppShortcut } from '@/hooks/useAppShortcut'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
+import { useWeeklyAutoBackup } from '@/hooks/useWeeklyAutoBackup'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { useLiveExchangeRates } from '@/hooks/useLiveExchangeRates'
@@ -30,6 +34,7 @@ import { MobileSplash } from '@/mobile/MobileSplash'
 import { MobileBudgets } from '@/mobile/MobileBudgets'
 import { MobileGoals } from '@/mobile/MobileGoals'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
+import type { Sheet } from '@/mobile/settings/shared'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
 const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default: m.Calendar })))
@@ -49,6 +54,7 @@ export default function App() {
   const [mkey,         setMkey]         = useState(currentMonthKey())
   const [txForm,       setTxForm]       = useState<Transaction | 'new' | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsInitialSheet, setSettingsInitialSheet] = useState<Sheet | null>(null)
 
   const initializeAuth = useAuth(state => state.initialize)
   useEffect(() => { initializeAuth() }, [initializeAuth])
@@ -73,24 +79,32 @@ export default function App() {
   }, [hydrated])
 
   useRecurring()
+  useGoalAutoContributions()
   useNotifications()
+  useUpcomingPaymentAlerts()
   useNotificationActions()
   useLocalReminders()
   useHomeWidget()
   const [sharedReceipt, consumeSharedReceipt] = useSharedReceipt()
   const [appShortcut, consumeAppShortcut] = useAppShortcut()
   useAutoBackup()
+  useWeeklyAutoBackup()
   useCloudWorkspace()
   useAutoCloudSync()
   useLiveExchangeRates()
 
   const overlayOpen = !!txForm || settingsOpen
   useMobileBackDismiss(overlayOpen, () => {
-    if (settingsOpen) setSettingsOpen(false)
+    if (settingsOpen) {
+      setSettingsOpen(false)
+      setSettingsInitialSheet(null)
+    }
     else if (txForm) setTxForm(null)
   })
 
   const resolvedTheme = useResolvedTheme()
+  const isAndroidShell = /android/i.test(navigator.userAgent)
+  useAndroidChrome(resolvedTheme, isAndroidShell)
   const themeProps = {
     'data-theme':   resolvedTheme,
     'data-density': s.density,
@@ -144,12 +158,20 @@ export default function App() {
     })
   }
 
+  const handleEditTx = (tx: Transaction) => {
+    if (tx.type === 'transfer') {
+      toast(t('errEditTransferAsMovement'), { icon: 'alert' })
+      return
+    }
+    setTxForm(tx)
+  }
+
   const viewProps: ViewProps = {
     txns:       transactions,
     mkey,
     onAdd:      () => setTxForm('new'),
     goto:       setView,
-    onEditTx:   tx => setTxForm(tx),
+    onEditTx:   handleEditTx,
     onDeleteTx: handleDeleteTx,
     createRequest: undefined,
   }
@@ -176,8 +198,11 @@ export default function App() {
           mkey={mkey}
           keys={keys}
           onMonth={setMkey}
-          onSettings={() => setSettingsOpen(true)}
-          onEditTx={tx => setTxForm(tx)}
+          onSettings={(sheet) => {
+            setSettingsInitialSheet(sheet ?? null)
+            setSettingsOpen(true)
+          }}
+          onEditTx={handleEditTx}
           userName={s.displayName || undefined}
           sharedReceipt={sharedReceipt}
           onConsumeSharedReceipt={consumeSharedReceipt}
@@ -186,7 +211,16 @@ export default function App() {
         />
         <ToastHost />
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
-        {settingsOpen && <MobileSettings mkey={mkey} onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && (
+          <MobileSettings
+            mkey={mkey}
+            initialSheet={settingsInitialSheet}
+            onClose={() => {
+              setSettingsOpen(false)
+              setSettingsInitialSheet(null)
+            }}
+          />
+        )}
       </DialogProvider>
     </div>
   )

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { byCategory, dateLocale, monthlySeries, totals } from '@/data/helpers'
+import { accountSavingsRate, byCategory, dateLocale, monthlySeries, netWorthSeries, totals, transactionsForTotals } from '@/data/helpers'
 import { exportElementPng } from '@/data/imageExport'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -9,21 +9,28 @@ import { translateCategoryName, useT } from '@/i18n'
 import { useFmt } from '@/hooks/useFmt'
 
 export function MobileAnnual({ mkey }: { mkey: string }) {
-  const { transactions, categories, currency } = useFinance()
+  const { transactions, accounts, categories, goalContributions, currency } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
   const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const locale = dateLocale(lang)
   const [exporting, setExporting] = useState(false)
   const year = Number(mkey.slice(0, 4))
-  const yearTx = transactions.filter(tx => tx.date.startsWith(String(year)))
+  const visTx = transactionsForTotals(transactions, accounts)
+  const yearTx = visTx.filter(tx => tx.date.startsWith(String(year)))
   const summary = totals(yearTx)
-  const months = monthlySeries(transactions, year, locale)
+  const months = monthlySeries(visTx, year, locale)
+  const netWorthMonths = netWorthSeries(accounts, transactions, goalContributions, year, locale)
+  const netWorthValues = netWorthMonths.map(m => m.value)
+  const netWorthMax = Math.max(...netWorthValues, 0)
+  const netWorthMin = Math.min(...netWorthValues, 0)
+  const netWorthRange = Math.max(1, netWorthMax - netWorthMin)
+  const netWorthChange = netWorthValues[netWorthValues.length - 1] - netWorthValues[0]
   const expenses = byCategory(yearTx, 'expense', categories)
   const incomeCategories = byCategory(yearTx, 'income', categories)
   const topMonth = months.reduce((best, m) => m.expense > best.expense ? m : best, months[0] ?? { label: '—', expense: 0 })
   const bestSavingsMonth = months.reduce((best, m) => m.net > best.net ? m : best, months[0] ?? { label: '—', net: 0 })
-  const savingsRate = summary.income > 0 ? Math.round(summary.net / summary.income * 100) : 0
+  const savingsRate = Math.round(accountSavingsRate(accounts))
   const maxExpense = Math.max(1, ...months.map(m => m.expense))
   const maxIncome = Math.max(1, ...months.map(m => m.income))
   const maxBar = Math.max(maxExpense, maxIncome)
@@ -32,8 +39,8 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
 
   const prevYear = year - 1
   const prevSummary = useMemo(
-    () => totals(transactions.filter(tx => tx.date.startsWith(String(prevYear)))),
-    [transactions, prevYear],
+    () => totals(visTx.filter(tx => tx.date.startsWith(String(prevYear)))),
+    [visTx, prevYear],
   )
   const compareRows: Array<{ label: string; current: number; prev: number; goodWhenUp: boolean; cls: string }> = [
     { label: t('incomes'), current: summary.income, prev: prevSummary.income, goodWhenUp: true, cls: 'income' },
@@ -163,6 +170,35 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
         <div className="mobile-annual-legend">
           <span><i style={{ background: '#35d0a2' }} />{t('incomes')}</span>
           <span><i style={{ background: '#ff6b8a' }} />{t('expenses')}</span>
+        </div>
+      </section>
+
+      {/* Patrimonio neto */}
+      <section className="mobile-annual-card">
+        <h3>{t('netWorthHistoryTitle')}</h3>
+        <div className="man-networth-bars">
+          {netWorthMonths.map(m => (
+            <div key={m.key} className="mobile-annual-month">
+              <div className="mobile-annual-bar-group man-networth-bar-group">
+                <span
+                  className={`man-networth-bar${m.value < 0 ? ' negative' : ''}`}
+                  style={{ height: `${Math.max(3, (m.value - netWorthMin) / netWorthRange * 80)}px` }}
+                  title={fmtVal(m.value, currency)}
+                />
+              </div>
+              <small>{m.label}</small>
+            </div>
+          ))}
+        </div>
+        <div className="man-networth-footer">
+          <span>{t('netWorthEndOfYear')}</span>
+          <strong className={netWorthValues[netWorthValues.length - 1] >= 0 ? 'income' : 'expense'}>
+            {fmtVal(netWorthValues[netWorthValues.length - 1], currency)}
+          </strong>
+          <span className={`man-networth-change${netWorthChange === 0 ? '' : netWorthChange > 0 ? ' ok' : ' warn'}`}>
+            <Icon name={netWorthChange >= 0 ? 'arrowUp' : 'arrowDn'} size={11} />
+            {fmtVal(Math.abs(netWorthChange), currency)}
+          </span>
         </div>
       </section>
 

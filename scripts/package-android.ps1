@@ -16,6 +16,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $releaseDir = Join-Path $repoRoot 'release\android'
 $ndkHome = Join-Path $SdkRoot "ndk\$NdkVersion"
+$androidVersionStateFile = Join-Path $releaseDir 'version-code.txt'
+$tauriPropsFile = Join-Path $repoRoot 'src-tauri\gen\android\app\tauri.properties'
 
 if (!(Test-Path -LiteralPath $JavaHome)) {
   throw "No se encontro Java en '$JavaHome'. Instala Android Studio o pasa -JavaHome."
@@ -37,13 +39,57 @@ $env:PATH = "$JavaHome\bin;$SdkRoot\platform-tools;$SdkRoot\cmdline-tools\latest
 
 Set-Location $repoRoot
 
-$androidOutputs = Join-Path $repoRoot 'src-tauri\gen\android\app\build\outputs'
-if ($Mode -eq 'build' -and (Test-Path -LiteralPath $androidOutputs)) {
-  Remove-Item -LiteralPath $androidOutputs -Recurse -Force
+New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+function Get-TauriVersionProps {
+  param([string]$Path)
+
+  $props = @{
+    VersionName = '1.0.0'
+    VersionCode = 1
+  }
+
+  if (!(Test-Path -LiteralPath $Path)) {
+    return $props
+  }
+
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -match '^tauri\.android\.versionName=(.+)$') {
+      $props.VersionName = $Matches[1].Trim()
+    } elseif ($line -match '^tauri\.android\.versionCode=(\d+)$') {
+      $props.VersionCode = [int]$Matches[1]
+    }
+  }
+
+  return $props
 }
-$jniLibs = Join-Path $repoRoot 'src-tauri\gen\android\app\src\main\jniLibs'
-if ($Mode -eq 'build' -and (Test-Path -LiteralPath $jniLibs)) {
-  Remove-Item -LiteralPath $jniLibs -Recurse -Force
+
+if ($Mode -eq 'build') {
+  $tauriVersion = Get-TauriVersionProps -Path $tauriPropsFile
+  $baseVersionCode = [int]$tauriVersion.VersionCode
+  $lastBuiltVersionCode = if (Test-Path -LiteralPath $androidVersionStateFile) {
+    $raw = (Get-Content -LiteralPath $androidVersionStateFile -Raw).Trim()
+    if ($raw -match '^\d+$') { [int]$raw } else { 0 }
+  } else {
+    0
+  }
+
+  $nextVersionCode = [Math]::Max($baseVersionCode, $lastBuiltVersionCode) + 1
+  $env:SHARKY_ANDROID_VERSION_CODE = "$nextVersionCode"
+  $env:SHARKY_ANDROID_VERSION_NAME = "$($tauriVersion.VersionName)"
+
+  Write-Host "Android versionName: $($env:SHARKY_ANDROID_VERSION_NAME)"
+  Write-Host "Android versionCode: $($env:SHARKY_ANDROID_VERSION_CODE)"
+
+  $androidAppBuild = Join-Path $repoRoot 'src-tauri\gen\android\app\build'
+  if (Test-Path -LiteralPath $androidAppBuild) {
+    Remove-Item -LiteralPath $androidAppBuild -Recurse -Force
+  }
+
+  $jniLibs = Join-Path $repoRoot 'src-tauri\gen\android\app\src\main\jniLibs'
+  if (Test-Path -LiteralPath $jniLibs) {
+    Remove-Item -LiteralPath $jniLibs -Recurse -Force
+  }
 }
 
 switch ($Mode) {
@@ -63,10 +109,10 @@ switch ($Mode) {
     if ($Target -ne 'all') { $buildArgs += @('--target', $Target) }
     npm @buildArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    Set-Content -LiteralPath $androidVersionStateFile -Value $env:SHARKY_ANDROID_VERSION_CODE -NoNewline
   }
 }
-
-New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 Get-ChildItem -LiteralPath $releaseDir -File -ErrorAction SilentlyContinue |
   Where-Object { $_.Extension -in '.apk', '.aab' } |
   Remove-Item -Force

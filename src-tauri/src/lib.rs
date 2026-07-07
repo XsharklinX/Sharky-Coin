@@ -1,15 +1,5 @@
 use tauri::Manager;
 
-/// Escribe el backup a una ruta específica pasada desde JS.
-/// El lado JS usa tauri-plugin-dialog para pedir la ruta al usuario.
-#[tauri::command]
-fn write_backup(path: String, json: String) -> Result<(), String> {
-    if let Some(parent) = std::path::Path::new(&path).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&path, json).map_err(|e| e.to_string())
-}
-
 #[tauri::command]
 fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
     if let Some(parent) = std::path::Path::new(&path).parent() {
@@ -43,6 +33,24 @@ fn save_to_downloads(filename: String, contents: Vec<u8>) -> Result<String, Stri
 #[tauri::command]
 fn read_backup(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+/// Guarda un archivo en la carpeta "Sharky Finance" (Descargas en Android,
+/// Documentos en desktop), creándola si no existe. Sobrescribe sin sufijo:
+/// se usa para backups (manuales y el automático semanal), que deben
+/// reemplazar al anterior en vez de acumularse.
+#[tauri::command]
+fn save_to_app_folder(app: tauri::AppHandle, filename: String, contents: Vec<u8>) -> Result<String, String> {
+    let mut dir = if cfg!(target_os = "android") {
+        std::path::PathBuf::from("/storage/emulated/0/Download")
+    } else {
+        app.path().document_dir().map_err(|e| e.to_string())?
+    };
+    dir.push("Sharky Finance");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(&filename);
+    std::fs::write(&path, contents).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 /// Archivo (foto/PDF de recibo) recibido vía "Compartir" desde otra app.
@@ -190,9 +198,9 @@ pub fn run() {
             let _ = webview.eval(DESKTOP_PWA_CACHE_RESET_SCRIPT);
         })
         .invoke_handler(tauri::generate_handler![
-            write_backup,
             write_file,
             save_to_downloads,
+            save_to_app_folder,
             read_backup,
             secure_storage_set,
             secure_storage_get,

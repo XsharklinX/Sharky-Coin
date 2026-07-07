@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -14,16 +15,32 @@ import { SettingsBankNotifications } from './settings/SettingsBankNotifications'
 import { SettingsLegal } from './settings/SettingsLegal'
 import { SettingsSyncConflicts } from './settings/SettingsSyncConflicts'
 
-export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () => void }) {
+export function MobileSettings({
+  mkey,
+  onClose,
+  initialSheet,
+}: {
+  mkey: string
+  onClose: () => void
+  initialSheet?: Sheet | null
+}) {
   const settings = useSettings()
+  const { currency } = useFinance()
   const t = useT()
   const [activeSheet, setActiveSheet] = useState<Sheet | null>(null)
   const [nameInput, setNameInput] = useState(settings.displayName)
 
+  useEffect(() => {
+    if (initialSheet) setActiveSheet(initialSheet)
+  }, [initialSheet])
+
   useMobileBackDismiss(true, onClose)
   useMobileBackDismiss(!!activeSheet, () => setActiveSheet(null))
 
-  const open  = (sheet: Sheet) => { setActiveSheet(sheet); if (sheet === 'name') setNameInput(settings.displayName) }
+  const open = (sheet: Sheet) => {
+    setActiveSheet(sheet)
+    if (sheet === 'name') setNameInput(settings.displayName)
+  }
   const close = () => setActiveSheet(null)
 
   const saveName = () => {
@@ -31,6 +48,17 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
     toast(t('nameSaved'), { icon: 'check', type: 'ok' })
     close()
   }
+
+  const profileName = settings.displayName || t('myAccountLabel')
+  const themeModeLabel = settings.theme === 'amoled'
+    ? 'AMOLED'
+    : settings.theme === 'dark'
+      ? 'Dark'
+      : settings.theme === 'light'
+        ? 'Light'
+        : 'Auto'
+  const themeLabel = `${t('theme')} - ${themeModeLabel}`
+  const languageLabel = settings.language === 'en' ? 'English' : 'Espanol'
 
   return (
     <div className="mobile-settings-screen" role="dialog" aria-modal="true">
@@ -43,15 +71,55 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
       </header>
 
       <div className="mset-body">
+        <section className="mset-summary">
+          <div className="mset-summary-avatar">{(settings.displayName || '$').slice(0, 1).toUpperCase()}</div>
+          <div className="mset-summary-body">
+            <strong>{profileName}</strong>
+            <span>{t('settingsQuickDesc')}</span>
+            <div className="mset-summary-pills">
+              <span className="mset-summary-pill">{themeLabel}</span>
+              <span className="mset-summary-pill">{`Moneda - ${currency}`}</span>
+              <span className="mset-summary-pill">{languageLabel}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="mset-quick-grid" aria-label={t('settings')}>
+          <button className="mset-quick-card" onClick={() => open('theme')}>
+            <span className="mset-quick-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
+              <Icon name="palette" size={20} />
+            </span>
+            <strong>{t('theme')}</strong>
+            <small>{themeModeLabel}</small>
+          </button>
+          <button className="mset-quick-card" onClick={() => open('categories')}>
+            <span className="mset-quick-icon" style={{ background: '#c084fc22', color: '#c084fc' }}>
+              <Icon name="tag" size={20} />
+            </span>
+            <strong>{t('categoriesTitle')}</strong>
+            <small>{t('categorySettings')}</small>
+          </button>
+          <button className="mset-quick-card" onClick={() => open('backupSchedule')}>
+            <span className="mset-quick-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
+              <Icon name="fileJson" size={20} />
+            </span>
+            <strong>{t('weeklyBackupLastLabel')}</strong>
+            <small>{settings.weeklyAutoBackupEnabled ? t('weeklyBackupAutoLabel') : t('backupAutoDisabled')}</small>
+          </button>
+        </section>
+
         <SettingsAccount onOpen={open} />
 
-        {/* ── Profile ── */}
         <div className="mset-section">
           <span className="mset-section-title">{t('profileSection')}</span>
           <div className="mset-card">
-            <SettingsRow icon="user" iconColor="#5bc0ff" label={t('name')}
+            <SettingsRow
+              icon="user"
+              iconColor="#5bc0ff"
+              label={t('name')}
               value={settings.displayName || t('notSet')}
-              onClick={() => open('name')} />
+              onClick={() => open('name')}
+            />
           </div>
         </div>
 
@@ -64,15 +132,16 @@ export function MobileSettings({ mkey, onClose }: { mkey: string; onClose: () =>
         <SettingsSyncConflicts activeSheet={activeSheet} onOpen={open} onClose={close} />
       </div>
 
-      {/* ─── Sheets ─── */}
-
       {activeSheet === 'name' && (
         <SettingsSheet title={t('name')} onClose={close}>
           <div className="mset-sheet-body">
             <input
-              className="mset-text-input" type="text"
-              value={nameInput} placeholder={t('egName')}
-              autoCapitalize="words" enterKeyHint="done"
+              className="mset-text-input"
+              type="text"
+              value={nameInput}
+              placeholder={t('egName')}
+              autoCapitalize="words"
+              enterKeyHint="done"
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveName() }}
             />

@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
 import { dateLocale, fmt } from '@/data/helpers'
+import { CURRENCIES } from '@/data/seed'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
@@ -15,7 +16,7 @@ import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
 import type { CurrencyCode, IconName, RecurrenceFrequency, Transaction, TxType } from '@/types'
 
 function currencyPrefix(c: CurrencyCode): string {
-  return c === 'DOP' ? 'RD$' : c === 'USD' ? '$' : c === 'EUR' ? '€' : c
+  return CURRENCIES[c].symbol
 }
 
 type Sub = 'amount' | 'note' | 'account' | 'category' | 'date' | 'recurEnd' | null
@@ -73,8 +74,8 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
 
   const visibleCats = categories.filter(c => c.type === type)
   useEffect(() => {
-    if (visibleCats.length && !visibleCats.some(c => c.id === categoryId))
-      setCategoryId(visibleCats[0]?.id ?? '')
+    if (!visibleCats.some(c => c.id === categoryId))
+      setCategoryId('')
   }, [categoryId, visibleCats])
 
   const activeAccount  = accounts.find(a => a.id === accountId)  ?? null
@@ -84,8 +85,14 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   useMobileBackDismiss(sub !== null, () => setSub(null))
 
   const submit = () => {
-    if (!amount || !note.trim() || !accountId || !categoryId)
+    if (!amount)
+      return toast(t('amountError'), { icon: 'alert' })
+    if (!note.trim())
       return toast(t('fillAllError'), { icon: 'alert' })
+    if (!accountId)
+      return toast(t('accountError'), { icon: 'alert' })
+    if (!categoryId)
+      return toast(t('categoryError'), { icon: 'alert' })
 
     const fields = {
       type, amount, note: note.trim(), date, accountId, categoryId,
@@ -167,7 +174,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
           <button className="txf-amount-hero" onClick={() => setSub('amount')}>
             <span className="txf-amount-label">{type === 'expense' ? t('totalExpenseLabel') : t('totalIncomeLabel')}</span>
             <span className="txf-amount-value" style={{ color: amount > 0 ? typeColor : 'var(--m-muted)' }}>
-              {amount > 0 ? fmt(amount, currency) : `${pfx} 0`}
+              {amount > 0 ? `${pfx} ${amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[currency].decimals, maximumFractionDigits: CURRENCIES[currency].decimals })}` : `${pfx} 0`}
             </span>
             <span className="txf-amount-tap">{t('tapToEditLabel')}</span>
           </button>
@@ -310,28 +317,26 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
 
       {sub === 'account' && (
         <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
-          <section className="mobile-detail-sheet mpr-editor-sheet" onClick={e => e.stopPropagation()}>
-            <header className="mpr-editor-header">
-              <span className="mpr-editor-name-input" style={{ cursor: 'default' }}>{t('selectAccount')}</span>
-              <button className="mpr-editor-close" onClick={() => setSub(null)}>
-                <Icon name="close" size={18} />
-              </button>
+          <section onClick={e => e.stopPropagation()}>
+            <header>
+              <span>{t('selectAccount')}</span>
+              <button aria-label={t('close')} onClick={() => setSub(null)}><Icon name="close" size={18} /></button>
             </header>
-            <div className="mpr-editor-body" style={{ overflowY: 'auto' }}>
-              <div className="mpr-form-rows">
-                {accounts.map(a => (
-                  <button
-                    key={a.id}
-                    className={`mpr-form-row${a.id === accountId ? ' txf-selected' : ''}`}
-                    onClick={() => { setAccountId(a.id); setSub(null) }}
-                  >
-                    <Icon name={ACCT_ICONS[a.type]} size={15} style={{ color: a.color, flexShrink: 0 }} />
-                    <span className="mpr-form-row-label" style={{ minWidth: 0, flex: 1 }}>{a.name}</span>
-                    <span className="mpr-form-row-dim">{fmt(a.balance, currency)}</span>
-                    {a.id === accountId && <Icon name="check" size={14} style={{ color: 'var(--m-primary, #ffdd3d)', flexShrink: 0 }} />}
-                  </button>
-                ))}
-              </div>
+            <div className="mobile-picker-list">
+              {accounts.map(a => (
+                <button
+                  key={a.id}
+                  className={`mobile-picker-row${a.id === accountId ? ' active' : ''}`}
+                  onClick={() => { setAccountId(a.id); setSub(null) }}
+                >
+                  <span style={{ color: a.color }}>
+                    <Icon name={ACCT_ICONS[a.type]} size={22} />
+                  </span>
+                  <b>{a.name}</b>
+                  <small>{fmt(a.balance, currency)}</small>
+                  {a.id === accountId && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 4 }} />}
+                </button>
+              ))}
             </div>
           </section>
         </div>

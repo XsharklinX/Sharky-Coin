@@ -1,15 +1,21 @@
 import { useEffect } from 'react'
+import { localToday } from '@/data/helpers'
 import { isTauri } from '@/hooks/useTauri'
 import { listenBankNotifications } from '@/lib/bankNotifications'
-import { useNotificationInbox } from '@/store/notificationInbox'
+import { isBankNotification, parseBankNotification } from '@/lib/bankNotificationParser'
+import { useBankSuggestions } from '@/store/bankSuggestions'
 
 /**
- * Activa la captura de notificaciones bancarias mientras
- * `notificationInbox.enabled` esté activo y la app corra en Tauri/Android.
+ * Mientras `bankSuggestions.enabled` esté activo y la app corra en
+ * Tauri/Android, escucha las notificaciones del sistema y, si una parece un
+ * aviso de movimiento bancario (monto + palabra clave de transacción),
+ * la convierte en una sugerencia de movimiento para que el usuario la
+ * confirme. El resto de las notificaciones (WhatsApp, redes, etc.) se
+ * descartan de inmediato y nunca se guardan.
  */
 export function useBankNotifications() {
-  const enabled = useNotificationInbox((state) => state.enabled)
-  const add = useNotificationInbox((state) => state.add)
+  const enabled = useBankSuggestions((state) => state.enabled)
+  const add = useBankSuggestions((state) => state.add)
 
   useEffect(() => {
     if (!enabled || !isTauri()) return
@@ -17,8 +23,11 @@ export function useBankNotifications() {
     let unlisten: (() => void) | undefined
     let cancelled = false
 
-    listenBankNotifications((event) => {
-      add(event)
+    listenBankNotifications(({ package: pkg, title, text, postTime }) => {
+      if (!isBankNotification(pkg, title, text)) return
+      const parsed = parseBankNotification(title, text)
+      if (!parsed) return
+      add({ ...parsed, date: localToday(new Date(postTime)), postTime })
     }).then((fn) => {
       if (cancelled) {
         fn()

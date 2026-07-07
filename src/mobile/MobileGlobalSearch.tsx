@@ -9,6 +9,7 @@ import type { Account, AccountType, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 const MAX_RESULTS = 8
+const MAX_TX_RESULTS = 20
 
 const ACCOUNT_TYPE_ICON: Record<AccountType, 'wallet' | 'cards'> = {
   cash:    'wallet',
@@ -77,15 +78,18 @@ export function MobileGlobalSearch({
         const account = getAccount(tx.accountId, accounts)
         const from = getAccount(tx.fromAccount, accounts)
         const to = getAccount(tx.toAccount, accounts)
-        const haystack = [tx.note, category?.name, category && translateCategoryName(category, lang), account?.name, from?.name, to?.name]
+        const haystack = [
+          tx.note, category?.name, category && translateCategoryName(category, lang), account?.name, from?.name, to?.name,
+          String(tx.amount), tx.amount.toFixed(2), fmt(tx.amount, currency).replace(/,/g, ''),
+        ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
         return haystack.includes(q)
       })
       .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, MAX_RESULTS)
-  }, [transactions, categories, accounts, q, lang])
+      .slice(0, MAX_TX_RESULTS)
+  }, [transactions, categories, accounts, q, lang, currency])
 
   const hasResults = matchedAccounts.length > 0 || matchedCategories.length > 0
     || matchedGoals.length > 0 || matchedTx.length > 0

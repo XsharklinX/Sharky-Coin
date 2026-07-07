@@ -6,6 +6,8 @@ import { log } from '@/lib/logger'
 const tauriDismissStack: (() => void)[] = []
 let unlistenTauriBack: { unregister(): Promise<void> } | null = null
 let isRegistering = false
+let browserOverlayId = 0
+let suppressBrowserPop = false
 
 async function updateTauriBackButtonListener() {
   if (tauriDismissStack.length > 0) {
@@ -59,11 +61,24 @@ export function useMobileBackDismiss(active: boolean, onDismiss: () => void) {
       }
     } else {
       // Browser PWA fallback using history state
-      window.history.pushState({ sharkyOverlay: true }, '')
-      const onPopState = () => dismissRef.current()
+      const overlayId = ++browserOverlayId
+      window.history.pushState({ sharkyOverlay: overlayId }, '')
+
+      const onPopState = () => {
+        if (suppressBrowserPop) {
+          suppressBrowserPop = false
+          return
+        }
+        dismissRef.current()
+      }
+
       window.addEventListener('popstate', onPopState)
       return () => {
         window.removeEventListener('popstate', onPopState)
+        if (window.history.state?.sharkyOverlay === overlayId) {
+          suppressBrowserPop = true
+          window.history.back()
+        }
       }
     }
   }, [active])

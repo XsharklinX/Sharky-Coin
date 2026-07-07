@@ -5,12 +5,12 @@ import { createBackup, parseBackup } from '@/data/backup'
 import { wipeCloudData } from '@/data/cloudSync'
 import { getDataHealthStatus } from '@/data/dataHealth'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
-import { monthLabel } from '@/data/helpers'
+import { dateLocale, monthLabel } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
 import { clearCloudWorkspaceCache } from '@/hooks/useCloudWorkspace'
-import { openBackup, saveBackup } from '@/hooks/useTauri'
-import { useStorageQuota } from '@/hooks/useStorageQuota'
+import { isTauri, openBackup, saveBackup } from '@/hooks/useTauri'
+import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
@@ -19,12 +19,33 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
   const auth    = useAuth()
   const t       = useT()
   const health  = getDataHealthStatus(finance, auth.user?.id)
-  const storageQuota = useStorageQuota()
+  const lang    = useSettings(s => s.language)
+  const lastWeeklyBackupAt = useSettings(s => s.lastWeeklyBackupAt)
+  const weeklyAutoBackupEnabled = useSettings(s => s.weeklyAutoBackupEnabled)
+  const weeklyAutoBackupDay = useSettings(s => s.weeklyAutoBackupDay)
+  const weeklyAutoBackupHour = useSettings(s => s.weeklyAutoBackupHour)
+  const setWeeklyAutoBackupEnabled = useSettings(s => s.setWeeklyAutoBackupEnabled)
+  const setWeeklyAutoBackupDay = useSettings(s => s.setWeeklyAutoBackupDay)
+  const setWeeklyAutoBackupHour = useSettings(s => s.setWeeklyAutoBackupHour)
 
   const [exportingPdf,    setExportingPdf]    = useState(false)
   const [exportingExcel,  setExportingExcel]  = useState(false)
   const [pendingReset,    setPendingReset]    = useState(false)
   const [resetting,       setResetting]       = useState(false)
+
+  const weekdayLabels = [
+    t('daySunday'),
+    t('dayMonday'),
+    t('dayTuesday'),
+    t('dayWednesday'),
+    t('dayThursday'),
+    t('dayFriday'),
+    t('daySaturday'),
+  ]
+
+  const backupScheduleLabel = weeklyAutoBackupEnabled
+    ? `${weekdayLabels[weeklyAutoBackupDay]} - ${String(weeklyAutoBackupHour).padStart(2, '0')}:00`
+    : t('backupAutoDisabled')
 
   // Limpiar reset cuando el sheet se cierra
   useEffect(() => { if (activeSheet !== 'reset') setPendingReset(false) }, [activeSheet])
@@ -32,7 +53,8 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
   const exportBackup = async () => {
     const json = JSON.stringify(createBackup(finance), null, 2)
     try {
-      await saveBackup(json)
+      const saved = await saveBackup(json)
+      if (saved && isTauri()) toast(t('backupSavedToFolder'), { icon: 'check', type: 'ok' })
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return
       toast(error instanceof Error ? error.message : t('exportError'), { icon: 'alert' })
@@ -105,30 +127,6 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
             <div><strong>{health.categories}</strong><small>{t('categoriesTitle')}</small></div>
             <div><strong>{health.goals}</strong><small>{t('goals')}</small></div>
           </div>
-          {storageQuota && (
-            <div className="mset-storage-bar">
-              <div className="mset-storage-bar-head">
-                <span>{t('storageLabel')}</span>
-                <span style={{ color: storageQuota.level === 'ok' ? 'var(--m-muted)' : storageQuota.level === 'warning' ? '#f59e0b' : '#ff6b8a' }}>
-                  {storageQuota.usedMB} MB / {storageQuota.quotaMB} MB ({Math.round(storageQuota.pct * 100)}%)
-                </span>
-              </div>
-              <div className="mset-storage-track">
-                <div className="mset-storage-fill" style={{
-                  width: `${Math.min(100, storageQuota.pct * 100)}%`,
-                  background: storageQuota.level === 'ok' ? 'var(--m-primary)' : storageQuota.level === 'warning' ? '#f59e0b' : '#ff6b8a',
-                }} />
-              </div>
-              {storageQuota.level !== 'ok' && (
-                <p className="mset-warning" style={{ color: storageQuota.level === 'critical' ? '#ff6b8a' : '#f59e0b' }}>
-                  <Icon name="alert" size={13} />
-                  {storageQuota.level === 'critical'
-                    ? t('storageCriticalWarning')
-                    : t('storageWarning70')}
-                </p>
-              )}
-            </div>
-          )}
           {health.warnings.map(w => (
             <p className="mset-warning" key={w}><Icon name="alert" size={13} />{w}</p>
           ))}
@@ -145,6 +143,18 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
             onClick={() => onOpen('export')} />
           <SettingsRow icon="upload" iconColor="#5bc0ff" label={t('restoreBackup')}
             onClick={() => void importBackup()} />
+          {isTauri() && (
+            <SettingsRow icon="fileJson" iconColor="#a78bfa" label={t('weeklyBackupLastLabel')}
+              value={backupScheduleLabel}
+              onClick={() => onOpen('backupSchedule')}
+              right={(
+                <span className="mset-value">
+                  {lastWeeklyBackupAt
+                    ? new Date(lastWeeklyBackupAt).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
+                    : t('weeklyBackupNever')}
+                </span>
+              )} />
+          )}
         </div>
         <div className="mset-card">
           <SettingsRow icon="trash" iconColor="#ff6b8a" label={t('deleteAllData')}
@@ -166,6 +176,74 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
               <SettingsRow icon="download" iconColor="#a78bfa"
                 label={exportingPdf ? t('generatingPdf') : t('statementOfMonth').replace('{month}', monthLabel(mkey))}
                 onClick={() => { if (!exportingPdf) void handleExportPdf() }} />
+            </div>
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'backupSchedule' && (
+        <SettingsSheet title={t('weeklyBackupConfigTitle')} onClose={onClose}>
+          <div className="mset-sheet-body">
+            <div className="mset-card" style={{ margin: 0 }}>
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+                  <Icon name="fileJson" size={18} />
+                </span>
+                <div className="mset-row-text">
+                  <b>{t('weeklyBackupAutoLabel')}</b>
+                  <small>{t('weeklyBackupAutoDesc')}</small>
+                </div>
+                <label className="mset-toggle-wrap">
+                  <input
+                    type="checkbox"
+                    className="mset-toggle-input"
+                    checked={weeklyAutoBackupEnabled}
+                    onChange={event => setWeeklyAutoBackupEnabled(event.target.checked)}
+                  />
+                  <span className="mset-toggle" />
+                </label>
+              </div>
+            </div>
+
+            <div className="mset-card" style={{ margin: 0 }}>
+              <div className="mset-field-stack">
+                <span className="mset-field-label">{t('dayLabel')}</span>
+                <div className="mset-chip-grid">
+                  {weekdayLabels.map((label, index) => (
+                    <button
+                      key={label}
+                      className={`mset-chip${weeklyAutoBackupDay === index ? ' on' : ''}`}
+                      disabled={!weeklyAutoBackupEnabled}
+                      onClick={() => setWeeklyAutoBackupDay(index)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mset-field-stack">
+                <span className="mset-field-label">{t('timeLabel')}</span>
+                <div className="mset-hour-grid">
+                  {[0, 3, 6, 9, 12, 15, 18, 21].map(hour => (
+                    <button
+                      key={hour}
+                      className={`mset-chip${weeklyAutoBackupHour === hour ? ' on' : ''}`}
+                      disabled={!weeklyAutoBackupEnabled}
+                      onClick={() => setWeeklyAutoBackupHour(hour)}
+                    >
+                      {String(hour).padStart(2, '0')}:00
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mset-card" style={{ margin: 0 }}>
+              <div className="mset-note-block">
+                <strong>{t('backupDestinationTitle')}</strong>
+                <small>{t('backupDestinationAppFolder')}</small>
+              </div>
             </div>
           </div>
         </SettingsSheet>

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { cancelLocalReminders, scheduleLocalReminders, syncReminderSnapshot } from '@/lib/localReminders'
+import { cancelLocalReminders, requestReminderPermission, scheduleLocalReminders, syncReminderSnapshot } from '@/lib/localReminders'
 
 /**
  * Mantiene sincronizado el snapshot que usa el worker nativo (WorkManager)
@@ -18,8 +18,12 @@ export function useLocalReminders(): void {
   const isFirstSync = useRef(true)
 
   useEffect(() => {
-    if (remindersEnabled) void scheduleLocalReminders()
-    else void cancelLocalReminders()
+    if (remindersEnabled) {
+      void requestReminderPermission()
+      void scheduleLocalReminders()
+    } else {
+      void cancelLocalReminders()
+    }
   }, [remindersEnabled])
 
   useEffect(() => {

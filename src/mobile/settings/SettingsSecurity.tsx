@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/Toast'
 import { useSettings } from '@/store/settings'
 import { isTauri } from '@/hooks/useTauri'
 import { checkBiometric } from '@/lib/biometric'
+import { playWarningHaptic } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { PatternPad } from '../PatternPad'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
@@ -57,7 +58,7 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
   function triggerShake(message: string) {
     setLockError(message)
     setShake(true)
-    navigator.vibrate?.([20, 40, 20])
+    playWarningHaptic()
     setTimeout(() => setShake(false), 380)
   }
 

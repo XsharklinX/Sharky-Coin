@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { playDoneSound } from '@/lib/sound'
+import { playDoneSound, playWarningHaptic } from '@/lib/sound'
 import { PatternPad } from './PatternPad'
 
 export function MobilePatternGate({ pattern, onUnlocked }: { pattern: string; onUnlocked: () => void }) {
@@ -13,13 +13,12 @@ export function MobilePatternGate({ pattern, onUnlocked }: { pattern: string; on
     if (value === null) return
     if (value === pattern) {
       playDoneSound()
-      navigator.vibrate?.(12)
       setError('')
       setSuccess(true)
       setTimeout(onUnlocked, 180)
       return
     }
-    navigator.vibrate?.([20, 40, 20])
+    playWarningHaptic()
     setError('Patrón incorrecto')
     setShake(true)
     setTimeout(() => setShake(false), 380)

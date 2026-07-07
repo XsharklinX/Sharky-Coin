@@ -8,22 +8,16 @@ import type {
 // ── Formato de moneda ─────────────────────────────────────
 export function fmt(n: number, currency: CurrencyCode, opts: FmtOptions = {}): string {
   const c    = CURRENCIES[currency]
-  const v    = n * c.rate
-  const sign = v < 0 ? '-' : ''
-  const abs  = Math.abs(v)
+  const sign = n < 0 ? '-' : ''
+  const abs  = Math.abs(n)
   const dec  = opts.decimals ?? c.decimals
   const s    = abs.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
   return `${sign}${c.symbol} ${s}`
 }
 
+/** Alias de {@link fmt}: el usuario pidió eliminar la abreviación "k"/"M" en toda la app. */
 export function fmtCompact(n: number, currency: CurrencyCode): string {
-  const c    = CURRENCIES[currency]
-  const v    = n * c.rate
-  const abs  = Math.abs(v)
-  const sign = v < 0 ? '-' : ''
-  if (abs >= 1_000_000) return `${sign}${c.symbol} ${(abs / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000)     return `${sign}${c.symbol} ${(abs / 1_000).toFixed(1)}k`
-  return `${sign}${c.symbol} ${Math.round(abs)}`
+  return fmt(n, currency)
 }
 
 // ── Fechas ────────────────────────────────────────────────
@@ -33,9 +27,18 @@ export function dateLocale(lang: string): string {
 
 export function monthKey(dateStr: string): string { return dateStr.slice(0, 7) }
 
+export function localToday(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 export function currentMonthKey(now = new Date()): string {
-  const y = now.getFullYear(), m = now.getMonth()
-  return `${y}-${String(m + 1).padStart(2, '0')}`
+  return localToday(now).slice(0, 7)
+}
+
+export function prevMonthKey(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export function monthLabel(key: string, locale = 'es-DO'): string {
@@ -130,6 +133,55 @@ export function accountActivity(txns: Transaction[], accountId: string): Transac
     t.accountId === accountId || t.fromAccount === accountId || t.toAccount === accountId)
 }
 
+/** Cuentas que cuentan para los totales/balance agregados (excluye `includeInTotal === false`). */
+export function visibleAccounts(accounts: Account[]): Account[] {
+  return accounts.filter(a => a.includeInTotal !== false)
+}
+
+/** Cuentas de ahorro reales. Cuentan como ahorro aunque esten excluidas del balance general. */
+export function savingsAccounts(accounts: Account[]): Account[] {
+  return accounts.filter(a => a.type === 'savings')
+}
+
+/** Balance positivo guardado en cuentas de ahorro. */
+export function savingsBalance(accounts: Account[]): number {
+  return savingsAccounts(accounts).reduce((sum, account) => sum + Math.max(0, account.balance), 0)
+}
+
+/**
+ * Porcentaje de dinero guardado en cuentas de ahorro.
+ * Denominador: cuentas visibles positivas + cuentas de ahorro ocultas positivas.
+ */
+export function accountSavingsRate(accounts: Account[]): number {
+  const savings = savingsBalance(accounts)
+  const visibleIds = new Set(visibleAccounts(accounts).map(account => account.id))
+  const assetBase = accounts.reduce((sum, account) => {
+    const countsForBase = visibleIds.has(account.id) || account.type === 'savings'
+    return countsForBase ? sum + Math.max(0, account.balance) : sum
+  }, 0)
+  return assetBase > 0 ? savings / assetBase * 100 : 0
+}
+
+/** Transacciones de ingreso/gasto excluyendo las de cuentas marcadas con `includeInTotal: false`. */
+export function transactionsForTotals(transactions: Transaction[], accounts: Account[]): Transaction[] {
+  const excluded = new Set(accounts.filter(a => a.includeInTotal === false).map(a => a.id))
+  if (excluded.size === 0) return transactions
+  return transactions.filter(t => !t.accountId || !excluded.has(t.accountId))
+}
+
+/**
+ * Sobrante (positivo) o exceso (negativo) del presupuesto mensual de una
+ * categoría, a partir de las transacciones de gasto del mes anterior.
+ * Devuelve 0 si la categoría no tiene rollover activado o no tiene presupuesto.
+ */
+export function categoryRollover(category: Category, prevMonthTx: Transaction[]): number {
+  if (!category.rolloverEnabled || category.budget <= 0) return 0
+  const spent = prevMonthTx
+    .filter(t => t.type === 'expense' && t.categoryId === category.id)
+    .reduce((s, t) => s + t.amount, 0)
+  return category.budget - spent
+}
+
 /**
  * Efecto neto de todos los movimientos sobre una cuenta (ingresos +, gastos −,
  * transferencias según dirección, aportes a metas −). El saldo real de la
@@ -153,6 +205,37 @@ export function accountMovementsTotal(
     if (c.fromAccountId === accountId) total -= c.amount
   }
   return total
+}
+
+export interface NetWorthPoint { key: string; label: string; value: number }
+
+/**
+ * Patrimonio neto al cierre de cada mes del año, sumando el saldo de apertura
+ * de cada cuenta visible más sus movimientos hasta el final de ese mes.
+ */
+export function netWorthSeries(
+  accounts: Account[],
+  txns: Transaction[],
+  contributions: GoalContribution[],
+  year: number,
+  locale = 'es-DO',
+): NetWorthPoint[] {
+  const visible = visibleAccounts(accounts)
+  const openings = new Map(visible.map(a => [
+    a.id,
+    a.openingBalance ?? (a.balance - accountMovementsTotal(a.id, txns, contributions)),
+  ]))
+  return Array.from({ length: 12 }, (_, m) => {
+    const key = `${year}-${String(m + 1).padStart(2, '0')}`
+    const cutoff = `${key}-31`
+    const txUpTo = txns.filter(t => t.date <= cutoff)
+    const contribUpTo = contributions.filter(c => c.date <= cutoff)
+    const value = visible.reduce(
+      (sum, a) => sum + (openings.get(a.id) ?? 0) + accountMovementsTotal(a.id, txUpTo, contribUpTo),
+      0,
+    )
+    return { key, label: shortMonth(key, locale), value }
+  })
 }
 
 export function monthlyAccountSeries(

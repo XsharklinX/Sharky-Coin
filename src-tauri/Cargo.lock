@@ -3222,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "sharky"
-version = "1.6.3"
+version = "1.7.2"
 dependencies = [
  "base64 0.22.1",
  "keyring",

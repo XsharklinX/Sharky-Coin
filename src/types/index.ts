@@ -52,6 +52,13 @@ export interface Account {
   last4:   string | null
   limit?:  number
   overdraftPolicy?: OverdraftPolicy
+  /**
+   * Si es false, esta cuenta no cuenta para los totales/balance agregados
+   * (Home, Profile, Accounts hero, Analytics, Budgets, Annual, widget,
+   * exports). undefined/true = se incluye. La vista propia de la cuenta
+   * (su balance y actividad) no se ve afectada.
+   */
+  includeInTotal?: boolean
 }
 
 export interface Category {
@@ -63,6 +70,11 @@ export interface Category {
   weeklyBudget?: number
   annualBudget?: number
   icon:   IconName
+  /**
+   * Si es true, el sobrante (o exceso) del presupuesto mensual del mes
+   * anterior se suma (o resta) al presupuesto disponible de este mes.
+   */
+  rolloverEnabled?: boolean
 }
 
 export interface Transaction {
@@ -79,7 +91,16 @@ export interface Transaction {
   recurringStart?: string
   recurringEnd?: string
   recurringNext?: string
+  /** Fechas (YYYY-MM-DD) de ocurrencias saltadas por el usuario: no se generan. */
+  skippedDates?: string[]
   tags?:        string[]            // ej. ['trabajo', 'viaje']
+}
+
+export interface GoalAutoContribute {
+  amount:        number
+  frequency:     RecurrenceFrequency
+  fromAccountId: string
+  nextDate:      string      // YYYY-MM-DD
 }
 
 export interface Goal {
@@ -90,6 +111,8 @@ export interface Goal {
   color:     string
   icon:      IconName
   deadline?: string          // YYYY-MM-DD
+  /** Aporte periódico automático hacia esta meta, generado como GoalContribution. */
+  autoContribute?: GoalAutoContribute
 }
 
 export interface GoalContribution {
@@ -104,7 +127,6 @@ export interface GoalContribution {
 export interface Currency {
   code:     CurrencyCode
   symbol:   string
-  rate:     number           // relative to DOP
   decimals: number
 }
 

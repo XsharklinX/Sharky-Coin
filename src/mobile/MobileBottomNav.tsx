@@ -1,18 +1,19 @@
 import { useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
-import { playOpenSound } from '@/lib/sound'
+import { playOpenSound, playSoftHaptic } from '@/lib/sound'
+import { useMobileBackDismiss } from './useMobileBackDismiss'
 
-export type MobileRoute = 'home' | 'analysis' | 'add' | 'accounts' | 'profile'
+export type MobileRoute = 'home' | 'analysis' | 'add' | 'reports' | 'profile'
 export type QuickAddMode = 'expense' | 'income'
 
-type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name']; labelKey: 'home' | 'analysisTab' | 'accounts' | 'profile' }
+type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name']; labelKey: 'movementsLabel' | 'analysisTab' | 'reports' | 'profile' }
 
 const ITEMS: NavItem[] = [
-  { route: 'home',     icon: 'grid',  labelKey: 'home' },
+  { route: 'home',     icon: 'list',  labelKey: 'movementsLabel' },
   { route: 'analysis', icon: 'chart', labelKey: 'analysisTab' },
-  { route: 'accounts', icon: 'cards', labelKey: 'accounts' },
-  { route: 'profile',  icon: 'settings', labelKey: 'profile' },
+  { route: 'reports', icon: 'book', labelKey: 'reports' },
+  { route: 'profile',  icon: 'user', labelKey: 'profile' },
 ]
 
 const LONG_PRESS_MS = 420
@@ -26,6 +27,7 @@ export function MobileBottomNav({ route, onRoute, onQuickAdd }: {
   const [quickMenu, setQuickMenu] = useState(false)
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressed = useRef(false)
+  useMobileBackDismiss(quickMenu, () => setQuickMenu(false))
 
   const cancelPress = () => {
     if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null }
@@ -35,7 +37,7 @@ export function MobileBottomNav({ route, onRoute, onQuickAdd }: {
     cancelPress()
     pressTimer.current = setTimeout(() => {
       longPressed.current = true
-      navigator.vibrate?.(20)
+      playSoftHaptic()
       setQuickMenu(true)
     }, LONG_PRESS_MS)
   }

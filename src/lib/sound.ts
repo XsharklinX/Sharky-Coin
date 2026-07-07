@@ -1,6 +1,7 @@
 import { useSettings } from '@/store/settings'
 
 let ctx: AudioContext | null = null
+let output: GainNode | null = null
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -11,128 +12,216 @@ function getCtx(): AudioContext | null {
   return ctx
 }
 
-function volume(): number {
-  const s = useSettings.getState()
-  return s.soundsEnabled ? s.soundVolume : 0
+function getOutput(audio: AudioContext): GainNode {
+  if (output) return output
+
+  const compressor = audio.createDynamicsCompressor()
+  compressor.threshold.value = -28
+  compressor.knee.value = 18
+  compressor.ratio.value = 5
+  compressor.attack.value = 0.003
+  compressor.release.value = 0.08
+
+  output = audio.createGain()
+  output.gain.value = 0.72
+  output.connect(compressor)
+  compressor.connect(audio.destination)
+  return output
 }
 
-function tone(freq: number, duration: number, { type = 'sine' as OscillatorType, gain = 0.05, delay = 0 } = {}) {
+function enabled(): boolean {
+  return useSettings.getState().soundsEnabled
+}
+
+function volume(): number {
+  const settings = useSettings.getState()
+  if (!settings.soundsEnabled || settings.soundProfile === 'silent') return 0
+  const profileGain = settings.soundProfile === 'full' ? 1 : 0.68
+  return settings.soundVolume * profileGain
+}
+
+function haptic(ms: number | number[]) {
+  const settings = useSettings.getState()
+  if (!enabled() || settings.soundProfile === 'silent') return
+  if (Array.isArray(ms)) {
+    const pattern = settings.soundProfile === 'full'
+      ? ms
+      : ms.map((value, index) => index % 2 === 0 ? Math.max(4, Math.round(value * 0.55)) : value)
+    navigator.vibrate?.(pattern)
+    return
+  }
+  navigator.vibrate?.(settings.soundProfile === 'full' ? ms : Math.max(4, Math.round(ms * 0.55)))
+}
+
+export function playTapHaptic() {
+  haptic(6)
+}
+
+export function playSoftHaptic() {
+  haptic(10)
+}
+
+export function playSuccessHaptic() {
+  haptic(14)
+}
+
+export function playWarningHaptic() {
+  haptic([14, 36, 18])
+}
+
+export function playDeleteHaptic() {
+  haptic([12, 40, 24])
+}
+
+function tone(
+  freq: number,
+  duration: number,
+  {
+    type = 'sine' as OscillatorType,
+    gain = 0.04,
+    delay = 0,
+    endFreq = freq,
+  } = {},
+) {
   const audio = getCtx()
   if (!audio) return
   const vol = volume()
   if (vol <= 0) return
-  const osc  = audio.createOscillator()
-  const amp  = audio.createGain()
+
+  const osc = audio.createOscillator()
+  const amp = audio.createGain()
   const start = audio.currentTime + delay
+
   osc.type = type
-  osc.frequency.value = freq
+  osc.frequency.setValueAtTime(freq, start)
+  if (endFreq !== freq) osc.frequency.exponentialRampToValueAtTime(endFreq, start + duration)
+
   amp.gain.setValueAtTime(0, start)
-  amp.gain.linearRampToValueAtTime(gain * vol, start + 0.008)
+  amp.gain.linearRampToValueAtTime(gain * vol, start + 0.006)
   amp.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+
   osc.connect(amp)
-  amp.connect(audio.destination)
+  amp.connect(getOutput(audio))
   osc.start(start)
   osc.stop(start + duration + 0.03)
 }
 
-/** Tap limpio estilo teclado moderno: sine con pitch descent rápido + overtone suave. */
-function tapClick(freq: number, gain = 0.35, vibrateMs = 8) {
+function softNoise(duration: number, gain = 0.012, delay = 0) {
   const audio = getCtx()
   if (!audio) return
   const vol = volume()
   if (vol <= 0) return
-  if (vibrateMs > 0) navigator.vibrate?.(vibrateMs)
-  const start = audio.currentTime
 
-  // Tono principal con descenso de pitch (da sensación de "pulsación física")
+  const frames = Math.max(1, Math.floor(audio.sampleRate * duration))
+  const buffer = audio.createBuffer(1, frames, audio.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < frames; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / frames)
+
+  const source = audio.createBufferSource()
+  const filter = audio.createBiquadFilter()
+  const amp = audio.createGain()
+  const start = audio.currentTime + delay
+
+  source.buffer = buffer
+  filter.type = 'highpass'
+  filter.frequency.value = 1200
+  amp.gain.setValueAtTime(0, start)
+  amp.gain.linearRampToValueAtTime(gain * vol, start + 0.004)
+  amp.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+
+  source.connect(filter)
+  filter.connect(amp)
+  amp.connect(getOutput(audio))
+  source.start(start)
+  source.stop(start + duration + 0.02)
+}
+
+function tapClick(freq: number, gain = 0.04, vibrateMs = 6) {
+  haptic(vibrateMs)
+
+  const audio = getCtx()
+  if (!audio) return
+  const vol = volume()
+  if (vol <= 0) return
+
+  const start = audio.currentTime
   const osc = audio.createOscillator()
   const amp = audio.createGain()
-  osc.type = 'sine'
+
+  osc.type = 'triangle'
   osc.frequency.setValueAtTime(freq, start)
-  osc.frequency.exponentialRampToValueAtTime(freq * 0.55, start + 0.07)
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.72, start + 0.055)
   amp.gain.setValueAtTime(0, start)
-  amp.gain.linearRampToValueAtTime(gain * vol, start + 0.005)
-  amp.gain.exponentialRampToValueAtTime(0.0001, start + 0.09)
+  amp.gain.linearRampToValueAtTime(gain * vol, start + 0.004)
+  amp.gain.exponentialRampToValueAtTime(0.0001, start + 0.065)
+
   osc.connect(amp)
-  amp.connect(audio.destination)
+  amp.connect(getOutput(audio))
   osc.start(start)
-  osc.stop(start + 0.11)
-
-  // Overtone para dar cuerpo
-  const osc2 = audio.createOscillator()
-  const amp2 = audio.createGain()
-  osc2.type = 'triangle'
-  osc2.frequency.setValueAtTime(freq * 2, start)
-  amp2.gain.setValueAtTime(0, start)
-  amp2.gain.linearRampToValueAtTime(gain * 0.18 * vol, start + 0.004)
-  amp2.gain.exponentialRampToValueAtTime(0.0001, start + 0.05)
-  osc2.connect(amp2)
-  amp2.connect(audio.destination)
-  osc2.start(start)
-  osc2.stop(start + 0.07)
+  osc.stop(start + 0.085)
+  softNoise(0.028, gain * 0.25)
 }
 
-function enabled() {
-  return useSettings.getState().soundsEnabled
-}
-
-/** Tecla numérica del teclado de montos */
 export function playKeySound() {
   if (!enabled()) return
-  tapClick(820, 0.35, 8)
+  tapClick(760, 0.04, 5)
 }
 
-/** Operadores (+, −, ×, ÷, .) — tap ligeramente más grave */
 export function playOperatorSound() {
   if (!enabled()) return
-  tapClick(660, 0.35, 10)
+  tapClick(610, 0.045, 7)
 }
 
-/** Borrar dígito — tap más agudo + vibración leve */
 export function playBackspaceSound() {
   if (!enabled()) return
-  tapClick(580, 0.3, 10)
+  tapClick(480, 0.04, 9)
 }
 
-/** Guardar / Listo — ding ascendente corto */
 export function playDoneSound() {
   if (!enabled()) return
-  tone(880, 0.1,  { gain: 0.32 })
-  tone(1320, 0.15, { gain: 0.28, delay: 0.07 })
+  haptic(14)
+  tone(660, 0.08, { type: 'triangle', gain: 0.045, endFreq: 720 })
+  tone(990, 0.12, { type: 'sine', gain: 0.04, delay: 0.055, endFreq: 1120 })
 }
 
-/** Abrir el flujo de "agregar" (botón + flotante) */
 export function playOpenSound() {
   if (!enabled()) return
-  tone(620, 0.07, { gain: 0.05 })
-  tone(880, 0.08, { gain: 0.045, delay: 0.05 })
+  haptic(10)
+  tone(520, 0.06, { type: 'triangle', gain: 0.035, endFreq: 660 })
+  tone(820, 0.08, { type: 'sine', gain: 0.028, delay: 0.045, endFreq: 920 })
 }
 
-/** Abrir la sección de cuentas */
 export function playAccountsSound() {
   if (!enabled()) return
-  tone(740, 0.06, { type: 'triangle', gain: 0.045 })
-  tone(1040, 0.09, { type: 'triangle', gain: 0.04, delay: 0.045 })
+  haptic(8)
+  tone(560, 0.055, { type: 'triangle', gain: 0.034, endFreq: 640 })
+  tone(760, 0.08, { type: 'triangle', gain: 0.028, delay: 0.04, endFreq: 820 })
 }
 
-/** Confirmar / guardar (movimiento, categoría, meta, deuda…) */
 export function playConfirmSound() {
   if (!enabled()) return
-  tone(660, 0.09, { gain: 0.06 })
-  tone(990, 0.14, { gain: 0.06, delay: 0.075 })
+  haptic(12)
+  tone(600, 0.08, { type: 'triangle', gain: 0.042, endFreq: 700 })
+  tone(880, 0.13, { type: 'sine', gain: 0.04, delay: 0.06, endFreq: 1040 })
 }
 
-/** Eliminar */
 export function playDeleteSound() {
   if (!enabled()) return
-  tone(420, 0.06, { gain: 0.05 })
-  tone(260, 0.1, { gain: 0.045, delay: 0.05 })
+  haptic(18)
+  tone(360, 0.055, { type: 'triangle', gain: 0.04, endFreq: 300 })
+  tone(240, 0.08, { type: 'sine', gain: 0.032, delay: 0.045, endFreq: 210 })
 }
 
-/** Logro: meta cumplida, deuda liquidada… */
 export function playAchievementSound() {
   if (!enabled()) return
-  tone(523.25, 0.1,  { gain: 0.06 })
-  tone(659.25, 0.1,  { gain: 0.06, delay: 0.09 })
-  tone(783.99, 0.18, { gain: 0.07, delay: 0.18 })
+  haptic(22)
+  tone(523.25, 0.09, { type: 'triangle', gain: 0.042 })
+  tone(659.25, 0.09, { type: 'triangle', gain: 0.044, delay: 0.075 })
+  tone(880, 0.16, { type: 'sine', gain: 0.045, delay: 0.15, endFreq: 990 })
+}
+
+export function playSoundPreview() {
+  playOpenSound()
+  setTimeout(playKeySound, 90)
+  setTimeout(playConfirmSound, 180)
 }

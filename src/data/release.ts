@@ -1,4 +1,6 @@
-export const APP_VERSION = '1.6.1'
+/** Versión actual de la app, leída de package.json en build time — siempre
+ *  coincide con la versión que se sube a la tienda, sin pasos manuales. */
+export const APP_VERSION = __APP_VERSION__
 
 export interface ReleaseNote {
   version: string

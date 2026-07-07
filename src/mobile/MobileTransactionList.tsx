@@ -1,17 +1,18 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
-import { CatBadge } from '@/views/shared'
-import { dateLocale, fmt, fmtCompact, getAccount, getCategory } from '@/data/helpers'
 import { useDialogs } from '@/components/ui/DialogProvider'
+import { dateLocale, fmt, fmtCompact } from '@/data/helpers'
+import { translateCategoryName, useT } from '@/i18n'
+import { playDeleteHaptic } from '@/lib/sound'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useFmt } from '@/hooks/useFmt'
-import { translateCategoryName, useT } from '@/i18n'
 import type { Transaction } from '@/types'
-import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { CatBadge } from '@/views/shared'
 import { useDialogA11y } from './useDialogA11y'
+import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 type TxFilter = 'all' | 'expense' | 'income' | 'transfer'
 
@@ -46,7 +47,6 @@ function signedAmount(tx: Transaction, currency: Parameters<typeof fmt>[1], comp
   return f(tx.amount)
 }
 
-// Encuentra el ancestro con scroll propio (o el del documento si no hay ninguno)
 function findScrollParent(el: HTMLElement): HTMLElement {
   let node = el.parentElement
   while (node) {
@@ -57,26 +57,33 @@ function findScrollParent(el: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement
 }
 
+function mapGet<T>(map: Map<string, T>, id?: string | null): T | undefined {
+  return id ? map.get(id) : undefined
+}
+
 export function MobileTransactionList({
   transactions,
   onEdit,
   onDelete,
   compact = false,
+  showSearch = true,
+  className = '',
 }: {
   transactions: Transaction[]
   onEdit: (transaction: Transaction) => void
   onDelete?: (id: string) => void
   compact?: boolean
+  showSearch?: boolean
+  className?: string
 }) {
   const { accounts, categories, currency } = useFinance()
   const { confirm } = useDialogs()
-  const fmtVal = useFmt()
   const t = useT()
   const settings = useSettings()
   const { compactNumbers } = settings
   const lang = (settings.language ?? 'es') as 'en' | 'es'
   const locale = dateLocale(settings.language)
-  const FILTERS = getFilters(t)
+  const filters = getFilters(t)
   const [filter, setFilter] = useState<TxFilter>('all')
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -90,34 +97,43 @@ export function MobileTransactionList({
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
   const startX = useRef(0)
+  const overlayStartY = useRef(0)
+  const detailStartY = useRef(0)
+  const accountMap = useMemo(() => new Map(accounts.map(account => [account.id, account])), [accounts])
+  const categoryMap = useMemo(() => new Map(categories.map(category => [category.id, category])), [categories])
+  const closeSwipe = () => { setOpenActionId(null) }
+
   useMobileBackDismiss(searchOpen, () => setSearchOpen(false))
   useMobileBackDismiss(!!selected, () => setSelected(null))
+  useMobileBackDismiss(openActionId !== null, closeSwipe)
   const searchRef = useDialogA11y<HTMLDivElement>(() => setSearchOpen(false), searchOpen)
   const selectedRef = useDialogA11y<HTMLDivElement>(() => setSelected(null), !!selected)
-
-  const closeSwipe = () => { setOpenActionId(null) }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return transactions
       .filter(tx => filter === 'all' || tx.type === filter)
-      .filter(tx => fAccount === 'all'
-        || tx.accountId === fAccount || tx.fromAccount === fAccount || tx.toAccount === fAccount)
+      .filter(tx => fAccount === 'all' || tx.accountId === fAccount || tx.fromAccount === fAccount || tx.toAccount === fAccount)
       .filter(tx => fCategory === 'all' || tx.categoryId === fCategory)
       .filter(tx => !fFrom || tx.date >= fFrom)
       .filter(tx => !fTo || tx.date <= fTo)
       .filter(tx => {
         if (!q) return true
-        const category = getCategory(tx.categoryId, categories)?.name ?? ''
-        const account = getAccount(tx.accountId, accounts)?.name ?? ''
+        const category = mapGet(categoryMap, tx.categoryId)?.name ?? ''
+        const account = mapGet(accountMap, tx.accountId)?.name ?? ''
         return `${tx.note} ${category} ${account}`.toLowerCase().includes(q)
       })
-  }, [accounts, categories, filter, query, fAccount, fCategory, fFrom, fTo, transactions])
+  }, [accountMap, categoryMap, filter, query, fAccount, fCategory, fFrom, fTo, transactions])
 
   const activeFilters = (fAccount !== 'all' ? 1 : 0) + (fCategory !== 'all' ? 1 : 0) + (fFrom ? 1 : 0) + (fTo ? 1 : 0)
-  const clearFilters = () => { setFAccount('all'); setFCategory('all'); setFFrom(''); setFTo(''); setQuery('') }
+  const clearFilters = () => {
+    setFAccount('all')
+    setFCategory('all')
+    setFFrom('')
+    setFTo('')
+    setQuery('')
+  }
 
-  // Aplanar las filas agrupadas por día en una lista plana para virtualización
   const items = useMemo<ListItem[]>(() => {
     const groups = new Map<string, Transaction[]>()
     for (const tx of rows) {
@@ -125,8 +141,10 @@ export function MobileTransactionList({
       if (existing) existing.push(tx)
       else groups.set(tx.date, [tx])
     }
+
     const dates = [...groups.keys()].sort((a, b) => b.localeCompare(a))
     const out: ListItem[] = []
+
     for (const date of dates) {
       const dayRows = groups.get(date)!
       const dayExpense = dayRows.reduce((sum, tx) => sum + (tx.type === 'expense' ? tx.amount : 0), 0)
@@ -134,10 +152,10 @@ export function MobileTransactionList({
       out.push({ kind: 'header', date, dayExpense, dayIncome })
       for (const tx of dayRows) out.push({ kind: 'tx', tx })
     }
+
     return out
   }, [rows])
 
-  // Localizar el contenedor con scroll y calcular el desplazamiento de esta lista dentro de él
   useLayoutEffect(() => {
     const root = containerRef.current
     if (!root) return
@@ -153,41 +171,59 @@ export function MobileTransactionList({
       const next = rootRect.top - scrollRect.top + scrollEl.scrollTop
       setScrollMargin(prev => Math.abs(next - prev) > 1 ? next : prev)
     }
+
     recompute()
 
     const observer = new ResizeObserver(() => requestAnimationFrame(recompute))
     observer.observe(contentEl)
     window.addEventListener('resize', recompute)
-    return () => { observer.disconnect(); window.removeEventListener('resize', recompute) }
+    scrollEl.addEventListener('scroll', closeSwipe, { passive: true })
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', recompute)
+      scrollEl.removeEventListener('scroll', closeSwipe)
+    }
   }, [])
+
+  useEffect(() => {
+    closeSwipe()
+  }, [filter, query, fAccount, fCategory, fFrom, fTo, transactions])
 
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollElement,
+    getItemKey: index => {
+      const item = items[index]
+      return item?.kind === 'tx' ? `tx:${item.tx.id}` : `header:${item?.date ?? index}`
+    },
     estimateSize: index => items[index]?.kind === 'header' ? HEADER_ESTIMATE : ROW_ESTIMATE,
     overscan: 6,
     scrollMargin,
   })
 
-  const showSearch = !compact
+  const showSearchChip = showSearch && !compact
 
   const renderTxRow = (tx: Transaction) => {
-    const category = getCategory(tx.categoryId, categories)
-    const account = getAccount(tx.accountId, accounts)
+    const category = mapGet(categoryMap, tx.categoryId)
+    const account = mapGet(accountMap, tx.accountId)
     const income = tx.type === 'income'
     const opened = openActionId === tx.id
+    const subtitle = tx.type === 'transfer'
+      ? `${mapGet(accountMap, tx.fromAccount)?.name ?? t('origin')} -> ${mapGet(accountMap, tx.toAccount)?.name ?? t('destination')}`
+      : `${category ? translateCategoryName(category, lang) : t('noCategoryLabel')} • ${account?.name ?? t('noAccountLabel')}`
+
     return (
       <div
         className={`mobile-tx-swipe${opened ? ' open' : ''}`}
         onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? 0 }}
         onTouchEnd={event => {
           const delta = (event.changedTouches[0]?.clientX ?? 0) - startX.current
-          if (delta < -42) { setOpenActionId(tx.id) }
+          if (delta < -42) setOpenActionId(tx.id)
           if (delta > 42) closeSwipe()
         }}
         onClick={opened ? (event => { event.stopPropagation(); closeSwipe() }) : undefined}
       >
-        <button className="mobile-tx-row" onClick={() => setSelected(tx)}>
+        <button className="mobile-tx-row" onClick={() => { closeSwipe(); setSelected(tx) }}>
           {tx.type === 'transfer'
             ? <span className="mobile-transfer-icon"><Icon name="repeat" size={24} /></span>
             : <CatBadge category={category} size={40} />}
@@ -196,26 +232,38 @@ export function MobileTransactionList({
               {tx.type === 'transfer' ? t('transfer') : tx.note}
               {tx.recurring && <i className="mobile-recur-dot" title={t('recurring')}><Icon name="repeat" size={11} /></i>}
             </b>
-            <small>{tx.type === 'transfer'
-              ? `${getAccount(tx.fromAccount, accounts)?.name ?? t('origin')} → ${getAccount(tx.toAccount, accounts)?.name ?? t('destination')}`
-              : `${category ? translateCategoryName(category, lang) : t('noCategoryLabel')} · ${account?.name ?? t('noAccountLabel')}`}</small>
+            <small>{subtitle}</small>
           </span>
           <strong className={income ? 'income' : tx.type === 'transfer' ? 'transfer' : ''}>
             {signedAmount(tx, currency, compactNumbers)}
           </strong>
         </button>
+
         {!compact && (
           <div className="mobile-row-actions" aria-label={t('movementActionsLabel')} onClick={event => event.stopPropagation()}>
-            <button onClick={() => { onEdit(tx); closeSwipe() }}><Icon name="edit" size={17} />{t('edit')}</button>
+            <button onClick={() => { onEdit(tx); closeSwipe() }}>
+              <Icon name="edit" size={17} />
+              {t('edit')}
+            </button>
             {onDelete && (
               <button
                 className="danger"
                 onClick={() => {
                   const label = tx.note || (tx.type === 'transfer' ? t('transfer') : t('movementLabel'))
-                  void confirm({ title: t('deleteQuotedConfirm').replace('{name}', label), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' }).then(ok => {
-                    if (ok) { navigator.vibrate?.([12, 40, 24]); onDelete(tx.id); closeSwipe() }
+                  closeSwipe()
+                  void confirm({
+                    title: t('deleteQuotedConfirm').replace('{name}', label),
+                    description: t('actionCannotBeUndone'),
+                    confirmLabel: t('delete'),
+                    icon: 'trash',
+                  }).then(ok => {
+                    if (ok) {
+                      playDeleteHaptic()
+                      onDelete(tx.id)
+                    }
                   })
-                }}>
+                }}
+              >
                 <Icon name="trash" size={17} />
                 {t('delete')}
               </button>
@@ -230,8 +278,8 @@ export function MobileTransactionList({
     <div className="mobile-day-header">
       <span>{dateLabel(date, locale)}</span>
       <span className="mobile-day-totals">
-        {dayExpense > 0 && <span className="day-exp">−{fmtVal(dayExpense, currency)}</span>}
-        {dayIncome > 0 && <span className="day-inc">+{fmtVal(dayIncome, currency)}</span>}
+        {dayExpense > 0 && <span className="day-exp">-{compactNumbers ? fmtCompact(dayExpense, currency) : fmt(dayExpense, currency)}</span>}
+        {dayIncome > 0 && <span className="day-inc">+{compactNumbers ? fmtCompact(dayIncome, currency) : fmt(dayIncome, currency)}</span>}
       </span>
     </div>
   )
@@ -239,23 +287,24 @@ export function MobileTransactionList({
   return (
     <section
       ref={containerRef}
-      className={`mobile-list-card${compact ? ' compact' : ''}`}
+      className={`mobile-list-card${compact ? ' compact' : ''}${className ? ` ${className}` : ''}`}
       onClick={openActionId ? closeSwipe : undefined}
     >
       {!compact && (
         <div className="mobile-movement-tools">
           <div className="mobile-filter-chips" role="tablist" aria-label={t('filterMovements')}>
-            {FILTERS.map(item => (
+            {filters.map(item => (
               <button
                 key={item.id}
                 className={filter === item.id ? 'on' : ''}
                 aria-selected={filter === item.id}
                 role="tab"
-                onClick={() => setFilter(item.id)}>
+                onClick={() => setFilter(item.id)}
+              >
                 {item.label}
               </button>
             ))}
-            {showSearch && (
+            {showSearchChip && (
               <button className={`mobile-search-chip${activeFilters > 0 ? ' has-filters' : ''}`} onClick={() => setSearchOpen(true)}>
                 <Icon name="search" size={16} />
                 {t('search')}
@@ -299,12 +348,24 @@ export function MobileTransactionList({
       )}
 
       {searchOpen && (
-        <div ref={searchRef} className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label={t('searchMovementsLabel')}>
+        <div
+          ref={searchRef}
+          className="mobile-search-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('searchMovementsLabel')}
+          onTouchStart={event => { overlayStartY.current = event.touches[0]?.clientY ?? 0 }}
+          onTouchEnd={event => {
+            const delta = (event.changedTouches[0]?.clientY ?? 0) - overlayStartY.current
+            if (delta > 88) setSearchOpen(false)
+          }}
+        >
           <div className="mobile-search-head">
             <button onClick={() => setSearchOpen(false)}>{t('cancel')}</button>
             <strong>{t('searchAndFilter')}</strong>
             <button className="mobile-search-clear" disabled={activeFilters === 0 && !query} onClick={clearFilters}>{t('clearFiltersLabel')}</button>
           </div>
+
           <label className="mobile-search-input">
             <Icon name="search" size={18} />
             <input value={query} placeholder={t('noteCategoryAccountPlaceholder')} onChange={event => setQuery(event.target.value)} />
@@ -318,6 +379,7 @@ export function MobileTransactionList({
                 {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
             </div>
+
             <div className="mobile-filter-field">
               <label>{t('category')}</label>
               <select value={fCategory} onChange={event => setFCategory(event.target.value)}>
@@ -325,6 +387,7 @@ export function MobileTransactionList({
                 {categories.map(category => <option key={category.id} value={category.id}>{translateCategoryName(category, lang)}</option>)}
               </select>
             </div>
+
             <div className="mobile-filter-dates">
               <div className="mobile-filter-field">
                 <label>{t('fromDateLabel')}</label>
@@ -342,32 +405,56 @@ export function MobileTransactionList({
         </div>
       )}
 
-      {selected && (
-        <div ref={selectedRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setSelected(null)}>
+      {selected && createPortal(
+        <div
+          ref={selectedRef}
+          className="mobile-detail-sheet mobile-transaction-sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelected(null)}
+          onTouchStart={event => { detailStartY.current = event.touches[0]?.clientY ?? 0 }}
+          onTouchEnd={event => {
+            const delta = (event.changedTouches[0]?.clientY ?? 0) - detailStartY.current
+            if (delta > 88) setSelected(null)
+          }}
+        >
           <section onClick={event => event.stopPropagation()}>
             <header>
-              <span className="sheet-icon">{selected.type === 'transfer' ? <Icon name="repeat" size={28} /> : <CatBadge category={getCategory(selected.categoryId, categories)} size={56} />}</span>
+              <span className="sheet-icon">
+                {selected.type === 'transfer'
+                  ? <Icon name="repeat" size={28} />
+                  : <CatBadge category={mapGet(categoryMap, selected.categoryId)} size={56} />}
+              </span>
               <button aria-label={t('close')} onClick={() => setSelected(null)}><Icon name="close" size={18} /></button>
             </header>
+
             <h2>{selected.type === 'transfer' ? t('transfer') : selected.note}</h2>
             <strong className={selected.type === 'income' ? 'income' : ''}>{signedAmount(selected, currency, compactNumbers)}</strong>
+
             <dl>
               <div><dt>{t('date')}</dt><dd>{dateLabel(selected.date, locale)}</dd></div>
               <div><dt>{t('category')}</dt><dd>{(() => {
-                const cat = getCategory(selected.categoryId, categories)
+                const cat = mapGet(categoryMap, selected.categoryId)
                 return cat ? translateCategoryName(cat, lang) : t('notApplicableShort')
               })()}</dd></div>
               <div><dt>{t('account')}</dt><dd>{selected.type === 'transfer'
-                ? `${getAccount(selected.fromAccount, accounts)?.name ?? t('origin')} -> ${getAccount(selected.toAccount, accounts)?.name ?? t('destination')}`
-                : getAccount(selected.accountId, accounts)?.name ?? t('noAccountLabel')}</dd></div>
+                ? `${mapGet(accountMap, selected.fromAccount)?.name ?? t('origin')} -> ${mapGet(accountMap, selected.toAccount)?.name ?? t('destination')}`
+                : mapGet(accountMap, selected.accountId)?.name ?? t('noAccountLabel')}</dd></div>
               <div><dt>{t('exactAmountLabel')}</dt><dd>{fmt(selected.amount, currency)}</dd></div>
             </dl>
+
             <div className="mobile-detail-actions">
               <button onClick={() => { onEdit(selected); setSelected(null) }}><Icon name="edit" size={18} />{t('edit')}</button>
-              {onDelete && <button className="danger" onClick={() => { navigator.vibrate?.([12, 40, 24]); onDelete(selected.id); setSelected(null) }}><Icon name="trash" size={18} />{t('delete')}</button>}
+              {onDelete && <button className="danger" onClick={() => {
+                const id = selected.id
+                setSelected(null)
+                playDeleteHaptic()
+                requestAnimationFrame(() => onDelete(id))
+              }}><Icon name="trash" size={18} />{t('delete')}</button>}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   )

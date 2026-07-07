@@ -1,5 +1,6 @@
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
-import { currentMonthKey, fmtCompact, txForMonth } from './helpers'
+import { currentMonthKey, fmtCompact, localToday, txForMonth } from './helpers'
+import { tt } from '@/i18n'
 import type { Category, CurrencyCode, IconName, Transaction } from '@/types'
 
 export interface MobileAlert {
@@ -16,7 +17,7 @@ export function getMobileAlerts(
   transactions: Transaction[],
   categories: Category[],
   currency: CurrencyCode,
-  todayStr = new Date().toISOString().slice(0, 10),
+  todayStr = localToday(),
   locale = 'es-DO',
 ): MobileAlert[] {
   const mkey = currentMonthKey()
@@ -28,42 +29,42 @@ export function getMobileAlerts(
       .filter(tx => tx.type === 'expense' && tx.categoryId === cat.id)
       .reduce((sum, tx) => sum + tx.amount, 0)
     const pct = Math.round(spent / cat.budget * 100)
-    if (pct >= 100) {
+    if (pct > 100) {
       alerts.push({
         id:    `budget:${cat.id}:${mkey}:100`,
         level: 'danger',
         icon:  'alert',
-        title: `Superaste el presupuesto de ${cat.name}`,
-        text:  `Llevas ${fmtCompact(spent, currency)} de ${fmtCompact(cat.budget, currency)} (${pct}%)`,
+        title: tt('budgetExceededAlertTitle', { name: cat.name }),
+        text:  tt('budgetAlertProgress', { spent: fmtCompact(spent, currency), budget: fmtCompact(cat.budget, currency), pct }),
       })
     } else if (pct >= 80) {
       alerts.push({
         id:    `budget:${cat.id}:${mkey}:80`,
         level: 'warn',
         icon:  'alert',
-        title: `Vas en ${pct}% del presupuesto de ${cat.name}`,
-        text:  `Llevas ${fmtCompact(spent, currency)} de ${fmtCompact(cat.budget, currency)}`,
+        title: tt('budgetWarnAlertTitle', { pct, name: cat.name }),
+        text:  tt('budgetAlertProgressShort', { spent: fmtCompact(spent, currency), budget: fmtCompact(cat.budget, currency) }),
       })
     }
   })
 
   const limit = new Date(`${todayStr}T00:00:00`)
   limit.setDate(limit.getDate() + DUE_SOON_DAYS)
-  const limitStr = limit.toISOString().slice(0, 10)
+  const limitStr = localToday(limit)
 
   transactions.filter(tx => tx.recurring).forEach(template => {
     const next = firstRecurrenceDate(template)
     if (next < todayStr || next > limitStr) return
     if (template.recurringEnd && next > template.recurringEnd) return
     const when = next === todayStr
-      ? 'hoy'
+      ? tt('dueTodayWord')
       : new Date(`${next}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
     alerts.push({
       id:    `recurring:${template.id}:${next}`,
       level: 'warn',
       icon:  'calendar',
-      title: `Pago recurrente próximo: ${template.note || 'Sin nota'}`,
-      text:  `Vence ${when} · ${fmtCompact(template.amount, currency)}`,
+      title: tt('recurringDueTitle', { note: template.note || tt('noNoteWord') }),
+      text:  tt('recurringDueText', { when, amount: fmtCompact(template.amount, currency) }),
     })
   })
 

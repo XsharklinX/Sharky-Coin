@@ -6,15 +6,22 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
+    enableEdgeToEdge(
+      statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+      navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+    )
     super.onCreate(savedInstanceState)
-    window.statusBarColor = Color.parseColor("#1B1B1B")
-    window.navigationBarColor = Color.parseColor("#151515")
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      window.isNavigationBarContrastEnforced = false
+    }
     handleShareIntent(intent)
   }
 

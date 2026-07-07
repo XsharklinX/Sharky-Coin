@@ -23,12 +23,18 @@ interface SettingsState {
   appPin: string | null
   appPattern: string | null
   soundsEnabled: boolean
+  soundProfile: 'silent' | 'soft' | 'full'
   soundVolume: number
   compactNumbers: boolean
   dismissedAlerts: string[]
   notifiedAlerts: string[]
   hasSeenOnboarding: boolean
   remindersEnabled: boolean
+  widgetAccountIds: string[]
+  lastWeeklyBackupAt: string | null
+  weeklyAutoBackupEnabled: boolean
+  weeklyAutoBackupDay: number
+  weeklyAutoBackupHour: number
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -48,12 +54,18 @@ interface SettingsState {
   setAppPin: (v: string | null) => void
   setAppPattern: (v: string | null) => void
   setSoundsEnabled: (v: boolean) => void
+  setSoundProfile: (v: SettingsState['soundProfile']) => void
   setSoundVolume: (v: number) => void
   setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
   markAlertNotified: (id: string) => void
   markOnboardingSeen: () => void
   setRemindersEnabled: (v: boolean) => void
+  setWidgetAccountIds: (ids: string[]) => void
+  setLastWeeklyBackupAt: (v: string | null) => void
+  setWeeklyAutoBackupEnabled: (v: boolean) => void
+  setWeeklyAutoBackupDay: (v: number) => void
+  setWeeklyAutoBackupHour: (v: number) => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -77,12 +89,18 @@ export const useSettings = create<SettingsState>()(
       appPin: null,
       appPattern: null,
       soundsEnabled: true,
-      soundVolume: 1,
+      soundProfile: 'soft',
+      soundVolume: 0.55,
       compactNumbers: false,
       dismissedAlerts: [],
       notifiedAlerts: [],
       hasSeenOnboarding: false,
       remindersEnabled: true,
+      widgetAccountIds: [],
+      lastWeeklyBackupAt: null,
+      weeklyAutoBackupEnabled: true,
+      weeklyAutoBackupDay: 1,
+      weeklyAutoBackupHour: 3,
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -118,6 +136,11 @@ export const useSettings = create<SettingsState>()(
         }
       }),
       setSoundsEnabled: (soundsEnabled) => set({ soundsEnabled }),
+      setSoundProfile: (soundProfile) => set({
+        soundProfile,
+        soundsEnabled: soundProfile !== 'silent',
+        soundVolume: soundProfile === 'silent' ? 0 : soundProfile === 'soft' ? 0.45 : 0.8,
+      }),
       setSoundVolume: (soundVolume) => set({ soundVolume: Math.min(1, Math.max(0, soundVolume)) }),
       setCompactNumbers: (compactNumbers) => set({ compactNumbers }),
       dismissAlert: (id) => set(state =>
@@ -126,6 +149,11 @@ export const useSettings = create<SettingsState>()(
         state.notifiedAlerts.includes(id) ? state : { notifiedAlerts: [...state.notifiedAlerts, id] }),
       markOnboardingSeen: () => set({ hasSeenOnboarding: true }),
       setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
+      setWidgetAccountIds: (widgetAccountIds) => set({ widgetAccountIds }),
+      setLastWeeklyBackupAt: (lastWeeklyBackupAt) => set({ lastWeeklyBackupAt }),
+      setWeeklyAutoBackupEnabled: (weeklyAutoBackupEnabled) => set({ weeklyAutoBackupEnabled }),
+      setWeeklyAutoBackupDay: (weeklyAutoBackupDay) => set({ weeklyAutoBackupDay: Math.max(0, Math.min(6, weeklyAutoBackupDay)) }),
+      setWeeklyAutoBackupHour: (weeklyAutoBackupHour) => set({ weeklyAutoBackupHour: Math.max(0, Math.min(23, weeklyAutoBackupHour)) }),
     }),
     {
       name:    'sharky-settings-v2',

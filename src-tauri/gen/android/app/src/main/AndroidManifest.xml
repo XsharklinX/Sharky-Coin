@@ -4,6 +4,34 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
 
+    <!-- Cámara: necesaria para que el WebView honre <input capture> y abra la
+         cámara al escanear un recibo. Sin este permiso, Android cae al selector
+         de archivos. El FileProvider de abajo entrega la URI a la app de cámara.
+         NOTA: este directorio se regenera con `tauri android init` — si eso
+         ocurre, hay que volver a agregar estos permisos. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Lectura de fotos para elegir un recibo desde la galería. READ_MEDIA_IMAGES
+         en Android 13+ (API 33); READ_EXTERNAL_STORAGE en versiones anteriores. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- La cámara no es obligatoria: dispositivos sin cámara pueden instalar la app. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- Visibilidad de paquetes (Android 11+/API 30+): sin esto, el WebView hace
+         resolveActivity(ACTION_IMAGE_CAPTURE) == null y cae al selector de
+         archivos en vez de abrir la cámara al escanear un recibo.
+         NOTA: este directorio se regenera con `tauri android init` — si eso
+         ocurre, hay que volver a agregar este bloque <queries>. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
@@ -84,7 +112,7 @@
             android:name="com.sharky.finanzas.banknotifications.BankNotificationListenerService"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
@@ -96,13 +124,24 @@
              ocurre, hay que volver a agregar este <receiver>. -->
         <receiver
             android:name="com.sharky.finanzas.homewidget.SharkyBalanceWidgetProvider"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/sharky_balance_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.sharky.finanzas.homewidget.SharkyBudgetWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sharky_budgets_widget_info" />
         </receiver>
     </application>
 </manifest>

@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt, fmtCompact } from '@/data/helpers'
+import { fmtCompact, localToday } from '@/data/helpers'
+import { CURRENCIES } from '@/data/seed'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { translateCategoryName, useT } from '@/i18n'
@@ -12,14 +13,14 @@ import { useDialogA11y } from './useDialogA11y'
 
 type QuickAddMode = 'expense' | 'income'
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = localToday
 const keypad = [
-  '7', '8', '9', '÷',
-  '4', '5', '6', '×',
-  '1', '2', '3', '−',
+  '7', '8', '9', '/',
+  '4', '5', '6', '*',
+  '1', '2', '3', '-',
   '0', '.', '+',
 ] as const
-const OPERATORS = ['+', '−', '×', '÷'] as const
+const OPERATORS = ['+', '-', '*', '/'] as const
 type Operator = (typeof OPERATORS)[number]
 
 const ACCT_ICONS: Record<string, IconName> = {
@@ -43,21 +44,20 @@ function lastSegment(expr: string): string {
   return cut === -1 ? expr : expr.slice(cut + 1)
 }
 
-// Evaluates a left-to-right expression with standard ×/÷ precedence over +/−.
 function evaluateExpression(expr: string): number {
-  const raw = expr.match(/[+−×÷]|[\d.]+/g)
+  const raw = expr.match(/[+\-*/]|[\d.]+/g)
   if (!raw?.length) return 0
   const tokens = (OPERATORS as readonly string[]).includes(raw[raw.length - 1]) ? raw.slice(0, -1) : raw
   if (!tokens.length) return 0
 
   const terms: number[] = []
-  const signs: ('+' | '−')[] = []
+  const signs: ('+' | '-')[] = []
   let acc = Number(tokens[0]) || 0
   for (let i = 1; i < tokens.length; i += 2) {
     const op = tokens[i] as Operator
     const val = Number(tokens[i + 1]) || 0
-    if (op === '×') acc *= val
-    else if (op === '÷') acc = val !== 0 ? acc / val : acc
+    if (op === '*') acc *= val
+    else if (op === '/') acc = val !== 0 ? acc / val : acc
     else {
       terms.push(acc)
       signs.push(op)
@@ -66,14 +66,9 @@ function evaluateExpression(expr: string): number {
   }
   terms.push(acc)
 
-  return terms.reduce((sum, term, idx) => idx === 0 ? term : sum + (signs[idx - 1] === '−' ? -term : term), 0)
+  return terms.reduce((sum, term, idx) => idx === 0 ? term : sum + (signs[idx - 1] === '-' ? -term : term), 0)
 }
 
-/**
- * Mini ventana de captura rápida para los accesos directos del ícono
- * (mantener presionado — ver res/xml/shortcuts.xml). Permite registrar un
- * gasto o ingreso sin entrar al flujo completo de la app.
- */
 export function MobileQuickAddSheet({
   mode,
   onClose,
@@ -95,6 +90,8 @@ export function MobileQuickAddSheet({
   const [formError, setFormError] = useState<string | null>(null)
   const [triedSave, setTriedSave] = useState(false)
   const [shaking, setShaking] = useState(false)
+  const startY = useRef(0)
+  const pickerStartY = useRef(0)
 
   useMobileBackDismiss(true, onClose)
   useMobileBackDismiss(accountPicker, () => setAccountPicker(false))
@@ -163,7 +160,6 @@ export function MobileQuickAddSheet({
         categoryId: activeCategory!.id,
         accountId: activeAccountId!,
       })
-      navigator.vibrate?.(18)
       playDoneSound()
       toast(t('movementSaved'), { icon: 'check', type: 'ok' })
       onSaved()
@@ -173,13 +169,24 @@ export function MobileQuickAddSheet({
   }
 
   const amountColor = mode === 'income' ? '#35d0a2' : '#f65574'
-  const currencyPrefix = currency === 'DOP' ? 'RD$' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
+  const currencyPrefix = CURRENCIES[currency].symbol
 
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
   const accountPickerRef = useDialogA11y<HTMLDivElement>(() => setAccountPicker(false), accountPicker)
 
   return (
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <div
+      ref={dialogRef}
+      className="mobile-detail-sheet"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      onTouchStart={event => { startY.current = event.touches[0]?.clientY ?? 0 }}
+      onTouchEnd={event => {
+        const delta = (event.changedTouches[0]?.clientY ?? 0) - startY.current
+        if (delta > 88) onClose()
+      }}
+    >
       <section className="mobile-quickadd-sheet" onClick={e => e.stopPropagation()}>
         <header className="mobile-quickadd-header">
           <span>{mode === 'expense' ? t('quickAddExpense') : t('quickAddIncome')}</span>
@@ -194,8 +201,12 @@ export function MobileQuickAddSheet({
             {visibleCategories.map(category => {
               const selected = activeCategory?.id === category.id
               return (
-                <button key={category.id} className={selected ? 'on' : ''} aria-pressed={selected}
-                  onClick={() => { setCategoryId(category.id); setTriedSave(false) }}>
+                <button
+                  key={category.id}
+                  className={selected ? 'on' : ''}
+                  aria-pressed={selected}
+                  onClick={() => { setCategoryId(category.id); setTriedSave(false) }}
+                >
                   <span style={{ color: category.color, background: `color-mix(in oklab, ${category.color} 22%, transparent)` }}>
                     <Icon name={category.icon} size={20} />
                   </span>
@@ -222,7 +233,7 @@ export function MobileQuickAddSheet({
               {amountText
                 ? (amountText.endsWith('.')
                     ? `${currencyPrefix} ${amount.toLocaleString('en-US')}.`
-                    : fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 }))
+                    : `${currencyPrefix} ${amount.toLocaleString('en-US', { minimumFractionDigits: amountText.includes('.') ? 2 : 0, maximumFractionDigits: amountText.includes('.') ? 2 : 0 })}`)
                 : `${currencyPrefix} 0`}
             </strong>
           </span>
@@ -255,7 +266,8 @@ export function MobileQuickAddSheet({
                   (OPERATORS as readonly string[]).includes(key) ? 'op' : '',
                   key === '0' ? 'wide' : '',
                 ].filter(Boolean).join(' ')}
-                onClick={() => pressKey(key)}>
+                onClick={() => pressKey(key)}
+              >
                 {key}
               </button>
             ))}
@@ -272,7 +284,18 @@ export function MobileQuickAddSheet({
       </section>
 
       {accountPicker && (
-        <div ref={accountPickerRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={e => { e.stopPropagation(); setAccountPicker(false) }}>
+        <div
+          ref={accountPickerRef}
+          className="mobile-detail-sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={e => { e.stopPropagation(); setAccountPicker(false) }}
+          onTouchStart={event => { pickerStartY.current = event.touches[0]?.clientY ?? 0 }}
+          onTouchEnd={event => {
+            const delta = (event.changedTouches[0]?.clientY ?? 0) - pickerStartY.current
+            if (delta > 88) setAccountPicker(false)
+          }}
+        >
           <section onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('selectAccount')}</span>
@@ -285,9 +308,11 @@ export function MobileQuickAddSheet({
             ) : (
               <div className="mobile-picker-list">
                 {accounts.map(account => (
-                  <button key={account.id}
+                  <button
+                    key={account.id}
                     className={`mobile-picker-row${account.id === activeAccountId ? ' active' : ''}`}
-                    onClick={() => { setAccountId(account.id); setAccountPicker(false); setTriedSave(false) }}>
+                    onClick={() => { setAccountId(account.id); setAccountPicker(false); setTriedSave(false) }}
+                  >
                     <span style={{ color: account.color }}>
                       <Icon name={ACCT_ICONS[account.type] ?? 'wallet'} size={22} />
                     </span>

@@ -3,7 +3,7 @@ import { Donut, Progress } from '@/components/ui/charts'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
-import { currentMonthKey, fmtCompact, monthLabel, txForMonth } from '@/data/helpers'
+import { currentMonthKey, fmtCompact, monthLabel, transactionsForTotals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import type { Category, ViewProps } from '@/types'
 import { Card, CatBadge, Empty, MiniStat } from './shared'
@@ -14,11 +14,12 @@ const CAT_ICONS = ['home','cart','food','car','bolt','play','heart','bag','book'
 type CatIcon = typeof CAT_ICONS[number]
 
 export function Budgets({ txns, mkey, createRequest }: ViewProps) {
-  const { categories, currency, updateCategory, deleteCategory } = useFinance()
+  const { accounts, categories, currency, updateCategory, deleteCategory } = useFinance()
   const { confirm } = useDialogs()
   const [addOpen, setAddOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'annual'>('monthly')
+  const visTxns = transactionsForTotals(txns, accounts)
 
   useEffect(() => {
     if (createRequest?.target === 'category') setAddOpen(true)
@@ -34,16 +35,16 @@ export function Budgets({ txns, mkey, createRequest }: ViewProps) {
     ? category.weeklyBudget ?? Math.round(category.budget / 4.33)
     : period === 'annual' ? category.annualBudget ?? category.budget * 12 : category.budget
   const periodTx = period === 'annual'
-    ? txns.filter(tx => tx.date.startsWith(mkey.slice(0, 4)))
+    ? visTxns.filter(tx => tx.date.startsWith(mkey.slice(0, 4)))
     : period === 'weekly'
-      ? txForMonth(txns, mkey).filter(tx => {
+      ? txForMonth(visTxns, mkey).filter(tx => {
           const anchor = isCurrent ? new Date() : new Date(yy, mm - 1, 1)
           const start = new Date(anchor); start.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7))
           const end = new Date(start); end.setDate(start.getDate() + 7)
           const date = new Date(`${tx.date}T00:00:00`)
           return date >= start && date < end
         })
-    : txForMonth(txns, mkey)
+    : txForMonth(visTxns, mkey)
 
   // Calcular gasto por categoría
   const spent: Record<string, number> = {}

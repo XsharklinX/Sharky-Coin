@@ -14,8 +14,13 @@ function isAndroidTauri(): boolean {
  * Los montos y fechas vienen pre-formateados para no portar fmtCompact()
  * ni el formato de fechas localizado a Kotlin.
  */
+function lacksFunds(account: { type: string; balance: number; limit?: number }, amount: number): boolean {
+  if (account.type === 'credit') return account.balance - amount < -(account.limit ?? Infinity)
+  return account.balance < amount
+}
+
 function buildReminderSnapshot(): string {
-  const { transactions, categories, currency } = useFinance.getState()
+  const { transactions, accounts, categories, currency } = useFinance.getState()
   const { language, dismissedAlerts } = useSettings.getState()
 
   const mkey = currentMonthKey()
@@ -43,6 +48,8 @@ function buildReminderSnapshot(): string {
     .filter(tx => tx.recurring)
     .map(tx => {
       const next = firstRecurrenceDate(tx)
+      const account = accounts.find(a => a.id === tx.accountId)
+      const lowFunds = tx.type === 'expense' && !!account && lacksFunds(account, tx.amount)
       return {
         id: tx.id,
         note: tx.note,
@@ -50,11 +57,17 @@ function buildReminderSnapshot(): string {
         dateLabel: new Date(`${next}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' }),
         amountLabel: fmtCompact(tx.amount, currency),
         recurringEnd: tx.recurringEnd ?? null,
+        lowFunds,
+        accountName: account?.name ?? '',
       }
     })
 
+  const lastTransactionDate = transactions.reduce<string | null>(
+    (latest, tx) => (latest === null || tx.date > latest ? tx.date : latest), null)
+
   return JSON.stringify({
     dismissedAlerts,
+    lastTransactionDate,
     categories: categoriesSnapshot,
     recurring: recurringSnapshot,
   })
@@ -68,6 +81,17 @@ export async function syncReminderSnapshot(): Promise<void> {
     await invoke('plugin:local-reminders|sync_snapshot', { snapshot: buildReminderSnapshot() })
   } catch {
     // plugin no disponible — sin recordatorios nativos
+  }
+}
+
+/** Pide permiso de notificaciones (una sola vez, si aún no se ha concedido). No-op fuera de Android+Tauri. */
+export async function requestReminderPermission(): Promise<void> {
+  if (!isAndroidTauri()) return
+  try {
+    const { isPermissionGranted, requestPermission } = await import('@tauri-apps/plugin-notification')
+    if (!(await isPermissionGranted())) await requestPermission()
+  } catch {
+    // no-op
   }
 }
 

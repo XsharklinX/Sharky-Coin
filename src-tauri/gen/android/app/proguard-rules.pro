@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep rules for custom local plugins to prevent R8/ProGuard obfuscation crashes
+-keep class com.sharky.finanzas.mlkitocr.** { *; }
+-keep class com.sharky.finanzas.localreminders.** { *; }
+-keep class com.sharky.finanzas.banknotifications.** { *; }
+-keep class com.sharky.finanzas.keystore.** { *; }
+-keep class com.sharky.finanzas.homewidget.** { *; }

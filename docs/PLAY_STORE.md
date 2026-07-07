@@ -5,8 +5,8 @@ app is resubmitted with relevant changes.
 
 ## 1. Version
 
-- `package.json` / `tauri.conf.json` version: **1.6.1**
-- Android `versionCode`: **1006001** / `versionName`: **1.6.1**
+- `package.json` / `tauri.conf.json` version: **1.7.0**
+- Android `versionCode`: **1007000** / `versionName`: **1.7.0**
   (auto-generated into `src-tauri/gen/android/.../tauri.properties` from the
   version above on the next `npm run android:build`)
 

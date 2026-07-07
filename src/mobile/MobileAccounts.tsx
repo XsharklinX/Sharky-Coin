@@ -4,7 +4,7 @@ import { toast } from '@/components/ui/Toast'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { CatBadge } from '@/views/shared'
 import { ACCENT_COLORS } from '@/constants'
-import { accountActivity, dateLocale, fmt, getAccount, getCategory, monthlyAccountSeries } from '@/data/helpers'
+import { accountActivity, dateLocale, fmt, getAccount, getCategory, monthlyAccountSeries, visibleAccounts } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -15,7 +15,8 @@ import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import { MobileTextSheet } from './MobileTextSheet'
 import { MobileDigitSheet } from './MobileDigitSheet'
-import type { Account, AccountType, OverdraftPolicy, ViewProps } from '@/types'
+import { MobileTransactionList } from './MobileTransactionList'
+import type { Account, AccountType, OverdraftPolicy, Transaction, ViewProps } from '@/types'
 
 const COLORS = ACCENT_COLORS
 
@@ -33,16 +34,22 @@ function getTypeMeta(t: ReturnType<typeof useT>): Record<AccountType, { label: s
 }
 
 function accountKind(a: Account): 'asset' | 'debt' {
-  return a.type === 'credit' || a.balance < 0 ? 'debt' : 'asset'
+  return a.balance < 0 ? 'debt' : 'asset'
 }
 
-export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRequest?: ViewProps['createRequest'] }) {
+export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
+  mkey: string
+  createRequest?: ViewProps['createRequest']
+  onEditTx: (transaction: Transaction) => void
+  onDeleteTx?: (id: string) => void
+}) {
   const { accounts, transactions, currency, addAccount, updateAccount, deleteAccount } = useFinance()
   const lang = useSettings(s => s.language)
   const fmtVal = useFmt()
   const t = useT()
   const TYPE_META = getTypeMeta(t)
   const [selected, setSelected] = useState<Account | null>(null)
+  const [activityAccount, setActivityAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | 'new' | null>(null)
 
   useMobileBackDismiss(!!editingAccount, () => setEditingAccount(null))
@@ -79,16 +86,23 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
   }
 
   const summary = useMemo(() => {
-    const assets      = accounts.filter(a => accountKind(a) === 'asset').reduce((s, a) => s + Math.max(0, a.balance), 0)
-    const liabilities = accounts.filter(a => accountKind(a) === 'debt').reduce((s, a) => s + Math.abs(Math.min(0, a.balance)), 0)
-    return { assets, liabilities, net: assets - liabilities }
-  }, [accounts])
+    const visible     = visibleAccounts(accounts)
+    const assets      = visible.filter(a => accountKind(a) === 'asset').reduce((s, a) => s + Math.max(0, a.balance), 0)
+    const liabilities = visible.filter(a => accountKind(a) === 'debt').reduce((s, a) => s + Math.abs(Math.min(0, a.balance)), 0)
+    const cashCount   = visible.filter(a => TYPE_META[a.type].group === t('cash')).length
+    const bankCount   = visible.filter(a => TYPE_META[a.type].group === t('bankAccountsGroupLabel')).length
+    const creditCount = visible.filter(a => TYPE_META[a.type].group === t('creditCardsGroupLabel')).length
+    return { assets, liabilities, net: assets - liabilities, cashCount, bankCount, creditCount, visibleCount: visible.length }
+  }, [accounts, TYPE_META, t])
 
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+  const totalBalance = visibleAccounts(accounts).reduce((s, a) => s + a.balance, 0)
 
   const groups = [t('cash'), t('bankAccountsGroupLabel'), t('creditCardsGroupLabel')].map(group => ({
     group,
     accounts: accounts.filter(a => TYPE_META[a.type].group === group),
+    visibleTotal: accounts
+      .filter(a => a.includeInTotal !== false && TYPE_META[a.type].group === group)
+      .reduce((s, a) => s + a.balance, 0),
   })).filter(g => g.accounts.length)
 
   return (
@@ -132,6 +146,23 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
         </button>
       </div>
 
+      {summary.visibleCount > 0 && (
+        <div className="macc-summary-strip">
+          <div className="macc-summary-pill">
+            <small>{t('accounts')}</small>
+            <strong>{summary.visibleCount}</strong>
+          </div>
+          <div className="macc-summary-pill">
+            <small>{t('bankAccountsGroupLabel')}</small>
+            <strong>{summary.bankCount}</strong>
+          </div>
+          <div className="macc-summary-pill">
+            <small>{t('creditCardsGroupLabel')}</small>
+            <strong>{summary.creditCount}</strong>
+          </div>
+        </div>
+      )}
+
       {accounts.length === 0 ? (
         <div className="mrep-empty">
           <Icon name="cards" size={40} style={{ opacity: .25 }} />
@@ -141,11 +172,11 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
       ) : (
         <>
           {/* Allocation bar */}
-          {accounts.length > 1 && (
+          {visibleAccounts(accounts).length > 1 && (
             <div className="mrep-allocation">
               <span className="mrep-section-title">{t('distributionLabel')}</span>
               <div className="mrep-alloc-bar">
-                {accounts.map(a => (
+                {visibleAccounts(accounts).map(a => (
                   <div
                     key={a.id}
                     className="mrep-alloc-segment"
@@ -158,7 +189,7 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
                 ))}
               </div>
               <div className="mrep-alloc-legend">
-                {accounts.map(a => (
+                {visibleAccounts(accounts).map(a => (
                   <div key={a.id} className="mrep-legend-item">
                     <span style={{ background: a.color }} />
                     <small>{a.short || a.name}</small>
@@ -169,11 +200,11 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
           )}
 
           {/* Groups */}
-          {groups.map(({ group, accounts: accs }) => (
+          {groups.map(({ group, accounts: accs, visibleTotal }) => (
             <div key={group} className="mrep-group">
               <div className="mrep-group-header">
                 <span>{group}</span>
-                <strong>{fmtVal(accs.reduce((s, a) => s + a.balance, 0), currency)}</strong>
+                <strong>{fmtVal(visibleTotal, currency)}</strong>
               </div>
               {accs.map(a => {
                 const used    = a.type === 'credit' && a.limit ? Math.abs(Math.min(0, a.balance)) : null
@@ -186,8 +217,13 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
                       <Icon name={TYPE_META[a.type].icon} size={20} />
                     </span>
                     <div className="mrep-account-info">
-                      <b>{a.name}</b>
-                      <small>{TYPE_META[a.type].label}{a.last4 ? ` · ·· ${a.last4}` : ''}</small>
+                      <b>
+                        <span className="mrep-account-name">{a.name}</span>
+                        {a.includeInTotal === false && (
+                          <span className="mrep-excluded-badge">{t('excludedFromTotalBadge')}</span>
+                        )}
+                      </b>
+                      <small>{TYPE_META[a.type].label}{a.last4 ? ` - ****${a.last4}` : ''}</small>
                       {utilPct !== null && a.limit && (
                         <div className="mrep-util-wrap">
                           <div className="mrep-util-bar">
@@ -232,6 +268,16 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
           mkey={mkey}
           onClose={() => setSelected(null)}
           onEdit={a => { setSelected(null); setEditingAccount(a) }}
+          onViewAll={() => setActivityAccount(selected)}
+        />
+      )}
+
+      {activityAccount && (
+        <AccountActivitySheet
+          account={activityAccount}
+          onClose={() => setActivityAccount(null)}
+          onEditTx={onEditTx}
+          onDeleteTx={onDeleteTx}
         />
       )}
 
@@ -247,7 +293,7 @@ export function MobileAccounts({ mkey, createRequest }: { mkey: string; createRe
   )
 }
 
-function AccountDetailSheet({ account, mkey, onClose, onEdit }: { account: Account; mkey: string; onClose: () => void; onEdit: (account: Account) => void }) {
+function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { account: Account; mkey: string; onClose: () => void; onEdit: (account: Account) => void; onViewAll: () => void }) {
   const { transactions, accounts, categories, currency } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
@@ -290,7 +336,7 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit }: { account: Accou
               <Icon name={TYPE_META[account.type].icon} size={24} />
             </span>
             <div className="macc-sheet-head-info">
-              <small>{TYPE_META[account.type].label}{account.last4 ? ` · ·· ${account.last4}` : ''}</small>
+              <small>{TYPE_META[account.type].label}{account.last4 ? ` - ****${account.last4}` : ''}</small>
               <AnimatedMoney value={account.balance} className="macc-sheet-balance" />
             </div>
           </div>
@@ -331,7 +377,12 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit }: { account: Accou
 
           {/* Recent activity */}
           <div className="macc-recent">
-            <p className="mrep-tools-heading">{t('recentActivityLabel')}</p>
+            <div className="macc-recent-head">
+              <p className="mrep-tools-heading">{t('recentActivityLabel')}</p>
+              {recent.length > 0 && (
+                <button className="macc-view-all" onClick={onViewAll}>{t('viewAllLabel')}</button>
+              )}
+            </div>
             {recent.length === 0 ? (
               <p className="macc-empty">{t('noRecentActivity')}</p>
             ) : (
@@ -368,6 +419,35 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit }: { account: Accou
           </div>
         </div>
       </section>
+    </div>
+  )
+}
+
+function AccountActivitySheet({ account, onClose, onEditTx, onDeleteTx }: {
+  account: Account
+  onClose: () => void
+  onEditTx: (transaction: Transaction) => void
+  onDeleteTx?: (id: string) => void
+}) {
+  const { transactions } = useFinance()
+  const t = useT()
+
+  useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
+
+  const activity = useMemo(
+    () => accountActivity(transactions, account.id).slice().sort((a, b) => b.date.localeCompare(a.date)),
+    [transactions, account.id],
+  )
+
+  return (
+    <div ref={dialogRef} className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label={account.name}>
+      <div className="mobile-search-head">
+        <button onClick={onClose}>{t('close')}</button>
+        <strong>{account.name}</strong>
+        <span />
+      </div>
+      <MobileTransactionList transactions={activity} onEdit={onEditTx} onDelete={onDeleteTx} />
     </div>
   )
 }
@@ -426,7 +506,7 @@ function AccountEditorSheet({
 
   return (
     <>
-      <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+      <div ref={dialogRef} className="mobile-detail-sheet mpr-editor-overlay" role="dialog" aria-modal="true" onClick={onClose}>
         <section className="mpr-editor-sheet" onClick={e => e.stopPropagation()}>
 
           {/* Header compacto con icono dinámico */}
@@ -490,7 +570,7 @@ function AccountEditorSheet({
                 !fields.short, 'short')}
 
               {row(t('last4Label'), 'cards',
-                fields.last4 ? `·· ${fields.last4}` : t('optionalLabel'),
+                fields.last4 ? `****${fields.last4}` : t('optionalLabel'),
                 !fields.last4, 'last4')}
             </div>
 
@@ -512,6 +592,25 @@ function AccountEditorSheet({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Incluir en balance total (no aplica a tarjetas de crédito) */}
+            {fields.type !== 'credit' && (
+              <div className="mpr-form-section mpr-toggle-row">
+                <div className="mpr-toggle-row-text">
+                  <span className="mpr-toggle-row-label">{t('includeInTotalLabel')}</span>
+                  <small className="mpr-toggle-row-desc">{t('includeInTotalDesc')}</small>
+                </div>
+                <label className="mset-toggle-wrap">
+                  <input
+                    type="checkbox"
+                    className="mset-toggle-input"
+                    checked={fields.includeInTotal !== false}
+                    onChange={e => patch('includeInTotal', e.target.checked ? undefined : false)}
+                  />
+                  <span className="mset-toggle" />
+                </label>
               </div>
             )}
 
@@ -547,6 +646,7 @@ function AccountEditorSheet({
           title={t('initialBalanceLabel')}
           value={fields.balance}
           currency={currency}
+          allowNegative
           onDone={v => { patch('balance', v); setSub(null) }}
           onClose={() => setSub(null)}
         />

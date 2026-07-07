@@ -5,6 +5,7 @@ import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { CURRENCIES } from '@/data/currencies'
 import { checkBiometric } from '@/lib/biometric'
+import { playWarningHaptic } from '@/lib/sound'
 import { isTauri } from '@/hooks/useTauri'
 import { useT, translateCategoryName } from '@/i18n'
 import { MobileOnboarding } from './MobileOnboarding'
@@ -249,7 +250,7 @@ export function MobileWelcomeHub() {
   const triggerPinShake = (message: string) => {
     setPinError(message)
     setPinShake(true)
-    navigator.vibrate?.([20, 40, 20])
+    playWarningHaptic()
     setTimeout(() => setPinShake(false), 380)
   }
 

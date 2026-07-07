@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { getMobileAlerts } from '@/data/alerts'
-import { currentMonthKey, dateLocale, fmt, fmtCompact, monthLabel, totals, txForMonth } from '@/data/helpers'
+import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, fmt, fmtCompact, monthLabel, savingsBalance, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { notificationActionTypeId, sendNativeNotification } from '@/hooks/useTauri'
+import { translateCategoryName, useT } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useT } from '@/i18n'
 import { MobileTransactionList } from './MobileTransactionList'
 import type { Transaction } from '@/types'
 
@@ -21,6 +21,8 @@ export function MobileHome({
   visibleMonth,
   onVisibleMonthChange,
   onAdd,
+  onOpenAnalysis,
+  onOpenBudgets,
   onEditTx,
   onDeleteTx,
 }: {
@@ -28,6 +30,8 @@ export function MobileHome({
   visibleMonth: string
   onVisibleMonthChange: (mk: string) => void
   onAdd: () => void
+  onOpenAnalysis?: () => void
+  onOpenBudgets?: () => void
   onEditTx: (tx: Transaction) => void
   onDeleteTx?: (id: string) => void
 }) {
@@ -35,33 +39,43 @@ export function MobileHome({
   const settings = useSettings()
   const { dismissedAlerts, dismissAlert, notifiedAlerts, markAlertNotified, compactNumbers } = settings
   const t = useT()
+  const lang = useSettings(s => s.language)
 
-  // Meses cargados: empieza con el mes actual; el usuario puede cargar meses anteriores
   const [extraMonths, setExtraMonths] = useState<string[]>([])
   const [showBalanceBreakdown, setShowBalanceBreakdown] = useState(false)
 
-  // Resetear meses extra cuando cambia el mes seleccionado
   useEffect(() => { setExtraMonths([]) }, [mkey])
 
-  const monthTx = txForMonth(transactions, mkey)
-  const visibleMonthTx = txForMonth(transactions, visibleMonth)
+  const totalsTx = transactionsForTotals(transactions, accounts)
+  const visibleMonthTx = txForMonth(totalsTx, visibleMonth)
   const summary = totals(visibleMonthTx)
   const isCurrent = mkey === currentMonthKey()
 
-  // Balance total de todas las cuentas (no el net mensual)
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+  const totalBalance = visibleAccounts(accounts).reduce((sum, account) => sum + account.balance, 0)
   const balancePositive = totalBalance >= 0
+  const expenseCategories = categories.filter(category => category.type === 'expense')
+  const monthlyBudget = expenseCategories.reduce((sum, category) => sum + Math.max(0, category.budget), 0)
+  const budgetRemaining = monthlyBudget - summary.expense
+  const budgetProgress = monthlyBudget > 0 ? Math.min(100, Math.max(0, (summary.expense / monthlyBudget) * 100)) : 0
+  const savedAmount = savingsBalance(accounts)
+  const savingsRate = Math.round(accountSavingsRate(accounts))
+  const topExpense = byCategory(visibleMonthTx, 'expense', categories)[0] ?? null
+  const comparisonMonth = prevMonthKey(visibleMonth)
+  const previousSummary = totals(txForMonth(totalsTx, comparisonMonth))
+  const expenseDelta = summary.expense - previousSummary.expense
+  const expenseDeltaPct = previousSummary.expense > 0
+    ? Math.round((Math.abs(expenseDelta) / previousSummary.expense) * 100)
+    : 0
 
-  const lang = useSettings(s => s.language)
   const alerts = useMemo(
     () => getMobileAlerts(transactions, categories, currency, undefined, dateLocale(lang)),
     [transactions, categories, currency, lang],
   )
-  const visibleAlerts = isCurrent ? alerts.filter(a => !dismissedAlerts.includes(a.id)) : []
+  const visibleAlerts = isCurrent ? alerts.filter(alert => !dismissedAlerts.includes(alert.id)) : []
 
   useEffect(() => {
     if (!isCurrent) return
-    const fresh = alerts.filter(a => !notifiedAlerts.includes(a.id))
+    const fresh = alerts.filter(alert => !notifiedAlerts.includes(alert.id))
     fresh.forEach(alert => {
       sendNativeNotification(alert.title, alert.text, { actionTypeId: notificationActionTypeId, extra: { alertId: alert.id } })
       markAlertNotified(alert.id)
@@ -70,10 +84,9 @@ export function MobileHome({
 
   const fmtVal = (n: number) => compactNumbers ? fmtCompact(n, currency) : fmt(n, currency)
 
-  // Mes anterior disponible para cargar
   const oldestLoaded = extraMonths.length ? extraMonths[extraMonths.length - 1] : mkey
   const prevKey = prevMonthKey(oldestLoaded)
-  const prevHasTx = transactions.some(tx => tx.date.startsWith(prevKey))
+  const prevHasTx = totalsTx.some(tx => tx.date.startsWith(prevKey))
 
   useEffect(() => {
     const scrollContainer = document.querySelector('.mobile-content')
@@ -82,25 +95,23 @@ export function MobileHome({
     let pending: ReturnType<typeof setTimeout> | null = null
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.find(e => e.isIntersecting)
-        if (visible) {
-          const mk = visible.target.getAttribute('data-month')
-          if (mk) {
-            if (pending) clearTimeout(pending)
-            pending = setTimeout(() => onVisibleMonthChange(mk), 120)
-          }
-        }
+      entries => {
+        const visible = entries.find(entry => entry.isIntersecting)
+        if (!visible) return
+        const mk = visible.target.getAttribute('data-month')
+        if (!mk) return
+        if (pending) clearTimeout(pending)
+        pending = setTimeout(() => onVisibleMonthChange(mk), 120)
       },
       {
         root: scrollContainer,
         rootMargin: '-60px 0px -85% 0px',
         threshold: 0,
-      }
+      },
     )
 
     const elements = scrollContainer.querySelectorAll('[data-month]')
-    elements.forEach(el => observer.observe(el))
+    elements.forEach(element => observer.observe(element))
 
     return () => {
       observer.disconnect()
@@ -108,50 +119,105 @@ export function MobileHome({
     }
   }, [mkey, extraMonths, onVisibleMonthChange])
 
-  const loadPrevMonth = () => setExtraMonths(ms => [...ms, prevKey])
+  const loadPrevMonth = () => setExtraMonths(months => [...months, prevKey])
 
   return (
     <div className="mobile-home">
+      <section className="mhome-hero">
+        <div className="mhome-hero-copy">
+          <span className="mhome-kicker">{monthLabel(visibleMonth, dateLocale(lang))}</span>
+          <h2>{t('totalBalance')}</h2>
+          <button className="mhome-hero-balance" onClick={() => setShowBalanceBreakdown(value => !value)}>
+            <strong className={balancePositive ? 'income' : 'expense'}>
+              {!balancePositive && '-'}
+              <AnimatedMoney value={Math.abs(totalBalance)} compact={compactNumbers} />
+            </strong>
+            <Icon
+              name="arrowDn"
+              size={14}
+              style={{ opacity: .65, transform: showBalanceBreakdown ? 'rotate(180deg)' : 'none' }}
+            />
+          </button>
+          <p>
+            {summary.net >= 0 ? t('monthPositiveClose') : t('monthNegativeClose')}
+            {' • '}
+            {t('incomes')} {fmtVal(summary.income)}
+            {' • '}
+            {t('expenses')} {fmtVal(summary.expense)}
+          </p>
+        </div>
 
-      {/* ─── Resumen del mes (sticky) ─── */}
-      <section className="mhome-summary">
-        <div className="mhome-summary-col">
-          <small>{t('incomes')}</small>
-          <strong className="income">
-            <AnimatedMoney value={summary.income} compact={compactNumbers} />
-          </strong>
+        <div className="mhome-hero-actions">
+          <button className="mhome-primary-btn" onClick={onAdd}>
+            <Icon name="plus" size={16} />
+            <span>{t('addMovement')}</span>
+          </button>
+          <button className="mhome-secondary-btn" onClick={onOpenAnalysis}>
+            <Icon name="chart" size={16} />
+            <span>{t('openAnalysis')}</span>
+          </button>
         </div>
-        <div className="mhome-summary-col">
-          <small>{t('expenses')}</small>
-          <strong className="expense">
-            <AnimatedMoney value={summary.expense} compact={compactNumbers} />
-          </strong>
-        </div>
-        <button className="mhome-summary-col mhome-balance-btn" onClick={() => setShowBalanceBreakdown(v => !v)}>
-          <small>{t('balance')} <Icon name="arrowDn" size={9} style={{ display: 'inline', verticalAlign: 'middle', opacity: .6, transform: showBalanceBreakdown ? 'rotate(180deg)' : 'none' }} /></small>
-          <strong className={balancePositive ? 'income' : 'expense'}>
-            {!balancePositive && '–'}
-            <AnimatedMoney value={Math.abs(totalBalance)} compact={compactNumbers} />
-          </strong>
-        </button>
       </section>
 
-      {/* ─── Desglose de balance por cuenta ─── */}
-      {showBalanceBreakdown && accounts.length > 0 && (
-        <div className="mhome-balance-breakdown mhome-stagger-1">
-          {accounts.map(a => (
-            <div key={a.id} className="mhome-balance-row">
-              <span style={{ color: a.color }}>●</span>
-              <span className="mhome-balance-acct-name">{a.name}</span>
-              <strong className={a.balance < 0 ? 'expense' : ''}>{fmtVal(a.balance)}</strong>
+      <section className="mhome-pulse-grid">
+        <article className="mhome-pulse-card">
+          <small>{t('monthBalance')}</small>
+          <strong className={summary.net >= 0 ? 'income' : 'expense'}>{fmtVal(summary.net)}</strong>
+          <p>
+            {previousSummary.expense <= 0
+              ? t('firstMonthComparison')
+              : expenseDelta === 0
+                ? t('sameAsLastMonth')
+                : expenseDelta > 0
+                  ? t('moreThanLastMonth').replace('{pct}', String(expenseDeltaPct))
+                  : t('lessThanLastMonth').replace('{pct}', String(expenseDeltaPct))}
+          </p>
+        </article>
+
+        <article className="mhome-pulse-card">
+          <small>{t('monthBudget')}</small>
+          <strong className={budgetRemaining >= 0 ? 'income' : 'expense'}>{fmtVal(budgetRemaining)}</strong>
+          <div className="mhome-mini-progress">
+            <span style={{ width: `${budgetProgress}%` }} />
+          </div>
+          <p>
+            {monthlyBudget > 0
+              ? `${t('spent')} ${fmtVal(summary.expense)} ${t('of')} ${fmtVal(monthlyBudget)}`
+              : t('noBudget')}
+          </p>
+        </article>
+
+        <article className="mhome-pulse-card">
+          <small>{t('topCategoryLabel')}</small>
+          <strong>{topExpense ? translateCategoryName(topExpense.category, lang) : '—'}</strong>
+          <p>
+            {topExpense
+              ? `${fmtVal(topExpense.amount)} • ${summary.expense > 0 ? Math.round((topExpense.amount / summary.expense) * 100) : 0}%`
+              : t('noExpensesToAnalyze')}
+          </p>
+        </article>
+
+        <article className="mhome-pulse-card">
+          <small>{t('savingsRate')}</small>
+          <strong className="income">{`${savingsRate}%`}</strong>
+          <p>{savedAmount > 0 ? fmtVal(savedAmount) : t('noSavingsAccountHint')}</p>
+        </article>
+      </section>
+
+      {showBalanceBreakdown && visibleAccounts(accounts).length > 0 && (
+        <div className="mhome-balance-breakdown">
+          {visibleAccounts(accounts).map(account => (
+            <div key={account.id} className="mhome-balance-row">
+              <span style={{ color: account.color }}>●</span>
+              <span className="mhome-balance-acct-name">{account.name}</span>
+              <strong className={account.balance < 0 ? 'expense' : ''}>{fmtVal(account.balance)}</strong>
             </div>
           ))}
         </div>
       )}
 
-      {/* ─── Avisos ─── */}
       {visibleAlerts.length > 0 && (
-        <div className="mhome-alerts mhome-stagger-1">
+        <div className="mhome-alerts">
           {visibleAlerts.map(alert => (
             <div key={alert.id} className={`mhome-alert ${alert.level}`}>
               <span className="mhome-alert-ico"><Icon name={alert.icon} size={16} /></span>
@@ -164,13 +230,25 @@ export function MobileHome({
         </div>
       )}
 
-      {/* ─── Movimientos del mes actual ─── */}
-      <div className="mhome-movements mhome-stagger-2" data-month={mkey}>
-        {monthTx.length ? (
+      <section className="mhome-section-head">
+        <div>
+          <h3>{t('recentMovements')}</h3>
+          <p>{monthLabel(visibleMonth, dateLocale(lang))}</p>
+        </div>
+        {onOpenBudgets && (
+          <button className="mhome-inline-link" onClick={onOpenBudgets}>
+            {t('budgets')}
+          </button>
+        )}
+      </section>
+
+      <div className="mhome-movements" data-month={visibleMonth}>
+        {visibleMonthTx.length ? (
           <MobileTransactionList
-            transactions={monthTx}
+            transactions={visibleMonthTx}
             onEdit={onEditTx}
             onDelete={onDeleteTx}
+            showSearch={false}
           />
         ) : (
           <div className="mhome-empty">
@@ -180,17 +258,16 @@ export function MobileHome({
           </div>
         )}
 
-        {/* ─── Meses anteriores cargados inline ─── */}
-        {extraMonths.map(mk => {
-          const mkTx = txForMonth(transactions, mk)
+        {extraMonths.map(month => {
+          const extraMonthTx = txForMonth(totalsTx, month)
           return (
-            <div key={mk} data-month={mk} className="mhome-prev-month">
+            <div key={month} data-month={month} className="mhome-prev-month">
               <div className="mhome-prev-month-header">
                 <Icon name="calendar" size={13} />
-                <span>{monthLabel(mk, dateLocale(lang))}</span>
+                <span>{monthLabel(month, dateLocale(lang))}</span>
               </div>
-              {mkTx.length ? (
-                <MobileTransactionList transactions={mkTx} onEdit={onEditTx} onDelete={onDeleteTx} />
+              {extraMonthTx.length ? (
+                <MobileTransactionList transactions={extraMonthTx} onEdit={onEditTx} onDelete={onDeleteTx} showSearch={false} />
               ) : (
                 <p className="mhome-prev-empty">{t('noMovementsThatMonth')}</p>
               )}
@@ -198,7 +275,6 @@ export function MobileHome({
           )
         })}
 
-        {/* ─── Botón cargar mes anterior ─── */}
         {prevHasTx && (
           <button className="mhome-load-prev" onClick={loadPrevMonth}>
             <Icon name="calendar" size={14} />
@@ -206,7 +282,8 @@ export function MobileHome({
           </button>
         )}
       </div>
-
     </div>
   )
 }
+
+

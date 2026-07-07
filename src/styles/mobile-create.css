@@ -3,6 +3,7 @@
     display: flex;
     flex-direction: column;
     flex: 1;
+    height: 100%;
     min-height: 0;
   }
   .mobile-create-scroll {
@@ -14,7 +15,47 @@
     overflow-y: auto;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y pinch-zoom;
     padding: 12px 16px 8px;
+  }
+  .mobile-context-hint {
+    align-items: center;
+    background:
+      radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--m-primary) 18%, transparent), transparent 54%),
+      color-mix(in oklab, var(--m-primary) 7%, var(--m-surface));
+    border: 1px solid color-mix(in oklab, var(--m-primary) 18%, var(--m-border));
+    border-radius: 18px;
+    color: var(--m-text);
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    padding: 11px;
+  }
+  .mobile-context-hint > span {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-primary) 16%, transparent);
+    border-radius: 12px;
+    color: var(--m-primary);
+    display: flex;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+  }
+  .mobile-context-hint div { display: grid; gap: 2px; min-width: 0; }
+  .mobile-context-hint b { font-size: 13px; font-weight: 950; }
+  .mobile-context-hint small {
+    color: var(--m-muted);
+    font-size: 11px;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+  .mobile-context-hint button {
+    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    border: 0;
+    border-radius: 12px;
+    color: var(--m-muted);
+    height: 34px;
+    width: 34px;
   }
   .mobile-create-section-header {
     align-items: center;
@@ -57,6 +98,58 @@
     color: var(--m-text);
     font-size: 12px;
     font-weight: 850;
+  }
+  .mobile-create-account-card {
+    align-items: center;
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 18px;
+    color: var(--m-text);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 52px minmax(0, 1fr) 16px;
+    min-height: 72px;
+    padding: 10px 14px;
+    text-align: left;
+    width: 100%;
+  }
+  .mobile-create-account-card.unset {
+    background: color-mix(in oklab, var(--m-primary) 6%, var(--m-surface));
+    border-color: color-mix(in oklab, var(--m-primary) 22%, transparent);
+  }
+  .mobile-create-account-card.field-error {
+    border-color: #ff4d6d;
+    box-shadow: 0 0 0 2px #ff4d6d33;
+  }
+  .mobile-create-account-header,
+  .mobile-create-account-card {
+    display: none;
+  }
+  .mobile-create-account-icon {
+    align-items: center;
+    border-radius: 16px;
+    display: grid;
+    height: 52px;
+    place-items: center;
+    width: 52px;
+  }
+  .mobile-create-account-copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+  .mobile-create-account-copy strong {
+    font-size: 15px;
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-create-account-copy small {
+    color: var(--m-muted);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.35;
   }
   .mobile-date-hidden {
     height: 100%;
@@ -124,8 +217,9 @@
   }
   /* --- Fixed bottom section --- */
   .mobile-create-bottom {
+    backdrop-filter: blur(18px);
     background: var(--m-bg);
-    border-top: 1px solid rgba(255,255,255,.06);
+    border-top: 1px solid var(--m-border);
     display: grid;
     gap: 8px;
     padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
@@ -134,8 +228,16 @@
   .mobile-create-amount-row {
     align-items: center;
     display: flex;
+    gap: 10px;
     justify-content: space-between;
+    min-height: 54px;
     padding: 0 4px;
+  }
+  .mobile-create-amount-left {
+    display: grid;
+    flex: 0 1 42%;
+    gap: 6px;
+    min-width: 0;
   }
   .mobile-create-amount-label {
     color: var(--m-muted);
@@ -144,10 +246,52 @@
     letter-spacing: .07em;
     text-transform: uppercase;
   }
+  .mobile-create-pad-account {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-surface) 92%, var(--m-primary) 8%);
+    border: 1px solid var(--m-border);
+    border-radius: 14px;
+    color: var(--m-text);
+    display: flex;
+    gap: 7px;
+    min-height: 36px;
+    min-width: 0;
+    padding: 0 10px 0 7px;
+    text-align: left;
+  }
+  .mobile-create-pad-account.unset {
+    border-color: color-mix(in oklab, var(--m-primary) 34%, transparent);
+  }
+  .mobile-create-pad-account.field-error {
+    border-color: #ff4d6d;
+    box-shadow: 0 0 0 2px #ff4d6d33;
+  }
+  .mobile-create-pad-account:active {
+    background: color-mix(in oklab, var(--m-primary) 15%, var(--m-surface));
+    transform: scale(.985);
+  }
+  .mobile-create-pad-account-icon {
+    border-radius: 9px;
+    display: grid;
+    flex: 0 0 24px;
+    height: 24px;
+    place-items: center;
+    width: 24px;
+  }
+  .mobile-create-pad-account-text {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 850;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .mobile-create-amount-stack {
     display: grid;
+    flex: 1;
     justify-items: end;
-    max-width: 76%;
+    min-width: 0;
     overflow: hidden;
   }
   .mobile-create-amount-expr {
@@ -177,27 +321,6 @@
     align-items: center;
     display: flex;
     gap: 7px;
-  }
-  .mobile-quick-icon-btn {
-    align-items: center;
-    background: var(--m-surface);
-    border: 1px solid var(--m-border);
-    border-radius: 12px;
-    color: var(--m-text);
-    display: grid;
-    flex-shrink: 0;
-    height: 38px;
-    place-items: center;
-    width: 38px;
-  }
-  .mobile-quick-icon-btn:active { background: var(--m-surface-2); }
-  .mobile-quick-icon-btn.unset {
-    background: color-mix(in oklab, var(--m-primary) 8%, var(--m-surface-2));
-    border-color: color-mix(in oklab, var(--m-primary) 30%, transparent);
-  }
-  .mobile-quick-icon-btn.field-error {
-    background: color-mix(in oklab, #ff4d6d 12%, var(--m-surface-2));
-    border-color: #ff4d6d;
   }
   .mobile-category-grid.field-error {
     border-radius: 16px;
@@ -282,14 +405,14 @@
     grid-column: span 2;
   }
   .mobile-keypad-compact button {
-    background: #222;
-    border: 1px solid rgba(255,255,255,.05);
+    background: var(--m-surface-2);
+    border: 1px solid var(--m-border);
     border-radius: 12px;
     color: var(--m-text);
     display: grid;
     font-size: 20px;
     font-weight: 780;
-    min-height: 46px;
+    min-height: 50px;
     place-items: center;
     transition: background .07s;
   }
@@ -298,7 +421,7 @@
     transform: scale(.96);
   }
   .mobile-keypad-compact button.op {
-    background: color-mix(in oklab, var(--m-primary) 14%, #222);
+    background: color-mix(in oklab, var(--m-primary) 14%, var(--m-surface-2));
     color: var(--m-primary);
   }
   /* Columna de acciones a la derecha del pad: borrar arriba, Listo abajo — ocupa todo el alto, sin huecos */
@@ -311,16 +434,17 @@
   }
   .mobile-back-button {
     align-items: center;
-    background: color-mix(in oklab, #ff6b8a 16%, #222);
+    background: color-mix(in oklab, #ff6b8a 16%, var(--m-surface-2));
     border: 1px solid color-mix(in oklab, #ff6b8a 28%, transparent);
     border-radius: 12px;
     color: #ff6b8a;
     display: grid;
+    min-height: 50px;
     place-items: center;
     transition: background .07s;
   }
   .mobile-back-button:active {
-    background: color-mix(in oklab, #ff6b8a 28%, #222);
+    background: color-mix(in oklab, #ff6b8a 28%, var(--m-surface-2));
     transform: scale(.96);
   }
   /* Account picker sheet */
@@ -351,18 +475,18 @@
     margin-bottom: 12px;
   }
   .mobile-create-receipt-preview img {
-    border: 1px solid rgba(255,255,255,.12); border-radius: 14px;
+    border: 1px solid var(--m-border); border-radius: 14px;
     max-height: 220px; object-fit: contain; width: auto;
   }
   .mobile-create-receipt-file {
-    align-items: center; background: var(--m-surface); border: 1px solid rgba(255,255,255,.12);
+    align-items: center; background: var(--m-surface); border: 1px solid var(--m-border);
     border-radius: 14px; display: flex; gap: 10px; padding: 14px 16px;
   }
   .mobile-create-receipt-file span { font-size: 14px; font-weight: 750; }
   .mobile-create-receipt-hint { color: var(--m-muted); font-size: 12px; font-weight: 700; text-align: center; }
 
   .mobile-receipt-scan-btn {
-    align-items: center; background: var(--m-surface); border: 1px dashed rgba(255,255,255,.2);
+    align-items: center; background: var(--m-surface); border: 1px dashed var(--m-border);
     border-radius: 12px; color: var(--m-text); display: flex; font-size: 14px; font-weight: 800;
     gap: 8px; justify-content: center; margin-bottom: 12px; padding: 12px; width: 100%;
   }
@@ -370,7 +494,7 @@
 
   .mobile-segment {
     background: var(--m-surface);
-    border: 1px solid rgba(255,255,255,.18);
+    border: 1px solid var(--m-border);
     border-radius: 12px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -466,8 +590,8 @@
     padding: 6px 2px 8px;
   }
   .mobile-category-grid button.on {
-    background: rgba(255,255,255,.045);
-    border-color: rgba(255,255,255,.11);
+    background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    border-color: color-mix(in oklab, var(--m-text) 15%, transparent);
   }
   .mobile-category-grid span {
     border-radius: 999px;
@@ -525,8 +649,8 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .mobile-keypad button {
-    background: #252525;
-    border: 1px solid rgba(255,255,255,.05);
+    background: var(--m-surface-2);
+    border: 1px solid var(--m-border);
     border-radius: 14px;
     color: var(--m-text);
     display: grid;
@@ -548,12 +672,13 @@
     box-shadow: 0 4px 14px rgba(53,208,162,.28);
     color: #0b2b22;
     display: grid;
+    min-height: 50px;
     place-items: center;
   }
   .mobile-done-button:disabled {
-    background: #333;
+    background: var(--m-surface-2);
     box-shadow: none;
-    color: #777;
+    color: var(--m-muted);
   }
   .mobile-secondary-actions {
     display: grid;
@@ -565,7 +690,7 @@
     background: transparent;
     border: 1px solid var(--m-border);
     border-radius: 16px;
-    color: #d8d8d8;
+    color: var(--m-text);
     display: flex;
     font-weight: 800;
     gap: 8px;
@@ -594,7 +719,7 @@
     to   { background-position: -200% 0; }
   }
   .skel {
-    background: linear-gradient(90deg, #1e1e1e 25%, #2a2a2a 50%, #1e1e1e 75%);
+    background: linear-gradient(90deg, var(--m-surface) 25%, var(--m-surface-2) 50%, var(--m-surface) 75%);
     background-size: 200% 100%;
     animation: skel-shimmer 1.5s ease infinite;
     border-radius: 10px;
@@ -604,9 +729,9 @@
 
   /* -- Active state feedback -- */
   .mobile-tx-row:active { background: var(--m-bg); }
-  .mobile-account-row:active { background: rgba(255,255,255,.03); }
+  .mobile-account-row:active { background: color-mix(in oklab, var(--m-text) 5%, transparent); }
   .mobile-bottom-nav > button:active { opacity: .7; }
-  .mobile-category-grid button:active { background: rgba(255,255,255,.06); }
+  .mobile-category-grid button:active { background: color-mix(in oklab, var(--m-text) 8%, transparent); }
   .mobile-section-card header button:active,
   .mobile-hero-card button:active { filter: brightness(.92); }
 
@@ -654,6 +779,7 @@
     overflow-y: auto;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y pinch-zoom;
   }
   .mobile-quickadd-account-name {
     color: var(--m-text);
@@ -723,6 +849,22 @@
     font-size: 36px;
     font-weight: 860;
     letter-spacing: -.03em;
+  }
+  .mamt-sign-toggle {
+    background: color-mix(in oklab, var(--m-text, #fff) 8%, transparent);
+    border: 1px solid var(--m-border);
+    border-radius: 999px;
+    color: var(--m-muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 6px;
+    padding: 6px 14px;
+  }
+  .mamt-sign-toggle.on {
+    background: color-mix(in oklab, var(--expense, #ff6b8a) 18%, transparent);
+    border-color: var(--expense, #ff6b8a);
+    color: var(--expense, #ff6b8a);
   }
   .mamt-keypad {
     padding: 4px 16px calc(20px + env(safe-area-inset-bottom));

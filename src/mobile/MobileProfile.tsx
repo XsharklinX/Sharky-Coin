@@ -1,19 +1,18 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { useFinance } from '@/store/finance'
-import { useSettings } from '@/store/settings'
+import { visibleAccounts } from '@/data/helpers'
 import { useFmt } from '@/hooks/useFmt'
 import { useT } from '@/i18n'
-import type { ViewId } from '@/types'
+import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
+import type { Account, IconName, ViewId } from '@/types'
 
 export function MobileProfile({
   userName,
-  onSettings,
   goto,
 }: {
   userName?: string
-  onSettings: () => void
   goto: (view: ViewId) => void
 }) {
   const { displayName, setDisplayName } = useSettings()
@@ -22,10 +21,10 @@ export function MobileProfile({
   const t = useT()
 
   const [editingName, setEditingName] = useState(false)
-  const [nameInput,   setNameInput]   = useState(displayName || userName || '')
+  const [nameInput, setNameInput] = useState(displayName || userName || '')
 
   const effectiveName = displayName || userName || ''
-  const initial       = effectiveName ? effectiveName.slice(0, 1).toUpperCase() : '$'
+  const initial = effectiveName ? effectiveName.slice(0, 1).toUpperCase() : '$'
 
   const saveName = () => {
     const trimmed = nameInput.trim()
@@ -34,14 +33,18 @@ export function MobileProfile({
     if (trimmed) toast(t('nameUpdatedTo').replace('{name}', trimmed), { icon: 'check', type: 'ok' })
   }
 
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+  const activeAccounts = visibleAccounts(accounts)
+  const totalBalance = activeAccounts.reduce((sum, account) => sum + account.balance, 0)
+  const bankingAccounts = activeAccounts.filter(account => account.type === 'debit' || account.type === 'savings')
+  const creditAccounts = activeAccounts.filter(account => account.type === 'credit')
+  const debtBalance = Math.abs(creditAccounts.reduce((sum, account) => sum + Math.min(0, account.balance), 0))
+  const topAccounts = [...activeAccounts].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 3)
 
   return (
     <div className="mpr-root">
-
-      {/* ── Avatar / Name ── */}
       <div className="mpr-hero">
         <div className="mpr-avatar">{initial}</div>
+
         {editingName ? (
           <div className="mpr-name-editor">
             <input
@@ -61,7 +64,13 @@ export function MobileProfile({
         ) : (
           <>
             <h2>{effectiveName || t('myAccountLabel')}</h2>
-            <button className="mpr-edit-name-btn" onClick={() => { setNameInput(effectiveName); setEditingName(true) }}>
+            <button
+              className="mpr-edit-name-btn"
+              onClick={() => {
+                setNameInput(effectiveName)
+                setEditingName(true)
+              }}
+            >
               <Icon name="edit" size={13} />
               {effectiveName ? t('editNameLabel') : t('addNameLabel')}
             </button>
@@ -72,56 +81,85 @@ export function MobileProfile({
           <span>{t('totalBalance')}</span>
           <strong>{fmtVal(totalBalance, currency)}</strong>
         </div>
-      </div>
 
-      {/* ── Herramientas ── */}
-      <div className="mpr-section">
-        <div className="mpr-section-header"><span>{t('toolsLabel')}</span></div>
-        <div className="mpr-quick-grid">
-          <button className="mpr-quick-card" onClick={onSettings}>
-            <span className="mpr-quick-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
-              <Icon name="settings" size={22} />
-            </span>
-            <strong>{t('settings')}</strong>
-            <small>{t('settingsQuickDesc')}</small>
-          </button>
-          <button className="mpr-quick-card" onClick={() => goto('subscriptions')}>
-            <span className="mpr-quick-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
-              <Icon name="repeat" size={22} />
-            </span>
-            <strong>{t('subscriptions')}</strong>
-            <small>{t('subscriptionsQuickDesc')}</small>
-          </button>
-          <button className="mpr-quick-card" onClick={() => goto('goals')}>
-            <span className="mpr-quick-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
-              <Icon name="target" size={22} />
-            </span>
-            <strong>{t('goals')}</strong>
-            <small>{t('goalsQuickDesc')}</small>
-          </button>
-          <button className="mpr-quick-card" onClick={() => goto('annual')}>
-            <span className="mpr-quick-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
-              <Icon name="chart" size={22} />
-            </span>
-            <strong>{t('annualReport')}</strong>
-            <small>{t('annualQuickDesc')}</small>
-          </button>
-          <button className="mpr-quick-card" onClick={() => goto('calendar')}>
-            <span className="mpr-quick-icon" style={{ background: '#f59e0b22', color: '#f59e0b' }}>
-              <Icon name="calendar" size={22} />
-            </span>
-            <strong>{t('calendarLabel')}</strong>
-            <small>{t('calendarQuickDesc')}</small>
-          </button>
-          <button className="mpr-quick-card" onClick={() => goto('debt')}>
-            <span className="mpr-quick-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
-              <Icon name="dollar" size={22} />
-            </span>
-            <strong>{t('debtsLabel')}</strong>
-            <small>{t('debtQuickDesc')}</small>
-          </button>
+        <div className="mpr-stats-grid">
+          <div className="mpr-stat-card">
+            <small>{t('accounts')}</small>
+            <strong>{activeAccounts.length}</strong>
+          </div>
+          <div className="mpr-stat-card">
+            <small>{t('bankAccountsGroupLabel')}</small>
+            <strong>{bankingAccounts.length}</strong>
+          </div>
+          <div className="mpr-stat-card">
+            <small>{t('creditCardsGroupLabel')}</small>
+            <strong>{creditAccounts.length}</strong>
+          </div>
         </div>
       </div>
+
+      <div className="mpr-section">
+        <div className="mpr-section-header">
+          <span>{t('accounts')}</span>
+          <button className="mpr-inline-link" onClick={() => goto('accounts')}>
+            {t('accounts')}
+            <Icon name="arrowUp" size={13} className="mpr-inline-link-chevron" />
+          </button>
+        </div>
+
+        {topAccounts.length ? (
+          <>
+            <div className="mpr-account-list">
+              {topAccounts.map(account => (
+                <button key={account.id} className="mpr-account-row" onClick={() => goto('accounts')}>
+                  <span className="mpr-account-icon" style={{ background: `${account.color}22`, color: account.color }}>
+                    <Icon name={accountIcon(account)} size={18} />
+                  </span>
+                  <div className="mpr-account-info">
+                    <b>{account.short || account.name}</b>
+                    <small>{accountMeta(account, t)}</small>
+                  </div>
+                  <strong>{fmtVal(account.balance, currency)}</strong>
+                </button>
+              ))}
+            </div>
+            <div className="mpr-account-summary">
+              <div>
+                <small>{t('bankAccountsGroupLabel')}</small>
+                <strong>{fmtVal(bankingAccounts.reduce((sum, account) => sum + account.balance, 0), currency)}</strong>
+              </div>
+              <div>
+                <small>{t('debtsLabel')}</small>
+                <strong>{fmtVal(debtBalance, currency)}</strong>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mpr-empty">
+            <p>{t('noAccountsShort')}</p>
+            <button onClick={() => goto('accounts')}>{t('createAccount')}</button>
+          </div>
+        )}
+      </div>
+
     </div>
   )
+}
+
+function accountIcon(account: Account): IconName {
+  if (account.type === 'savings') return 'piggy'
+  if (account.type === 'cash') return 'wallet'
+  return 'cards'
+}
+
+function accountMeta(account: Account, t: ReturnType<typeof useT>) {
+  const typeLabel = account.type === 'cash'
+    ? t('cash')
+    : account.type === 'debit'
+      ? t('debit')
+      : account.type === 'savings'
+        ? t('savings')
+        : t('credit')
+
+  return account.last4 ? `${typeLabel} - ****${account.last4}` : typeLabel
 }

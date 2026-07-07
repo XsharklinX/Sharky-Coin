@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { localToday } from '@/data/helpers'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
@@ -99,16 +100,13 @@ export function MobileDatePicker({
         {/* Quick actions */}
         <div className="mdp-quick">
           <button onClick={() => {
-            const now = new Date()
-            const iso = now.toISOString().slice(0, 10)
-            onChange(iso)
+            onChange(localToday())
             onClose()
           }}>{t('today')}</button>
           <button onClick={() => {
             const now = new Date()
             now.setDate(now.getDate() - 1)
-            const iso = now.toISOString().slice(0, 10)
-            onChange(iso)
+            onChange(localToday(now))
             onClose()
           }}>{t('yesterday')}</button>
           <button onClick={onClose}>{t('cancel')}</button>

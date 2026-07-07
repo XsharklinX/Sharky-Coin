@@ -1,6 +1,5 @@
 import type { CurrencyCode } from '@/types'
 import { CURRENCIES as DISPLAY_CURRENCIES } from './currencies'
-import { CURRENCIES as FORMAT_CURRENCIES } from './seed'
 
 const CODES: CurrencyCode[] = ['DOP', 'USD', 'EUR', 'MXN', 'GBP', 'COP', 'ARS', 'BRL', 'CAD']
 const CACHE_KEY = 'sharky-fx-rates-v1'
@@ -47,29 +46,13 @@ async function fetchLiveRates(): Promise<UsdRates | null> {
   }
 }
 
-/**
- * Las tasas se guardan como "1 USD = X moneda". `seed.ts` formatea relativo a
- * DOP (rate = X moneda / X DOP), `currencies.ts` relativo a USD — se derivan
- * ambas de la misma respuesta para que no queden desincronizadas.
- */
+/** Las tasas se guardan como "1 USD = X moneda", relativo a `currencies.ts`. */
 function applyRates(rates: UsdRates): boolean {
-  const dopPerUsd = rates.DOP
-  if (!dopPerUsd) return false
-
   let changed = false
   for (const meta of DISPLAY_CURRENCIES) {
     const r = rates[meta.code]
     if (r && meta.rateToUSD !== r) {
       meta.rateToUSD = r
-      changed = true
-    }
-  }
-  for (const code of Object.keys(FORMAT_CURRENCIES) as CurrencyCode[]) {
-    const r = rates[code]
-    if (!r) continue
-    const rate = r / dopPerUsd
-    if (FORMAT_CURRENCIES[code].rate !== rate) {
-      FORMAT_CURRENCIES[code].rate = rate
       changed = true
     }
   }

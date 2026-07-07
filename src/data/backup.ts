@@ -48,9 +48,11 @@ const AccountSchema = z.object({
   type: z.enum(['debit', 'savings', 'credit', 'cash']),
   color: nonEmptyText,
   balance: z.number().finite(),
+  openingBalance: z.number().finite().optional(),
   last4: z.string().nullable(),
   limit: z.number().finite().nonnegative().optional(),
   overdraftPolicy: z.enum(['block', 'warn', 'allow']).optional(),
+  includeInTotal: z.boolean().optional(),
 })
 
 const CategorySchema = z.object({
@@ -62,6 +64,14 @@ const CategorySchema = z.object({
   weeklyBudget: z.number().finite().nonnegative().optional(),
   annualBudget: z.number().finite().nonnegative().optional(),
   icon: iconSchema,
+  rolloverEnabled: z.boolean().optional(),
+})
+
+const GoalAutoContributeSchema = z.object({
+  amount: z.number().finite().positive(),
+  frequency: z.enum(['weekly', 'monthly']),
+  fromAccountId: nonEmptyText,
+  nextDate: dateSchema,
 })
 
 const GoalSchema = z.object({
@@ -72,6 +82,7 @@ const GoalSchema = z.object({
   color: nonEmptyText,
   icon: iconSchema,
   deadline: dateSchema.optional(),
+  autoContribute: GoalAutoContributeSchema.optional(),
 })
 
 const TransactionSchema = z.object({
@@ -88,6 +99,7 @@ const TransactionSchema = z.object({
   recurringStart: dateSchema.optional(),
   recurringEnd: dateSchema.optional(),
   recurringNext: dateSchema.optional(),
+  skippedDates: z.array(dateSchema).optional(),
   tags: z.array(nonEmptyText).optional(),
 })
 

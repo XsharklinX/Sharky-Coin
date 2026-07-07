@@ -11,6 +11,9 @@ const COLORS = ACCENT_COLORS
 
 export function MobileOnboarding({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const addAccount = useFinance(s => s.addAccount)
+  const updateCategory = useFinance(s => s.updateCategory)
+  const categories = useFinance(s => s.categories)
+  const currency = useFinance(s => s.currency)
   const t = useT()
   const TYPES: Array<{ id: AccountType; label: string; icon: IconName; desc: string; color: string }> = [
     { id: 'cash',    label: t('cash'),    icon: 'wallet', desc: t('accountTypeCashDesc'),    color: '#ffdd3d' },
@@ -22,6 +25,7 @@ export function MobileOnboarding({ onDone, onBack }: { onDone: () => void; onBac
   const [type, setType]     = useState<AccountType>('cash')
   const [name, setName]     = useState('')
   const [balance, setBalance] = useState('')
+  const [initialBudget, setInitialBudget] = useState('')
   const [color, setColor]   = useState('#ffdd3d')
   const [error, setError]   = useState('')
 
@@ -48,6 +52,9 @@ export function MobileOnboarding({ onDone, onBack }: { onDone: () => void; onBac
       balance: Number(balance) || 0,
       last4:   '',
     })
+    const budget = Number(initialBudget) || 0
+    const firstExpense = categories.find(category => category.type === 'expense')
+    if (budget > 0 && firstExpense) updateCategory(firstExpense.id, { budget })
     onDone()
   }
 
@@ -141,7 +148,7 @@ export function MobileOnboarding({ onDone, onBack }: { onDone: () => void; onBac
             <p>{t('onboardBalanceHint').replace('{name}', name || selectedType.label)}</p>
           </div>
           <div className="mob-onboard-balance-wrap">
-            <span className="mob-onboard-balance-symbol">RD$</span>
+            <span className="mob-onboard-balance-symbol">{currency}</span>
             <input
               className="mob-onboard-balance-input"
               type="number"
@@ -149,6 +156,22 @@ export function MobileOnboarding({ onDone, onBack }: { onDone: () => void; onBac
               value={balance}
               placeholder="0"
               onChange={e => setBalance(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && finish()}
+            />
+          </div>
+          <label className="mob-onboard-field-label" htmlFor="initial-budget">
+            {t('onboardInitialBudgetLabel')}
+          </label>
+          <div className="mob-onboard-balance-wrap compact">
+            <span className="mob-onboard-balance-symbol">{currency}</span>
+            <input
+              id="initial-budget"
+              className="mob-onboard-balance-input"
+              type="number"
+              inputMode="decimal"
+              value={initialBudget}
+              placeholder="0"
+              onChange={e => setInitialBudget(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && finish()}
             />
           </div>

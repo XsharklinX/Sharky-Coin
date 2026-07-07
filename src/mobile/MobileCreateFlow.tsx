@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt, fmtCompact } from '@/data/helpers'
+import { isDuplicateTransaction } from '@/data/bankCsv'
+import { fmtCompact, localToday } from '@/data/helpers'
 import { ACCENT_COLORS } from '@/constants'
 import { dateLocale } from '@/data/helpers'
+import { CURRENCIES } from '@/data/seed'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -17,7 +19,7 @@ import { useDialogA11y } from './useDialogA11y'
 
 type MobileTxMode = Transaction['type']
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = localToday
 const keypad = [
   '7', '8', '9', '÷',
   '4', '5', '6', '×',
@@ -102,7 +104,8 @@ export function MobileCreateFlow({
   onSaved: () => void
 }) {
   const t = useT()
-  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
+  const settings = useSettings()
+  const lang = (settings.language ?? 'es') as 'en' | 'es'
   const locale = dateLocale(lang)
   const { accounts, categories, transactions, currency, addTx, transfer, addCategory } = useFinance()
   const noteInputRef = useRef<HTMLInputElement>(null)
@@ -232,7 +235,8 @@ export function MobileCreateFlow({
       let found = false
       if (result.amount !== null) {
         setAmountText(String(result.amount))
-        toast(t('scanAmountFound').replace('{amount}', fmt(result.amount, currency)), { icon: 'check', type: 'ok' })
+        const foundAmountLabel = `${CURRENCIES[currency].symbol} ${result.amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[currency].decimals, maximumFractionDigits: CURRENCIES[currency].decimals })}`
+        toast(t('scanAmountFound').replace('{amount}', foundAmountLabel), { icon: 'check', type: 'ok' })
         found = true
       }
       if (result.date !== null) {
@@ -267,12 +271,15 @@ export function MobileCreateFlow({
     setTriedSave(false)
     setFormError(null)
     try {
+      let duplicate = false
       if (mode === 'transfer') {
         transfer({ fromAccount, toAccount, amount, date, note: note.trim() || t('transfer') })
       } else {
+        const finalNote = note.trim() || activeCategory!.name
+        duplicate = isDuplicateTransaction(transactions, { date, amount, note: finalNote })
         addTx({
           type: mode, amount, date,
-          note: note.trim() || activeCategory!.name,
+          note: finalNote,
           categoryId: activeCategory!.id,
           accountId: activeAccountId!,
           ...(recurring ? {
@@ -283,13 +290,14 @@ export function MobileCreateFlow({
           } : {}),
         })
       }
-      navigator.vibrate?.(18)
       playDoneSound()
       toast(
-        recurring
+        duplicate
+          ? t('possibleDuplicateMovement')
+          : recurring
           ? t(recurFreq === 'weekly' ? 'weeklyRecurringScheduled' : 'monthlyRecurringScheduled')
           : mode === 'transfer' ? t('transferRecorded') : t('movementSaved'),
-        { icon: 'check', type: 'ok' },
+        { icon: duplicate ? 'alert' : 'check', type: duplicate ? undefined : 'ok' },
       )
       setAmountText('')
       setNote('')
@@ -312,7 +320,8 @@ export function MobileCreateFlow({
   }
 
   const amountColor = mode === 'income' ? '#35d0a2' : mode === 'transfer' ? '#ffdd3d' : '#f65574'
-  const currencyPrefix = currency === 'DOP' ? 'RD$' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
+  const currencyPrefix = CURRENCIES[currency].symbol
+  const showFirstMovementHint = transactions.length === 0 && !settings.dismissedAlerts.includes('create-first-movement')
 
   return (
     <div className="mobile-create-flow" aria-label={t('addMovement')}>
@@ -360,6 +369,19 @@ export function MobileCreateFlow({
           </>
         )}
 
+        {showFirstMovementHint && (
+          <div className="mobile-context-hint">
+            <span><Icon name="info" size={16} /></span>
+            <div>
+              <b>{t('firstMovementHintTitle')}</b>
+              <small>{t('firstMovementHintText')}</small>
+            </div>
+            <button aria-label={t('dismiss')} onClick={() => settings.dismissAlert('create-first-movement')}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Mode tabs */}
         <div className="mobile-segment" role="tablist" aria-label={t('movementType')}>
           {([['expense', t('expense')], ['income', t('income')], ['transfer', t('transfer')]] as const).map(([value, label]) => (
@@ -405,6 +427,38 @@ export function MobileCreateFlow({
                 {t('createCategoryToContinue')}
               </button>
             )}
+
+            <div className="mobile-create-section-header mobile-create-account-header">
+              <span>{t('account')}</span>
+            </div>
+            <button
+              className={`mobile-create-account-card${!activeAccount ? ' unset' : ''}${triedSave && !activeAccountId ? ' field-error' : ''}`}
+              onClick={() => setAccountPicker(true)}
+              aria-label={t('account')}
+              aria-hidden="true"
+              tabIndex={-1}
+            >
+              <span
+                className="mobile-create-account-icon"
+                style={{
+                  color: activeAccount?.color ?? 'var(--m-primary)',
+                  background: `color-mix(in oklab, ${activeAccount?.color ?? 'var(--m-primary)'} 16%, transparent)`,
+                }}
+              >
+                <Icon name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'cards'} size={20} />
+              </span>
+              <div className="mobile-create-account-copy">
+                <strong>{activeAccount ? activeAccount.name : t('selectAccount')}</strong>
+                <small>
+                  {activeAccount
+                    ? `${fmtCompact(activeAccount.balance, currency)} · ${t(activeAccount.type)}`
+                    : accounts.length > 0
+                      ? t('selectAccountHint')
+                      : t('noAccountsYet')}
+                </small>
+              </div>
+              <Icon name="arrowDn" size={16} />
+            </button>
 
             {/* Recurring toggle */}
             <button
@@ -470,9 +524,33 @@ export function MobileCreateFlow({
       <div className="mobile-create-bottom">
         {/* Amount display */}
         <div className={`mobile-create-amount-row${shaking ? ' shake' : ''}`}>
-          <span className="mobile-create-amount-label">
-            {mode === 'expense' ? t('expense') : mode === 'income' ? t('income') : t('amount')}
-          </span>
+          <div className="mobile-create-amount-left">
+            <span className="mobile-create-amount-label">
+              {mode === 'expense' ? t('expense') : mode === 'income' ? t('income') : t('amount')}
+            </span>
+            {mode !== 'transfer' && (
+              <button
+                className={`mobile-create-pad-account${!activeAccount ? ' unset' : ''}${triedSave && !activeAccountId ? ' field-error' : ''}`}
+                onClick={() => setAccountPicker(true)}
+                type="button"
+                aria-label={t('account')}
+              >
+                <span
+                  className="mobile-create-pad-account-icon"
+                  style={{
+                    color: activeAccount?.color ?? 'var(--m-primary)',
+                    background: `color-mix(in oklab, ${activeAccount?.color ?? 'var(--m-primary)'} 18%, transparent)`,
+                  }}
+                >
+                  <Icon name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'cards'} size={15} />
+                </span>
+                <span className="mobile-create-pad-account-text">
+                  {activeAccount ? activeAccount.name : t('selectAccount')}
+                </span>
+                <Icon name="arrowDn" size={12} />
+              </button>
+            )}
+          </div>
           <span className="mobile-create-amount-stack">
             {hasOperator && (
               <small className="mobile-create-amount-expr">{currencyPrefix} {amountText}</small>
@@ -481,7 +559,7 @@ export function MobileCreateFlow({
               {amountText
                 ? (amountText.endsWith('.')
                     ? `${currencyPrefix} ${amount.toLocaleString('en-US')}.`
-                    : fmt(amount, currency, { decimals: amountText.includes('.') ? 2 : 0 }))
+                    : `${currencyPrefix} ${amount.toLocaleString('en-US', { minimumFractionDigits: amountText.includes('.') ? 2 : 0, maximumFractionDigits: amountText.includes('.') ? 2 : 0 })}`)
                 : `${currencyPrefix} 0`}
             </strong>
           </span>
@@ -495,15 +573,6 @@ export function MobileCreateFlow({
 
         {/* Quick row: account · note · date — kept inside this same compact panel */}
         <div className="mobile-create-quick-row">
-          {mode !== 'transfer' && (
-            <button
-              className={`mobile-quick-icon-btn${!activeAccount ? ' unset' : ''}${triedSave && !activeAccountId ? ' field-error' : ''}`}
-              onClick={() => setAccountPicker(true)}
-              aria-label={t('account')}
-            >
-              <Icon name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'cards'} size={17} style={{ color: activeAccount?.color ?? 'var(--m-muted)' }} />
-            </button>
-          )}
           <div className="mobile-quick-note-input">
             <Icon name="edit" size={13} />
             <input

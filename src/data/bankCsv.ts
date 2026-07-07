@@ -187,7 +187,10 @@ export function deleteCategoryRule(pattern: string): void {
   localStorage.setItem(LEARNED_RULES_KEY, JSON.stringify(rules))
 }
 export function learnCategoryRule(note: string, categoryId: string): void {
-  try { saveCategoryRule(note, categoryId) }
+  try {
+    saveCategoryRule(note, categoryId)
+    saveCategoryRule(normalizeNote(note), categoryId)
+  }
   catch { /* Storage can be unavailable in private or test contexts. */ }
 }
 
@@ -242,13 +245,19 @@ function dateDistanceDays(a: string, b: string): number {
   return Math.abs(first - second) / 86_400_000
 }
 
-function isDuplicateImportedRow(existing: Transaction[], row: Pick<Transaction, 'date' | 'amount' | 'note'>): boolean {
+export function isDuplicateTransaction(
+  existing: Transaction[],
+  row: Pick<Transaction, 'date' | 'amount' | 'note'>,
+  options: { maxDays?: number; ignoreId?: string } = {},
+): boolean {
   const amount = Math.abs(row.amount).toFixed(2)
   const note = normalizeNote(row.note)
+  const maxDays = options.maxDays ?? 2
   return existing.some(tx =>
-    Math.abs(tx.amount).toFixed(2) === amount
+    tx.id !== options.ignoreId
+    && Math.abs(tx.amount).toFixed(2) === amount
     && normalizeNote(tx.note) === note
-    && dateDistanceDays(tx.date, row.date) <= 2)
+    && dateDistanceDays(tx.date, row.date) <= maxDays)
 }
 
 function parseCsv(csv: string) {
@@ -335,10 +344,20 @@ export function parseBankCsv(
     const date = normalizeDate(read(columns.date))
     const type = signed >= 0 ? 'income' as const : 'expense' as const
     const amount = Math.abs(signed)
-    const rule = learnedRules()[clean(note)] ?? CATEGORY_RULES.find(([pattern]) => pattern.test(note))?.[1]
-    const categoryId = categories.some(category => category.id === rule && category.type === type)
-      ? rule
-      : categories.find(category => category.type === type)?.id
-    return { date, note, type, amount, categoryId, duplicate: isDuplicateImportedRow(existing, { date, amount, note }) }
+    const categoryId = guessCategoryId(note, categories, type)
+    return { date, note, type, amount, categoryId, duplicate: isDuplicateTransaction(existing, { date, amount, note }) }
   }).filter(row => row.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(row.date))
+}
+
+/** Sugiere una categoría para una nota (comercio/descripción) según reglas aprendidas y por defecto. */
+export function guessCategoryId(note: string, categories: Category[], type: 'income' | 'expense'): string | undefined {
+  const normalized = clean(note)
+  const normalizedMerchant = normalizeNote(note)
+  const learned = learnedRules()
+  const learnedRule = learned[normalized] ?? learned[normalizedMerchant] ?? Object.entries(learned)
+    .find(([pattern]) => pattern.length >= 3 && (normalized.includes(pattern) || normalizedMerchant.includes(pattern)))?.[1]
+  const rule = learnedRule ?? CATEGORY_RULES.find(([pattern]) => pattern.test(note))?.[1]
+  return categories.some(category => category.id === rule && category.type === type)
+    ? rule
+    : categories.find(category => category.type === type)?.id
 }

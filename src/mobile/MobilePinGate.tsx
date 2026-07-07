@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { playKeySound, playBackspaceSound, playDoneSound } from '@/lib/sound'
+import { playKeySound, playBackspaceSound, playDoneSound, playWarningHaptic } from '@/lib/sound'
 
 export function MobilePinGate({ pin, onUnlocked }: { pin: string; onUnlocked: () => void }) {
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
 
   const press = (digit: string) => {
-    navigator.vibrate?.(8)
     playKeySound()
     if (error) setError('')
     setValue(v => {
@@ -16,18 +15,16 @@ export function MobilePinGate({ pin, onUnlocked }: { pin: string; onUnlocked: ()
       if (next.length === pin.length) {
         if (next === pin) {
           playDoneSound()
-          navigator.vibrate?.(12)
           setTimeout(onUnlocked, 80)
           return next
         }
-        navigator.vibrate?.([20, 40, 20])
+        playWarningHaptic()
         setTimeout(() => { setValue(''); setError('PIN incorrecto') }, 220)
       }
       return next
     })
   }
   const back = () => {
-    navigator.vibrate?.(10)
     playBackspaceSound()
     if (error) setError('')
     setValue(v => v.slice(0, -1))

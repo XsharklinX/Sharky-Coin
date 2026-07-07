@@ -27,23 +27,23 @@ const emptyState = {
 describe('recuperación local', () => {
   beforeEach(installMemoryStorage)
 
-  it('crea snapshots restaurables y evita duplicados consecutivos', () => {
+  it('crea snapshots restaurables y evita duplicados consecutivos via fingerprint', () => {
     const first = createRecoverySnapshot(emptyState)
     const duplicate = createRecoverySnapshot(emptyState)
-    expect(duplicate.id).toBe(first.id)
+    expect(duplicate.id).toBe('')
     expect(listRecoverySnapshots()).toHaveLength(1)
     expect(readRecoverySnapshot(first.id)).toEqual({
       accounts: [], categories: [], goals: [], goalContributions: [], transactions: [], currency: 'DOP',
     })
   })
 
-  it('conserva solo los cinco snapshots más recientes', () => {
-    for (let index = 0; index < 7; index++) {
+  it('conserva solo los tres snapshots más recientes', () => {
+    for (let index = 0; index < 5; index++) {
       createRecoverySnapshot({ ...emptyState, currency: index % 2 ? 'USD' : 'DOP', accounts: [{
         id: `cash_${index}`, name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: index, last4: null,
       }] } as FinanceState)
     }
-    expect(listRecoverySnapshots()).toHaveLength(5)
+    expect(listRecoverySnapshots()).toHaveLength(3)
   })
 })
 

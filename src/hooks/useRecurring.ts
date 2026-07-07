@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { toast } from '@/components/ui/Toast'
+import { localToday } from '@/data/helpers'
 import { tt } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import type { RecurrenceFrequency, Transaction } from '@/types'
@@ -8,7 +9,7 @@ export function advanceRecurrenceDate(date: string, frequency: RecurrenceFrequen
   const next = new Date(`${date}T00:00:00`)
   if (frequency === 'weekly') next.setDate(next.getDate() + 7)
   else next.setMonth(next.getMonth() + 1)
-  return next.toISOString().slice(0, 10)
+  return localToday(next)
 }
 
 export function firstRecurrenceDate(tx: Transaction): string {
@@ -22,7 +23,7 @@ export function useRecurring(): void {
   useEffect(() => {
     if (ran.current) return
     ran.current = true
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localToday()
     let created = 0
     let skipped = 0
 
@@ -32,7 +33,8 @@ export function useRecurring(): void {
       while (next <= today && (!template.recurringEnd || next <= template.recurringEnd) && generated < 24) {
         const exists = transactions.some(tx => tx.date === next && tx.note === template.note
           && tx.categoryId === template.categoryId && tx.accountId === template.accountId)
-        if (!exists) {
+        const isSkipped = template.skippedDates?.includes(next) ?? false
+        if (!exists && !isSkipped) {
           // Un recurrente nunca debe poder tumbar el arranque: si el saldo no
           // alcanza (política "bloquear") lo saltamos y seguimos generando el resto.
           try {

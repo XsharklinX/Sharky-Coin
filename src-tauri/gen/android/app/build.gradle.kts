@@ -13,6 +13,9 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val envVersionCode = System.getenv("SHARKY_ANDROID_VERSION_CODE")?.toIntOrNull()
+val envVersionName = System.getenv("SHARKY_ANDROID_VERSION_NAME")?.takeIf { it.isNotBlank() }
+
 val signingProperties = Properties().apply {
     val propFile = file("../../../../release/android/signing.properties")
     if (propFile.exists()) {
@@ -28,8 +31,8 @@ android {
         applicationId = "com.sharky.miapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
-        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        versionCode = envVersionCode ?: tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
+        versionName = envVersionName ?: tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
     signingConfigs {
         if (signingProperties.isNotEmpty()) {

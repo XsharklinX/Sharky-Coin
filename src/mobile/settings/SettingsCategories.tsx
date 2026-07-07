@@ -140,7 +140,7 @@ function CategoryListRow({ cat, onEdit }: { cat: Category; onEdit: (c: Category)
         <Icon name={cat.icon} size={18} />
       </span>
       <span className="mset-cat-name">{name}</span>
-      <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: '#4a4a4a', flexShrink: 0 }} />
+      <Icon name="arrowUp" size={13} className="mset-chevron" />
     </button>
   )
 }

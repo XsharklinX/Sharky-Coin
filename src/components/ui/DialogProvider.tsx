@@ -83,6 +83,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           title={dialog.options.title}
           description={dialog.options.description}
           icon={dialog.options.icon ?? (dialog.options.tone === 'danger' ? 'alert' : 'check')}
+          className="dialog-centered"
           maxWidth={420}
           onClose={() => closeConfirm(false)}
           footer={(
@@ -107,6 +108,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           title={dialog.options.title}
           description={dialog.options.description}
           icon={dialog.options.icon ?? 'edit'}
+          className="dialog-centered"
           maxWidth={420}
           onClose={() => closePrompt(null)}
           footer={(

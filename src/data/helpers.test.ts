@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { accountActivity, monthlyAccountSeries } from './helpers'
-import type { Transaction } from '@/types'
+import { accountActivity, accountSavingsRate, monthlyAccountSeries, savingsBalance, visibleAccounts, transactionsForTotals } from './helpers'
+import type { Account, Transaction } from '@/types'
 
 const TXNS: Transaction[] = [
   { id: '1', type: 'income',   amount: 500, date: '2026-06-05', note: 'Salary',  accountId: 'acc1' },
@@ -38,5 +38,39 @@ describe('monthlyAccountSeries', () => {
     const june = series[series.length - 1]
     expect(june.inflow).toBe(100)
     expect(june.outflow).toBe(20)
+  })
+})
+
+const ACCOUNTS: Account[] = [
+  { id: 'acc1', name: 'Cuenta', short: 'CTA', type: 'debit', color: '#fff', balance: 1000, last4: null },
+  { id: 'acc2', name: 'Ahorros', short: 'AHO', type: 'savings', color: '#0f0', balance: 500, last4: null, includeInTotal: false },
+]
+
+describe('visibleAccounts', () => {
+  it('excludes accounts with includeInTotal: false', () => {
+    expect(visibleAccounts(ACCOUNTS).map(a => a.id)).toEqual(['acc1'])
+  })
+
+  it('includes all accounts when none are excluded', () => {
+    expect(visibleAccounts([ACCOUNTS[0]]).map(a => a.id)).toEqual(['acc1'])
+  })
+})
+
+describe('savings helpers', () => {
+  it('counts savings accounts even when excluded from total balance', () => {
+    expect(savingsBalance(ACCOUNTS)).toBe(500)
+    expect(accountSavingsRate(ACCOUNTS)).toBeCloseTo(500 / 1500 * 100)
+  })
+})
+
+describe('transactionsForTotals', () => {
+  it('filters out transactions belonging to excluded accounts', () => {
+    const result = transactionsForTotals(TXNS, ACCOUNTS)
+    expect(result.map(t => t.id)).toEqual(['1', '2', '3', '4'])
+  })
+
+  it('returns all transactions unchanged when no accounts are excluded', () => {
+    const result = transactionsForTotals(TXNS, [ACCOUNTS[0]])
+    expect(result).toEqual(TXNS)
   })
 })

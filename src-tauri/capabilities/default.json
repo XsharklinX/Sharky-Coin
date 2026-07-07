@@ -13,6 +13,7 @@
     "mlkit-ocr:default",
     "local-reminders:default",
     "bank-notifications:default",
-    "keystore:default"
+    "keystore:default",
+    "home-widget:default"
   ]
 }

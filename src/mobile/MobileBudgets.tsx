@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
-import { fmt, fmtCompact, txForMonth } from '@/data/helpers'
+import { categoryRollover, fmt, fmtCompact, prevMonthKey, transactionsForTotals, txForMonth } from '@/data/helpers'
 import { CAT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -23,12 +23,16 @@ const ALL_ICONS: IconName[] = [
 ]
 
 export function MobileBudgets({ txns, mkey }: ViewProps) {
-  const { categories, currency, addCategory, updateCategory, deleteCategory } = useFinance()
+  const { accounts, categories, currency, addCategory, updateCategory, deleteCategory } = useFinance()
   const t = useT()
-  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
+  const settings = useSettings()
+  const lang = (settings.language ?? 'es') as 'en' | 'es'
+  const budgetAlertThresholds = settings.budgetAlertThresholds
   const [editing, setEditing] = useState<Category | 'new' | null>(null)
 
-  const monthTx = txForMonth(txns, mkey)
+  const visTxns = transactionsForTotals(txns, accounts)
+  const monthTx = txForMonth(visTxns, mkey)
+  const prevMonthTx = txForMonth(visTxns, prevMonthKey(mkey))
   const cats = categories.filter(c => c.type === 'expense')
 
   const spent: Record<string, number> = {}
@@ -37,19 +41,26 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
       spent[tx.categoryId] = (spent[tx.categoryId] ?? 0) + tx.amount
   })
 
-  const totalBudget = cats.reduce((s, c) => s + c.budget, 0)
+  const rollover: Record<string, number> = {}
+  const effectiveBudget: Record<string, number> = {}
+  cats.forEach(c => {
+    rollover[c.id] = categoryRollover(c, prevMonthTx)
+    effectiveBudget[c.id] = c.budget > 0 ? Math.max(0, c.budget + rollover[c.id]) : c.budget
+  })
+
+  const totalBudget = cats.reduce((s, c) => s + effectiveBudget[c.id], 0)
   const totalSpent  = cats.reduce((s, c) => s + (spent[c.id] ?? 0), 0)
   const totalLeft   = totalBudget - totalSpent
   const globalPct   = totalBudget > 0 ? Math.min(100, totalSpent / totalBudget * 100) : 0
-  const overCount   = cats.filter(c => (spent[c.id] ?? 0) > c.budget && c.budget > 0).length
+  const overCount   = cats.filter(c => (spent[c.id] ?? 0) > effectiveBudget[c.id] && c.budget > 0).length
 
-  const save = (fields: { name: string; budget: number; color: string; icon: IconName }) => {
+  const save = (fields: { name: string; budget: number; color: string; icon: IconName; rolloverEnabled: boolean }) => {
     if (!fields.name.trim()) { toast(t('enterCategoryName'), { icon: 'alert' }); return }
     if (editing === 'new') {
-      addCategory({ name: fields.name.trim(), type: 'expense', budget: fields.budget, color: fields.color, icon: fields.icon })
+      addCategory({ name: fields.name.trim(), type: 'expense', budget: fields.budget, color: fields.color, icon: fields.icon, rolloverEnabled: fields.rolloverEnabled })
       toast(t('categoryCreatedSimple'), { icon: 'check', type: 'ok' })
     } else if (editing) {
-      updateCategory(editing.id, { name: fields.name.trim(), budget: fields.budget, color: fields.color, icon: fields.icon })
+      updateCategory(editing.id, { name: fields.name.trim(), budget: fields.budget, color: fields.color, icon: fields.icon, rolloverEnabled: fields.rolloverEnabled })
       toast(t('categoryUpdated'), { icon: 'check', type: 'ok' })
     }
     setEditing(null)
@@ -125,6 +136,16 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
         </div>
       </div>
 
+      {cats.length > 0 && (
+        <div className="mbud-list-head">
+          <div>
+            <span>{t('categoriesTitle')}</span>
+            <small>{t('monthlyBudget')}</small>
+          </div>
+          <strong>{cats.length}</strong>
+        </div>
+      )}
+
       <div className="mbud-list">
         {cats.length === 0 ? (
           <div className="mbud-empty">
@@ -138,9 +159,14 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
         ) : (
           cats.map(cat => {
             const s = spent[cat.id] ?? 0
-            const pct = cat.budget > 0 ? Math.min(100, s / cat.budget * 100) : 0
-            const over = cat.budget > 0 && s > cat.budget
-            const left = cat.budget - s
+            const budget = effectiveBudget[cat.id]
+            const roll = rollover[cat.id]
+            const pct = budget > 0 ? Math.min(100, s / budget * 100) : 0
+            const over = budget > 0 && s > budget
+            const left = budget - s
+            const reachedThreshold = budget > 0
+              ? [...budgetAlertThresholds].sort((a, b) => a - b).filter(threshold => pct >= threshold).pop()
+              : undefined
             return (
               <button key={cat.id} className="mbud-row" onClick={() => setEditing(cat)}>
                 <span className="mbud-row-icon" style={{
@@ -153,10 +179,10 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                   <div className="mbud-row-top">
                     <span className="mbud-row-name">{translateCategoryName(cat, lang)}</span>
                     <span className={`mbud-row-pct${over ? ' over' : pct >= 80 ? ' warn' : ''}`}>
-                      {cat.budget > 0 ? `${Math.round(pct)}%` : t('noLimitLabel')}
+                      {budget > 0 ? `${Math.round(pct)}%` : t('noLimitLabel')}
                     </span>
                   </div>
-                  {cat.budget > 0 && (
+                  {budget > 0 && (
                     <div className="mbud-row-bar">
                       <div className="mbud-row-fill" style={{
                         width: `${pct}%`,
@@ -166,7 +192,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                   )}
                   <div className="mbud-row-meta">
                     <span>{t('spentAmount').replace('{amount}', fmtCompact(s, currency))}</span>
-                    {cat.budget > 0 && (
+                    {budget > 0 && (
                       <span className={over ? 'over' : ''}>
                         {over
                           ? t('overAmount').replace('{amount}', fmtCompact(Math.abs(left), currency))
@@ -174,6 +200,24 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                       </span>
                     )}
                   </div>
+                  {cat.rolloverEnabled && roll !== 0 && (
+                    <div className="mbud-row-rollover">
+                      <Icon name="repeat" size={11} />
+                      {roll > 0
+                        ? t('rolloverAddedLabel').replace('{amount}', fmtCompact(roll, currency))
+                        : t('rolloverDeductedLabel').replace('{amount}', fmtCompact(Math.abs(roll), currency))}
+                    </div>
+                  )}
+                  {reachedThreshold !== undefined && (
+                    <div className={`mbud-row-rollover${over ? ' over' : pct >= 80 ? ' warn' : ''}`}>
+                      <Icon name={over ? 'alert' : 'bell'} size={11} />
+                      {t('budgetThresholdBody')
+                        .replace('{threshold}', String(reachedThreshold))
+                        .replace('{spent}', fmtCompact(s, currency))
+                        .replace('{budget}', fmtCompact(budget, currency))
+                        .replace('{pct}', String(Math.round(pct)))}
+                    </div>
+                  )}
                 </div>
                 <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
               </button>
@@ -202,7 +246,7 @@ function BudgetEditor({
 }: {
   category?: Category
   onClose: () => void
-  onSave: (f: { name: string; budget: number; color: string; icon: IconName }) => void
+  onSave: (f: { name: string; budget: number; color: string; icon: IconName; rolloverEnabled: boolean }) => void
   onDelete?: (c: Category) => void
 }) {
   const { currency } = useFinance()
@@ -212,6 +256,7 @@ function BudgetEditor({
   const [budget,     setBudget]     = useState(category?.budget ?? 0)
   const [color,      setColor]      = useState(category?.color ?? COLORS[0])
   const [icon,       setIcon]       = useState<IconName>(category?.icon ?? 'cart')
+  const [rolloverEnabled, setRolloverEnabled] = useState(category?.rolloverEnabled ?? false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [budgetSheet, setBudgetSheet] = useState(false)
 
@@ -221,7 +266,7 @@ function BudgetEditor({
 
   return (
     <>
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={category ? t('editCategory') : t('newCategory')} onClick={onClose}>
+    <div ref={dialogRef} className="mobile-detail-sheet mbud-editor-overlay" role="dialog" aria-modal="true" aria-label={category ? t('editCategory') : t('newCategory')} onClick={onClose}>
       <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <span>{category ? t('editCategory') : t('newCategory')}</span>
@@ -250,6 +295,24 @@ function BudgetEditor({
               <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
             </button>
           </div>
+
+          {budget > 0 && (
+            <div className="mpr-form-section mpr-toggle-row">
+              <div className="mpr-toggle-row-text">
+                <span className="mpr-toggle-row-label">{t('rolloverLabel')}</span>
+                <small className="mpr-toggle-row-desc">{t('rolloverDesc')}</small>
+              </div>
+              <label className="mset-toggle-wrap">
+                <input
+                  type="checkbox"
+                  className="mset-toggle-input"
+                  checked={rolloverEnabled}
+                  onChange={e => setRolloverEnabled(e.target.checked)}
+                />
+                <span className="mset-toggle" />
+              </label>
+            </div>
+          )}
 
           <div className="mbud-field">
             <span>{t('color')}</span>
@@ -309,7 +372,7 @@ function BudgetEditor({
           <button
             className="mbud-btn-save"
             style={{ background: color }}
-            onClick={() => onSave({ name, budget, color, icon })}
+            onClick={() => onSave({ name, budget, color, icon, rolloverEnabled })}
           >
             {category ? t('save') : t('create')}
           </button>

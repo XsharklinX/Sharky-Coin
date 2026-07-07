@@ -1,5 +1,29 @@
 /* -- MobileAccounts: "Cuentas" section header with add button - */
-  .macc-section-head { align-items: center; display: flex; justify-content: space-between; padding: 0 2px; }
+  .macc-section-head { align-items: center; display: flex; justify-content: space-between; padding: 0 16px; }
+  .macc-summary-strip { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 16px; }
+  .macc-summary-pill {
+    background: color-mix(in oklab, var(--m-surface) 92%, var(--m-primary));
+    border: 1px solid color-mix(in oklab, var(--m-text) 8%, transparent);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 13px 12px;
+  }
+  .macc-summary-pill small {
+    color: var(--m-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .macc-summary-pill strong {
+    color: var(--m-text);
+    font-size: 19px;
+    font-weight: 900;
+    letter-spacing: -.03em;
+  }
 
 /* -- MobileAccounts: empty state create-account button --------- */
   .mrep-empty button { background: var(--m-primary); border: 0; border-radius: 14px; color: #000; font-size: 14px; font-weight: 700; margin-top: 4px; padding: 10px 20px; }
@@ -8,7 +32,17 @@
   .macc-sheet-head-actions { align-items: center; display: flex; gap: 4px; }
 
 /* -- MobileAccounts: inline 6-month trend sparkline ----------- */
-  .macc-spark { align-items: flex-end; display: flex; flex-shrink: 0; gap: 2px; height: 28px; width: 48px; }
+  .macc-spark {
+    align-items: flex-end;
+    background: color-mix(in oklab, var(--m-text) 4%, transparent);
+    border-radius: 10px;
+    display: flex;
+    flex-shrink: 0;
+    gap: 2px;
+    height: 30px;
+    padding: 5px;
+    width: 52px;
+  }
   .macc-spark-bar { border-radius: 2px 2px 0 0; flex: 1; min-height: 2px; }
   .macc-spark-bar.pos { background: #35d0a2; }
   .macc-spark-bar.neg { background: #ff6b8a; }
@@ -41,6 +75,9 @@
   .macc-dot.out { background: #ff6b8a; }
 
   /* Recent activity */
+  .macc-recent-head { align-items: baseline; display: flex; justify-content: space-between; margin: 20px 4px 8px; }
+  .macc-recent-head .mrep-tools-heading { margin: 0; }
+  .macc-view-all { background: transparent; border: 0; color: var(--m-primary); font-size: 12px; font-weight: 700; padding: 4px 0; }
   .macc-recent-list { border-radius: 14px; overflow: hidden; }
   .macc-recent-list .mobile-tx-row:last-child { border-bottom: 0; }
   .macc-empty { color: var(--m-muted); font-size: 13px; padding: 8px 0; text-align: center; }

@@ -1,6 +1,6 @@
 {
   "name": "sharky",
-  "version": "1.6.3",
+  "version": "1.7.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,6 +17,8 @@
     "package:android": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1",
     "android:dev": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1 -Mode dev",
     "android:build": "powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1 -Mode build",
+    "android:devices": "powershell -ExecutionPolicy Bypass -Command \"& \\\"$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools\\adb.exe\\\" devices -l\"",
+    "android:logcat": "powershell -ExecutionPolicy Bypass -Command \"& \\\"$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools\\adb.exe\\\" logcat -c; & \\\"$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools\\adb.exe\\\" logcat AndroidRuntime:E chromium:E RustStdoutStderr:D Tauri:D *:S\"",
     "tauri:icon": "tauri icon public/icon.svg"
   },
   "dependencies": {
