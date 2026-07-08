@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { dateLocale, fmt, monthLabel } from '@/data/helpers'
+import { byCategory, dateLocale, fmt, fmtCompact, monthLabel, txForMonth } from '@/data/helpers'
 import { createExecutiveSummary, exportCsv, exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
+import { translateCategoryName, useT } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useT } from '@/i18n'
-import type { ViewId } from '@/types'
+import type { IconName } from '@/types'
 
-export function MobileReports({ onImport, mkey, goto }: { onImport?: () => void; mkey: string; goto: (view: ViewId) => void }) {
+const CATEGORY_BAR_COLORS = ['#ffdd3d', '#35d0a2', '#5bc0ff', '#a78bfa', '#ff6b8a']
+
+export function MobileReports({ onImport, mkey }: { onImport?: () => void; mkey: string }) {
   const finance = useFinance()
   const ownerName = useSettings(s => s.displayName) || '$harky'
   const t = useT()
@@ -19,17 +21,16 @@ export function MobileReports({ onImport, mkey, goto }: { onImport?: () => void;
 
   const summary = useMemo(() => createExecutiveSummary(finance, mkey), [finance, mkey])
   const savingsPct = Math.max(0, Math.min(100, summary.savingsRate))
-  const accountSnapshot = useMemo(() => {
-    const visibleAccounts = finance.accounts.filter(account => account.includeInTotal !== false)
-    const assets = visibleAccounts.reduce((sum, account) => sum + Math.max(0, account.balance), 0)
-    const liabilities = visibleAccounts.reduce((sum, account) => sum + Math.abs(Math.min(0, account.balance)), 0)
-    return {
-      count: visibleAccounts.length,
-      assets,
-      liabilities,
-      net: assets - liabilities,
-    }
-  }, [finance.accounts])
+  const topCategories = useMemo(() => {
+    const monthTx = txForMonth(finance.transactions, mkey)
+    const rows = byCategory(monthTx, 'expense', finance.categories).slice(0, 5)
+    const max = rows[0]?.amount ?? 0
+    return rows.map((row, index) => ({
+      ...row,
+      pct: max > 0 ? Math.round((row.amount / max) * 100) : 0,
+      color: CATEGORY_BAR_COLORS[index % CATEGORY_BAR_COLORS.length],
+    }))
+  }, [finance.transactions, finance.categories, mkey])
 
   const handleExportPdf = async () => {
     setExportingPdf(true)
@@ -70,8 +71,13 @@ export function MobileReports({ onImport, mkey, goto }: { onImport?: () => void;
   return (
     <div className="mrep-root">
       <div className="mrep-hero">
-        <span className="mrep-hero-label">{t('reportSummaryTitle')}</span>
-        <strong className="mrep-hero-value">{fmt(summary.net, finance.currency)}</strong>
+        <div className="mrep-hero-top">
+          <div>
+            <span className="mrep-hero-label">{t('reportSummaryTitle')}</span>
+            <strong className="mrep-hero-value">{fmt(summary.net, finance.currency)}</strong>
+          </div>
+          <span className="mrep-hero-month">{monthLabel(mkey, dateLocale(lang))}</span>
+        </div>
         <div className="mrep-hero-bar">
           {summary.income > 0 && <div className="mrep-hero-bar-fill" style={{ width: `${savingsPct}%` }} />}
         </div>
@@ -91,60 +97,32 @@ export function MobileReports({ onImport, mkey, goto }: { onImport?: () => void;
             </div>
           </div>
         </div>
-        {summary.topCategory && (
-          <div className="mrep-hero-row">
-            <div className="mrep-hero-stat">
-              <div>
-                <small>{t('topCategoryLabel')}</small>
-                <strong>{summary.topCategory} - {fmt(summary.topCategoryAmount, finance.currency)}</strong>
-              </div>
-            </div>
-            <div className="mrep-hero-stat">
-              <div>
-                <small>{t('periodMonth')}</small>
-                <strong>{monthLabel(mkey, dateLocale(lang))}</strong>
-              </div>
-            </div>
-          </div>
-        )}
         <p className="mrep-hero-headline">{summary.headline}</p>
       </div>
 
-      <div className="mrep-tools-wrap">
-        <p className="mrep-tools-heading">{t('accounts')}</p>
-        <div className="mrep-nav-list">
-          <button className="mrep-nav-row" onClick={() => goto('accounts')}>
-            <span className="mrep-export-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
-              <Icon name="cards" size={20} />
-            </span>
-            <div>
-              <b>{t('netWorthLabel')}</b>
-              <small>{accountSnapshot.count} {t('accounts').toLowerCase()}</small>
-            </div>
-            <strong className="mrep-nav-value">{fmt(accountSnapshot.net, finance.currency)}</strong>
-          </button>
-          <button className="mrep-nav-row" onClick={() => goto('accounts')}>
-            <span className="mrep-export-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
-              <Icon name="wallet" size={20} />
-            </span>
-            <div>
-              <b>{t('assetsLabel')}</b>
-              <small>{t('bankAccountsGroupLabel')}</small>
-            </div>
-            <strong className="mrep-nav-value">{fmt(accountSnapshot.assets, finance.currency)}</strong>
-          </button>
-          <button className="mrep-nav-row" onClick={() => goto('debt')}>
-            <span className="mrep-export-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
-              <Icon name="dollar" size={20} />
-            </span>
-            <div>
-              <b>{t('liabilitiesLabel')}</b>
-              <small>{t('debtQuickDesc')}</small>
-            </div>
-            <strong className={`mrep-nav-value${accountSnapshot.liabilities > 0 ? ' text-expense' : ''}`}>{fmt(accountSnapshot.liabilities, finance.currency)}</strong>
-          </button>
+      {topCategories.length > 0 && (
+        <div className="mrep-tools-wrap">
+          <p className="mrep-tools-heading">{t('topCategoriesLabel')}</p>
+          <div className="mrep-cat-list">
+            {topCategories.map(row => (
+              <div className="mrep-cat-row" key={row.category.id}>
+                <span className="mrep-cat-icon" style={{ background: row.color + '22', color: row.color }}>
+                  <Icon name={row.category.icon as IconName} size={17} />
+                </span>
+                <div className="mrep-cat-info">
+                  <div className="mrep-cat-info-head">
+                    <b>{translateCategoryName(row.category, lang)}</b>
+                    <strong>{fmtCompact(row.amount, finance.currency)}</strong>
+                  </div>
+                  <div className="mrep-cat-track">
+                    <div className="mrep-cat-fill" style={{ width: `${row.pct}%`, background: row.color }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mrep-tools-wrap">
         <p className="mrep-tools-heading">{t('exportData')}</p>

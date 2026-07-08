@@ -263,7 +263,7 @@ export function MobileShell({
                     {goalsRenderer(viewProps)}
                   </ViewErrorBoundary>
                 ))
-              : <MobileReports onImport={() => setCsvOpen(true)} mkey={mkey} goto={gotoView} />}
+              : <MobileReports onImport={() => setCsvOpen(true)} mkey={mkey} />}
         </div>
       </>
     )

@@ -309,84 +309,87 @@
     padding: 10px 20px 14px;
   }
   /* ── Currency converter (MobileCurrencyConverter) ── */
+  .mconv-sheet {
+    max-height: calc(100dvh - env(safe-area-inset-top) - 10px);
+    overflow-y: auto;
+  }
   .mconv-body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 16px 20px 8px;
+    flex-shrink: 0;
+    gap: 4px;
+    padding: 14px 20px 4px;
+    position: relative;
   }
-  .mconv-field { display: flex; flex-direction: column; gap: 6px; }
-  .mconv-field label {
-    color: var(--text-dim);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-  .mconv-amount-row {
-    align-items: stretch;
+  .mconv-card {
     background: color-mix(in oklab, var(--text) 5%, transparent);
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: 20px;
     display: flex;
-    gap: 0;
-    overflow: hidden;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px 16px;
   }
+  .mconv-card-result {
+    background:
+      radial-gradient(circle at 90% 0%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 55%),
+      color-mix(in oklab, var(--text) 5%, transparent);
+    border-color: color-mix(in oklab, var(--accent) 24%, var(--border));
+  }
+  .mconv-card-top { display: flex; }
   .mconv-currency-btn {
     align-items: center;
-    background: color-mix(in oklab, var(--text) 6%, transparent);
+    background: color-mix(in oklab, var(--text) 7%, transparent);
     border: 0;
-    border-right: 1px solid var(--border);
+    border-radius: 12px;
     color: var(--text);
     display: flex;
-    flex-shrink: 0;
-    gap: 6px;
-    padding: 12px 12px;
+    gap: 7px;
+    padding: 7px 11px 7px 8px;
   }
-  .mconv-currency-btn strong { font-size: 14px; font-weight: 800; }
-  .mconv-flag { font-size: 20px; line-height: 1; }
-  .mconv-amount-row input,
-  .mconv-result {
-    background: transparent;
-    border: 0;
+  .mconv-currency-btn strong { font-size: 14px; font-weight: 850; }
+  .mconv-currency-btn small { color: var(--text-dim); font-size: 12px; font-weight: 650; }
+  .mconv-chevron { color: var(--text-dim); margin-left: 1px; }
+  .mconv-flag { font-size: 19px; line-height: 1; }
+  .mconv-amount-display,
+  .mconv-result-value {
     color: var(--text);
-    flex: 1;
-    font-size: 22px;
-    font-weight: 800;
-    min-width: 0;
-    outline: none;
-    padding: 10px 14px;
-    text-align: right;
-  }
-  .mconv-result {
-    align-items: center;
-    display: flex;
-    justify-content: flex-end;
-    gap: 4px;
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 850;
+    letter-spacing: -.02em;
     overflow: hidden;
+    text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .mconv-result-symbol { color: var(--text-dim); font-size: 15px; font-weight: 700; }
+  .mconv-result-value { color: var(--accent); text-align: right; width: 100%; }
   .mconv-swap {
     align-self: center;
-    background: color-mix(in oklab, var(--accent) 14%, transparent);
-    border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+    background: var(--surface);
+    border: 3px solid var(--surface);
     border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--border);
     color: var(--accent);
     display: grid;
     height: 40px;
+    margin: -19px 0;
     place-items: center;
+    position: relative;
     transition: transform var(--m-duration-fast) var(--m-ease);
     width: 40px;
+    z-index: 1;
   }
   .mconv-swap:active { transform: rotate(180deg); }
   .mconv-rate-line {
+    align-items: center;
     color: var(--text-dim);
-    font-size: 13px;
+    display: flex;
+    font-size: 12.5px;
     font-weight: 650;
-    padding: 4px 2px 0;
-    text-align: center;
+    gap: 6px;
+    justify-content: center;
+    padding: 10px 2px 0;
   }
   .mconv-picker-back {
     align-items: center;
@@ -399,6 +402,38 @@
     gap: 5px;
     padding: 0;
   }
+  .mconv-fetched-note {
+    border-top: 0;
+    padding: 2px 2px 0;
+  }
+  .mconv-numpad {
+    display: grid;
+    flex-shrink: 0;
+    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 10px 20px calc(14px + env(safe-area-inset-bottom));
+  }
+  .mconv-numpad-key {
+    background: color-mix(in oklab, var(--text) 6%, transparent);
+    border: 0;
+    border-radius: 14px;
+    color: var(--text);
+    font-size: 20px;
+    font-weight: 650;
+    height: clamp(44px, 8dvh, 54px);
+  }
+  .mconv-numpad-key:active { background: color-mix(in oklab, var(--text) 12%, transparent); }
+  .mconv-numpad-back {
+    align-items: center;
+    background: color-mix(in oklab, var(--text) 8%, transparent);
+    border: 0;
+    border-radius: 14px;
+    color: var(--text);
+    display: grid;
+    height: clamp(44px, 8dvh, 54px);
+    place-items: center;
+  }
+  .mconv-numpad-back:active { background: color-mix(in oklab, var(--text) 16%, transparent); }
   /* ── Goals (MobileGoals) ── */
   .mgl-root { display: flex; flex-direction: column; min-height: 100%; padding: 10px 0 120px; position: relative; }
   .mgl-summary {

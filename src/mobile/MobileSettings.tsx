@@ -5,7 +5,7 @@ import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
-import { SettingsRow, SettingsSheet, type Sheet } from './settings/shared'
+import { SettingsSheet, type Sheet } from './settings/shared'
 import { SettingsAccount } from './settings/SettingsAccount'
 import { SettingsAppearance } from './settings/SettingsAppearance'
 import { SettingsCategories } from './settings/SettingsCategories'
@@ -71,7 +71,7 @@ export function MobileSettings({
       </header>
 
       <div className="mset-body">
-        <section className="mset-summary">
+        <button className="mset-summary" onClick={() => open('name')} aria-label={t('editNameLabel')}>
           <div className="mset-summary-avatar">{(settings.displayName || '$').slice(0, 1).toUpperCase()}</div>
           <div className="mset-summary-body">
             <strong>{profileName}</strong>
@@ -82,46 +82,10 @@ export function MobileSettings({
               <span className="mset-summary-pill">{languageLabel}</span>
             </div>
           </div>
-        </section>
-
-        <section className="mset-quick-grid" aria-label={t('settings')}>
-          <button className="mset-quick-card" onClick={() => open('theme')}>
-            <span className="mset-quick-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
-              <Icon name="palette" size={20} />
-            </span>
-            <strong>{t('theme')}</strong>
-            <small>{themeModeLabel}</small>
-          </button>
-          <button className="mset-quick-card" onClick={() => open('categories')}>
-            <span className="mset-quick-icon" style={{ background: '#c084fc22', color: '#c084fc' }}>
-              <Icon name="tag" size={20} />
-            </span>
-            <strong>{t('categoriesTitle')}</strong>
-            <small>{t('categorySettings')}</small>
-          </button>
-          <button className="mset-quick-card" onClick={() => open('backupSchedule')}>
-            <span className="mset-quick-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
-              <Icon name="fileJson" size={20} />
-            </span>
-            <strong>{t('weeklyBackupLastLabel')}</strong>
-            <small>{settings.weeklyAutoBackupEnabled ? t('weeklyBackupAutoLabel') : t('backupAutoDisabled')}</small>
-          </button>
-        </section>
+          <Icon name="edit" size={15} className="mset-summary-edit" />
+        </button>
 
         <SettingsAccount onOpen={open} />
-
-        <div className="mset-section">
-          <span className="mset-section-title">{t('profileSection')}</span>
-          <div className="mset-card">
-            <SettingsRow
-              icon="user"
-              iconColor="#5bc0ff"
-              label={t('name')}
-              value={settings.displayName || t('notSet')}
-              onClick={() => open('name')}
-            />
-          </div>
-        </div>
 
         <SettingsAppearance activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsCategories activeSheet={activeSheet} onOpen={open} onClose={close} />

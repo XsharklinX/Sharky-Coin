@@ -122,7 +122,11 @@
     display: flex;
     gap: 14px;
     padding: 17px;
+    text-align: left;
+    width: 100%;
   }
+  .mset-summary:active { background: color-mix(in oklab, var(--text) 3%, var(--surface)); }
+  .mset-summary-edit { align-self: flex-start; color: var(--text-dim); flex-shrink: 0; margin-top: 3px; }
   .mset-summary-avatar {
     align-items: center;
     background: var(--accent);
@@ -167,47 +171,6 @@
     font-size: 11px;
     font-weight: 750;
     padding: 5px 9px;
-  }
-  .mset-quick-grid {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .mset-quick-card {
-    align-items: flex-start;
-    background: color-mix(in oklab, var(--surface) 94%, var(--accent));
-    border: 1px solid color-mix(in oklab, var(--text) 9%, transparent);
-    border-radius: 20px;
-    color: var(--text);
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    min-height: 118px;
-    padding: 13px 11px;
-    text-align: left;
-  }
-  .mset-quick-card:active {
-    background: color-mix(in oklab, var(--text) 7%, var(--surface));
-    transform: scale(.98);
-  }
-  .mset-quick-icon {
-    align-items: center;
-    border-radius: 15px;
-    display: flex;
-    height: 42px;
-    justify-content: center;
-    width: 42px;
-  }
-  .mset-quick-card strong {
-    font-size: 13px;
-    font-weight: 900;
-    line-height: 1.15;
-  }
-  .mset-quick-card small {
-    color: var(--text-dim);
-    font-size: 11px;
-    font-weight: 750;
-    line-height: 1.25;
   }
   /* Settings row with icon + text + control (sounds, biometría…) */
   .mset-row-icon {
@@ -319,6 +282,21 @@
   }
   .mset-widget-preview.size-2x2 { aspect-ratio: 1; }
   .mset-widget-preview.size-4x2 { min-height: 92px; }
+  .mset-widget-preview-head {
+    align-items: center;
+    display: flex;
+    gap: 6px;
+  }
+  .mset-widget-preview-head span {
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
   .mset-widget-preview b {
     color: var(--text);
     font-size: 12px;
@@ -331,10 +309,41 @@
     font-weight: 950;
     letter-spacing: -.03em;
   }
-  .mset-widget-preview span {
+  .mset-widget-preview > div > span {
     color: var(--text-dim);
+    display: block;
     font-size: 10px;
     font-weight: 800;
+    margin-top: 1px;
+  }
+  .mset-widget-preview-budget { display: flex; flex-direction: column; gap: 6px; }
+  .mset-widget-preview-budget-row { align-items: baseline; display: flex; justify-content: space-between; gap: 8px; }
+  .mset-widget-preview-budget-row b {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 800;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mset-widget-preview-budget-row strong {
+    color: var(--accent);
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .mset-widget-preview-track {
+    background: color-mix(in oklab, var(--text) 10%, transparent);
+    border-radius: 999px;
+    height: 5px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .mset-widget-preview-track > div {
+    background: var(--accent);
+    border-radius: 999px;
+    height: 100%;
   }
   .mset-widget-card {
     align-items: flex-start;

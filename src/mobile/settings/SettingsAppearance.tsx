@@ -1,6 +1,9 @@
+import { useMemo } from 'react'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { ACCENT_COLORS } from '@/constants'
+import { byCategory, currentMonthKey, fmtCompact, totalBalanceInBase, txForMonth } from '@/data/helpers'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { isTauri } from '@/hooks/useTauri'
 import { useT } from '@/i18n'
@@ -78,6 +81,27 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
     soft: t('soundProfileSoft'),
     full: t('soundProfileFull'),
   } as const
+
+  // Datos reales para que las vistas previas de widgets se vean como el
+  // widget final en lugar de texto instructivo (bug visual anterior).
+  const widgetPreviewBalance = useMemo(
+    () => totalBalanceInBase(finance.accounts, finance.currency),
+    [finance.accounts, finance.currency],
+  )
+  const widgetPreviewBudget = useMemo(() => {
+    const mkey = currentMonthKey()
+    const monthTx = txForMonth(finance.transactions, mkey)
+    const rows = byCategory(monthTx, 'expense', finance.categories)
+      .map(row => {
+        const category = finance.categories.find(c => c.id === row.category.id)
+        return category && category.budget > 0
+          ? { name: category.name, pct: Math.min(100, Math.round((row.amount / category.budget) * 100)) }
+          : null
+      })
+      .filter((row): row is { name: string; pct: number } => !!row)
+      .sort((a, b) => b.pct - a.pct)
+    return rows[0] ?? null
+  }, [finance.transactions, finance.categories])
 
   return (
     <>
@@ -228,14 +252,33 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
               </div>
               <div className="mset-widget-preview-row">
                 <div className="mset-widget-preview size-2x2">
-                  <b>$harky</b>
-                  <strong>{finance.currency}</strong>
-                  <span>{t('totalBalance')}</span>
+                  <div className="mset-widget-preview-head">
+                    <BrandMark size={15} />
+                    <span>$harky</span>
+                  </div>
+                  <div>
+                    <strong>{fmtCompact(widgetPreviewBalance, finance.currency)}</strong>
+                    <span>{t('totalBalance')}</span>
+                  </div>
                 </div>
                 <div className="mset-widget-preview size-4x2">
-                  <b>{t('addBudgetsHomeWidget')}</b>
-                  <strong>{t('widgetSizeWide')}</strong>
-                  <span>{t('budgetStatus')}</span>
+                  <div className="mset-widget-preview-head">
+                    <BrandMark size={15} />
+                    <span>{t('budgetStatus')}</span>
+                  </div>
+                  {widgetPreviewBudget ? (
+                    <div className="mset-widget-preview-budget">
+                      <div className="mset-widget-preview-budget-row">
+                        <b>{widgetPreviewBudget.name}</b>
+                        <strong>{widgetPreviewBudget.pct}%</strong>
+                      </div>
+                      <div className="mset-widget-preview-track">
+                        <div style={{ width: `${widgetPreviewBudget.pct}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <span>{t('addBudgetsHomeWidget')}</span>
+                  )}
                 </div>
               </div>
               <div className="mset-widget-grid">

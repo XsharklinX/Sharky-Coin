@@ -1,27 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { CURRENCIES, convertCurrency, getCurrencyMeta } from '@/data/currencies'
 import { getRatesFetchedAt, syncExchangeRates } from '@/data/exchangeRates'
+import { dateLocale, fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { dateLocale } from '@/data/helpers'
+import { playBackspaceSound, playKeySound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import type { CurrencyCode } from '@/types'
 
-function fmtResult(value: number): string {
-  if (!Number.isFinite(value)) return '—'
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: value >= 1 ? 2 : 4,
-  })
+const NUMPAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'] as const
+
+function fmtAmountText(text: string, prefix: string): string {
+  if (!text) return `${prefix} 0`
+  const n = parseFloat(text)
+  if (isNaN(n)) return `${prefix} 0`
+  if (text.endsWith('.')) return `${prefix} ${n.toLocaleString('en-US')}.`
+  return `${prefix} ${n.toLocaleString('en-US', { minimumFractionDigits: text.includes('.') ? 2 : 0 })}`
 }
 
 /**
  * Calculadora de conversión de divisas con tasas en vivo.
  * Convierte entre las 9 monedas de la app usando el mismo motor de tasas
  * (open.er-api.com, cache 12h) que alimenta el resto de la aplicación.
+ * El numpad es propio de la app y va SIEMPRE debajo, con la conversión
+ * visible arriba actualizándose en vivo — no un teclado nativo ni un sheet
+ * separado que tape la pantalla.
  */
 export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
   const t = useT()
@@ -30,7 +36,7 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
   useMobileBackDismiss(true, onClose)
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
-  const [amountRaw, setAmountRaw] = useState('100')
+  const [amountText, setAmountText] = useState('100')
   const [from, setFrom] = useState<CurrencyCode>(appCurrency)
   const [to, setTo] = useState<CurrencyCode>(appCurrency === 'USD' ? 'DOP' : 'USD')
   const [picker, setPicker] = useState<'from' | 'to' | null>(null)
@@ -45,12 +51,8 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
     return () => { alive = false }
   }, [])
 
-  const amount = useMemo(() => {
-    const parsed = Number(amountRaw.replace(',', '.'))
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : NaN
-  }, [amountRaw])
-
-  const result = Number.isFinite(amount) ? convertCurrency(amount, from, to) : NaN
+  const amount = amountText ? parseFloat(amountText) || 0 : 0
+  const result = convertCurrency(amount, from, to)
   const unitRate = convertCurrency(1, from, to)
   const fromMeta = getCurrencyMeta(from)
   const toMeta = getCurrencyMeta(to)
@@ -70,6 +72,23 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
       setTo(code)
     }
     setPicker(null)
+  }
+
+  const pressKey = (key: typeof NUMPAD_KEYS[number]) => {
+    if (key === 'back') {
+      playBackspaceSound()
+      setAmountText(v => v.slice(0, -1))
+      return
+    }
+    playKeySound()
+    setAmountText(v => {
+      if (key === '.') return v.includes('.') ? v : (v || '0') + '.'
+      if (v === '0') return key
+      const next = v + key
+      const [, dec] = next.split('.')
+      if (dec && dec.length > 2) return v
+      return next
+    })
   }
 
   return (
@@ -109,59 +128,58 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <div className="mconv-body">
-              <div className="mconv-field">
-                <label htmlFor="mconv-amount">{t('converterAmount')}</label>
-                <div className="mconv-amount-row">
+              <div className="mconv-card">
+                <div className="mconv-card-top">
                   <button className="mconv-currency-btn" onClick={() => setPicker('from')} aria-label={t('converterFrom')}>
                     <span className="mconv-flag">{fromMeta.flag}</span>
                     <strong>{from}</strong>
-                    <Icon name="arrowDn" size={12} />
+                    <small>{fromMeta.name}</small>
+                    <Icon name="arrowDn" size={13} className="mconv-chevron" />
                   </button>
-                  <input
-                    id="mconv-amount"
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    value={amountRaw}
-                    onChange={e => {
-                      const next = e.target.value
-                      if (/^[0-9]*[.,]?[0-9]*$/.test(next)) setAmountRaw(next)
-                    }}
-                    placeholder="0.00"
-                  />
                 </div>
+                <div className="mconv-amount-display">{fmtAmountText(amountText, fromMeta.symbol)}</div>
               </div>
 
               <button className="mconv-swap" onClick={swap} aria-label={t('converterSwap')}>
                 <Icon name="refresh" size={18} />
               </button>
 
-              <div className="mconv-field">
-                <label>{t('converterTo')}</label>
-                <div className="mconv-amount-row">
+              <div className="mconv-card mconv-card-result">
+                <div className="mconv-card-top">
                   <button className="mconv-currency-btn" onClick={() => setPicker('to')} aria-label={t('converterTo')}>
                     <span className="mconv-flag">{toMeta.flag}</span>
                     <strong>{to}</strong>
-                    <Icon name="arrowDn" size={12} />
+                    <small>{toMeta.name}</small>
+                    <Icon name="arrowDn" size={13} className="mconv-chevron" />
                   </button>
-                  <output className="mconv-result" htmlFor="mconv-amount">
-                    <span className="mconv-result-symbol">{toMeta.symbol}</span>
-                    {fmtResult(result)}
-                  </output>
                 </div>
+                <div className="mconv-result-value">{fmt(result, to)}</div>
               </div>
 
               <div className="mconv-rate-line">
-                1 {from} = {toMeta.symbol}{fmtResult(unitRate)} {to}
+                <Icon name="trend" size={13} />
+                1 {from} = {fmt(unitRate, to)}
               </div>
+
+              <p className="mcur-note mconv-fetched-note">
+                <Icon name="info" size={12} />
+                {fetchedAt
+                  ? t('converterUpdated').replace('{date}', new Date(fetchedAt).toLocaleString(dateLocale(lang), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }))
+                  : t('approxRatesNote')}
+              </p>
             </div>
 
-            <p className="mcur-note">
-              <Icon name="info" size={12} />
-              {fetchedAt
-                ? t('converterUpdated').replace('{date}', new Date(fetchedAt).toLocaleString(dateLocale(lang), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }))
-                : t('approxRatesNote')}
-            </p>
+            <div className="mconv-numpad">
+              {NUMPAD_KEYS.map(key => (
+                <button
+                  key={key}
+                  className={key === 'back' ? 'mconv-numpad-back' : 'mconv-numpad-key'}
+                  onClick={() => pressKey(key)}
+                >
+                  {key === 'back' ? <Icon name="close" size={17} /> : key}
+                </button>
+              ))}
+            </div>
           </>
         )}
       </section>
