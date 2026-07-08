@@ -59,6 +59,12 @@ export interface Account {
    * (su balance y actividad) no se ve afectada.
    */
   includeInTotal?: boolean
+  /**
+   * Divisa propia de la cuenta. Su saldo y movimientos se registran en esta
+   * divisa; los totales globales la convierten a la divisa base de la app con
+   * el motor de tasas en vivo. `undefined` = divisa base (compatibilidad).
+   */
+  currency?: CurrencyCode
 }
 
 export interface Category {
@@ -77,6 +83,12 @@ export interface Category {
   rolloverEnabled?: boolean
 }
 
+/** Parte de una transacción dividida: cuánto del total va a cada categoría. */
+export interface TxSplit {
+  categoryId: string
+  amount:     number
+}
+
 export interface Transaction {
   id:           string
   type:         TxType
@@ -85,8 +97,22 @@ export interface Transaction {
   note:         string
   categoryId?:  string              // income / expense
   accountId?:   string              // income / expense
+  /**
+   * División del monto entre 2+ categorías (ej. supermercado → comida +
+   * limpieza). Si existe, las sumas deben igualar `amount` y los reportes /
+   * presupuestos usan estas partes en lugar de `categoryId`. `categoryId`
+   * se mantiene como categoría principal (la de mayor monto) por
+   * compatibilidad con listas, búsqueda y exports simples.
+   */
+  splits?:      TxSplit[]
   fromAccount?: string              // transfer
   toAccount?:   string              // transfer
+  /**
+   * Solo transferencias entre cuentas de distinta divisa: monto que recibe la
+   * cuenta destino en SU divisa (convertido con la tasa del momento de crear
+   * la transferencia). `undefined` = misma divisa, se usa `amount`.
+   */
+  toAmount?:    number
   recurring?:   RecurrenceFrequency | null
   recurringStart?: string
   recurringEnd?: string
@@ -172,6 +198,7 @@ export type ViewId =
   | 'reports'
   | 'subscriptions'
   | 'debt'
+  | 'cashflow'
 
 export interface ViewProps {
   txns:        Transaction[]

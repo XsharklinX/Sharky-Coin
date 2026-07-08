@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useFinance } from '@/store/finance'
 import { fmt, fmtCompact } from '@/data/helpers'
+import type { CurrencyCode } from '@/types'
 
 interface Props {
   value:     number
@@ -8,10 +9,13 @@ interface Props {
   decimals?: number
   style?:    React.CSSProperties
   className?: string
+  /** Divisa a mostrar; por defecto la divisa base de la app. */
+  currency?: CurrencyCode
 }
 
-export function AnimatedMoney({ value, compact, decimals, style, className }: Props) {
-  const currency = useFinance(s => s.currency)
+export function AnimatedMoney({ value, compact, decimals, style, className, currency: currencyOverride }: Props) {
+  const baseCurrency = useFinance(s => s.currency)
+  const currency = currencyOverride ?? baseCurrency
   const [disp, setDisp] = useState(0)
   const from = useRef(0)
 

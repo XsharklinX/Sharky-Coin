@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { visibleAccounts } from '@/data/helpers'
+import { accountBalanceInBase, totalBalanceInBase, visibleAccounts } from '@/data/helpers'
 import { useFmt } from '@/hooks/useFmt'
 import { useT } from '@/i18n'
 import { useFinance } from '@/store/finance'
@@ -34,10 +34,10 @@ export function MobileProfile({
   }
 
   const activeAccounts = visibleAccounts(accounts)
-  const totalBalance = activeAccounts.reduce((sum, account) => sum + account.balance, 0)
+  const totalBalance = totalBalanceInBase(accounts, currency)
   const bankingAccounts = activeAccounts.filter(account => account.type === 'debit' || account.type === 'savings')
   const creditAccounts = activeAccounts.filter(account => account.type === 'credit')
-  const debtBalance = Math.abs(creditAccounts.reduce((sum, account) => sum + Math.min(0, account.balance), 0))
+  const debtBalance = Math.abs(creditAccounts.reduce((sum, account) => sum + Math.min(0, accountBalanceInBase(account, currency)), 0))
   const topAccounts = [...activeAccounts].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 3)
 
   return (
@@ -126,7 +126,7 @@ export function MobileProfile({
             <div className="mpr-account-summary">
               <div>
                 <small>{t('bankAccountsGroupLabel')}</small>
-                <strong>{fmtVal(bankingAccounts.reduce((sum, account) => sum + account.balance, 0), currency)}</strong>
+                <strong>{fmtVal(bankingAccounts.reduce((sum, account) => sum + accountBalanceInBase(account, currency), 0), currency)}</strong>
               </div>
               <div>
                 <small>{t('debtsLabel')}</small>

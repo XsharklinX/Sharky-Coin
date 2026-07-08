@@ -3,7 +3,7 @@ import { Donut, Progress } from '@/components/ui/charts'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
-import { currentMonthKey, fmtCompact, monthLabel, transactionsForTotals, txForMonth } from '@/data/helpers'
+import { categoryParts, currentMonthKey, fmtCompact, monthLabel, transactionsForTotals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import type { Category, ViewProps } from '@/types'
 import { Card, CatBadge, Empty, MiniStat } from './shared'
@@ -19,7 +19,7 @@ export function Budgets({ txns, mkey, createRequest }: ViewProps) {
   const [addOpen, setAddOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'annual'>('monthly')
-  const visTxns = transactionsForTotals(txns, accounts)
+  const visTxns = transactionsForTotals(txns, accounts, currency)
 
   useEffect(() => {
     if (createRequest?.target === 'category') setAddOpen(true)
@@ -49,8 +49,10 @@ export function Budgets({ txns, mkey, createRequest }: ViewProps) {
   // Calcular gasto por categoría
   const spent: Record<string, number> = {}
   periodTx.forEach(tx => {
-    if (tx.type === 'expense' && tx.categoryId)
-      spent[tx.categoryId] = (spent[tx.categoryId] ?? 0) + tx.amount
+    if (tx.type !== 'expense') return
+    categoryParts(tx).forEach(part => {
+      if (part.categoryId) spent[part.categoryId] = (spent[part.categoryId] ?? 0) + part.amount
+    })
   })
 
   const cats        = categories.filter(c => c.type === 'expense')

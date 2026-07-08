@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { toast } from '@/components/ui/Toast'
-import { currentMonthKey, fmtCompact, txForMonth } from '@/data/helpers'
+import { amountForCategory, currentMonthKey, fmtCompact, txForMonth } from '@/data/helpers'
 import { tt } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -29,8 +29,8 @@ export function useNotifications(): void {
     const crossings = categories.flatMap(cat => {
       if (cat.type !== 'expense' || !cat.budget) return []
       const spent = monthTx
-        .filter(tx => tx.categoryId === cat.id && tx.type === 'expense')
-        .reduce((sum, tx) => sum + tx.amount, 0)
+        .filter(tx => tx.type === 'expense')
+        .reduce((sum, tx) => sum + amountForCategory(tx, cat.id), 0)
       const crossed = thresholds.filter(threshold => {
         const reached = threshold >= 100 ? spent > cat.budget * threshold / 100 : spent >= cat.budget * threshold / 100
         return reached && !done.has(`${cat.id}:${threshold}`)

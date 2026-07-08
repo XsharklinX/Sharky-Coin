@@ -13,13 +13,14 @@ import { MobileAmountSheet } from '@/mobile/MobileAmountSheet'
 import { MobileTextSheet } from '@/mobile/MobileTextSheet'
 import { MobileDatePicker } from '@/mobile/MobileDatePicker'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
-import type { CurrencyCode, IconName, RecurrenceFrequency, Transaction, TxType } from '@/types'
+import type { CurrencyCode, IconName, RecurrenceFrequency, Transaction, TxSplit, TxType } from '@/types'
 
 function currencyPrefix(c: CurrencyCode): string {
   return CURRENCIES[c].symbol
 }
 
 type Sub = 'amount' | 'note' | 'account' | 'category' | 'date' | 'recurEnd' | null
+type SplitSub = { kind: 'amount' | 'category'; index: number } | null
 
 const ACCT_ICONS: Record<string, IconName> = {
   cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
@@ -55,6 +56,9 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   const [recurringEnd,   setRecurringEnd]   = useState('')
   const [tags,           setTags]           = useState<string[]>([])
   const [sub,            setSub]            = useState<Sub>(null)
+  const [splitOn,        setSplitOn]        = useState(false)
+  const [splits,         setSplits]         = useState<TxSplit[]>([])
+  const [splitSub,       setSplitSub]       = useState<SplitSub>(null)
 
   useEffect(() => {
     if (!editing) return
@@ -69,6 +73,10 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
     setRecurringStart(value.recurringStart ?? value.date)
     setRecurringEnd(value.recurringEnd ?? '')
     setTags(value.tags ?? [])
+    if (value.splits && value.splits.length >= 2) {
+      setSplitOn(true)
+      setSplits(value.splits)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -82,7 +90,24 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   const activeCategory = visibleCats.find(c => c.id === categoryId) ?? null
   const typeColor      = type === 'income' ? '#35d0a2' : '#f65574'
 
-  useMobileBackDismiss(sub !== null, () => setSub(null))
+  useMobileBackDismiss(sub !== null || splitSub !== null, () => { setSub(null); setSplitSub(null) })
+
+  const splitsSum = splits.reduce((sum, split) => sum + split.amount, 0)
+  const splitsRemaining = amount - splitsSum
+  const splitsActive = splitOn && type === 'expense'
+
+  const toggleSplit = () => {
+    if (splitOn) { setSplitOn(false); return }
+    setSplits(current => current.length >= 2 ? current : [
+      { categoryId: categoryId || '', amount },
+      { categoryId: '', amount: 0 },
+    ])
+    setSplitOn(true)
+  }
+
+  const updateSplit = (index: number, patch: Partial<TxSplit>) => {
+    setSplits(current => current.map((split, i) => i === index ? { ...split, ...patch } : split))
+  }
 
   const submit = () => {
     if (!amount)
@@ -91,11 +116,25 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       return toast(t('fillAllError'), { icon: 'alert' })
     if (!accountId)
       return toast(t('accountError'), { icon: 'alert' })
-    if (!categoryId)
+
+    let cleanSplits: TxSplit[] | undefined
+    let mainCategoryId = categoryId
+    if (splitsActive) {
+      cleanSplits = splits.filter(split => split.categoryId && split.amount > 0)
+      if (cleanSplits.length < 2)
+        return toast(t('splitNeedsTwoParts'), { icon: 'alert' })
+      const sum = cleanSplits.reduce((total, split) => total + split.amount, 0)
+      if (Math.abs(sum - amount) >= 0.01)
+        return toast(t('splitSumMismatch'), { icon: 'alert' })
+      // La categoría principal es la parte de mayor monto (para listas/búsqueda)
+      mainCategoryId = [...cleanSplits].sort((a, b) => b.amount - a.amount)[0].categoryId
+    }
+    if (!mainCategoryId)
       return toast(t('categoryError'), { icon: 'alert' })
 
     const fields = {
-      type, amount, note: note.trim(), date, accountId, categoryId,
+      type, amount, note: note.trim(), date, accountId, categoryId: mainCategoryId,
+      splits: cleanSplits,
       ...(recurring ? {
         recurring: recurFreq,
         recurringStart,
@@ -131,7 +170,9 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   }
 
   const arrow = <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
-  const pfx = currencyPrefix(currency)
+  // El monto se registra en la divisa de la cuenta seleccionada
+  const txCurrency = activeAccount?.currency ?? currency
+  const pfx = currencyPrefix(txCurrency)
 
   return (
     <>
@@ -174,7 +215,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
           <button className="txf-amount-hero" onClick={() => setSub('amount')}>
             <span className="txf-amount-label">{type === 'expense' ? t('totalExpenseLabel') : t('totalIncomeLabel')}</span>
             <span className="txf-amount-value" style={{ color: amount > 0 ? typeColor : 'var(--m-muted)' }}>
-              {amount > 0 ? `${pfx} ${amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[currency].decimals, maximumFractionDigits: CURRENCIES[currency].decimals })}` : `${pfx} 0`}
+              {amount > 0 ? `${pfx} ${amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[txCurrency].decimals, maximumFractionDigits: CURRENCIES[txCurrency].decimals })}` : `${pfx} 0`}
             </span>
             <span className="txf-amount-tap">{t('tapToEditLabel')}</span>
           </button>
@@ -201,18 +242,20 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
               {arrow}
             </button>
 
-            <button className="mpr-form-row" onClick={() => setSub('category')}>
-              <Icon
-                name={(activeCategory?.icon as IconName | undefined) ?? 'tag'}
-                size={16}
-                style={{ color: activeCategory?.color ?? 'var(--m-muted)', flexShrink: 0 }}
-              />
-              <span className="mpr-form-row-label">{t('category')}</span>
-              <span className={activeCategory ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
-                {activeCategory?.name ?? t('selectLabel')}
-              </span>
-              {arrow}
-            </button>
+            {!splitsActive && (
+              <button className="mpr-form-row" onClick={() => setSub('category')}>
+                <Icon
+                  name={(activeCategory?.icon as IconName | undefined) ?? 'tag'}
+                  size={16}
+                  style={{ color: activeCategory?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+                />
+                <span className="mpr-form-row-label">{t('category')}</span>
+                <span className={activeCategory ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                  {activeCategory?.name ?? t('selectLabel')}
+                </span>
+                {arrow}
+              </button>
+            )}
 
             <button className="mpr-form-row" onClick={() => setSub('date')}>
               <Icon name="calendar" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
@@ -221,6 +264,62 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
               {arrow}
             </button>
           </div>
+
+          {/* Split entre categorías (solo gastos) */}
+          {type === 'expense' && (
+            <button
+              className={`mobile-create-recurring-toggle${splitOn ? ' active' : ''}`}
+              onClick={toggleSplit}
+            >
+              <span className="mobile-recur-icon"><Icon name="scissors" size={15} /></span>
+              <span className="mobile-recur-label">{t('splitToggleLabel')}</span>
+              <span className={`mobile-recur-switch${splitOn ? ' on' : ''}`} />
+            </button>
+          )}
+
+          {splitsActive && (
+            <div className="mpr-form-rows txf-rows txf-splits">
+              {splits.map((split, index) => {
+                const cat = visibleCats.find(c => c.id === split.categoryId) ?? null
+                return (
+                  <div className="mpr-form-row txf-split-row" key={index}>
+                    <button className="txf-split-cat" onClick={() => setSplitSub({ kind: 'category', index })}>
+                      <Icon
+                        name={(cat?.icon as IconName | undefined) ?? 'tag'}
+                        size={16}
+                        style={{ color: cat?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+                      />
+                      <span className={cat ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                        {cat?.name ?? t('selectLabel')}
+                      </span>
+                    </button>
+                    <button className="txf-split-amount" onClick={() => setSplitSub({ kind: 'amount', index })}>
+                      {split.amount > 0 ? fmt(split.amount, txCurrency) : `${pfx} 0`}
+                    </button>
+                    {splits.length > 2 && (
+                      <button
+                        className="txf-split-remove"
+                        aria-label={t('delete')}
+                        onClick={() => setSplits(current => current.filter((_, i) => i !== index))}
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+              <div className="txf-split-footer">
+                <button className="txf-split-add" onClick={() => setSplits(current => [...current, { categoryId: '', amount: 0 }])}>
+                  <Icon name="plus" size={13} /> {t('splitAddPart')}
+                </button>
+                <span className={`txf-split-remaining${Math.abs(splitsRemaining) < 0.01 ? ' ok' : ''}`}>
+                  {Math.abs(splitsRemaining) < 0.01
+                    ? t('splitBalanced')
+                    : t('splitRemaining').replace('{amount}', fmt(splitsRemaining, txCurrency))}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Recurring */}
           <button
@@ -283,7 +382,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
         <MobileAmountSheet
           title={t('amount')}
           value={amount}
-          currency={currency}
+          currency={txCurrency}
           onDone={v => { setAmount(v); setSub(null) }}
           onClose={() => setSub(null)}
         />
@@ -333,10 +432,50 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
                     <Icon name={ACCT_ICONS[a.type]} size={22} />
                   </span>
                   <b>{a.name}</b>
-                  <small>{fmt(a.balance, currency)}</small>
+                  <small>{fmt(a.balance, a.currency ?? currency)}</small>
                   {a.id === accountId && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 4 }} />}
                 </button>
               ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {splitSub?.kind === 'amount' && (
+        <MobileAmountSheet
+          title={t('amount')}
+          value={splits[splitSub.index]?.amount ?? 0}
+          currency={txCurrency}
+          onDone={v => { updateSplit(splitSub.index, { amount: v }); setSplitSub(null) }}
+          onClose={() => setSplitSub(null)}
+        />
+      )}
+
+      {splitSub?.kind === 'category' && (
+        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSplitSub(null)}>
+          <section className="mobile-detail-sheet mpr-editor-sheet" onClick={e => e.stopPropagation()}>
+            <header className="mpr-editor-header">
+              <span className="mpr-editor-name-input" style={{ cursor: 'default' }}>{t('selectCategory')}</span>
+              <button className="mpr-editor-close" onClick={() => setSplitSub(null)}>
+                <Icon name="close" size={18} />
+              </button>
+            </header>
+            <div className="mpr-editor-body" style={{ overflowY: 'auto' }}>
+              <div className="mobile-category-grid">
+                {visibleCats.map(c => (
+                  <button
+                    key={c.id}
+                    className={splits[splitSub.index]?.categoryId === c.id ? 'on' : ''}
+                    aria-pressed={splits[splitSub.index]?.categoryId === c.id}
+                    onClick={() => { updateSplit(splitSub.index, { categoryId: c.id }); setSplitSub(null) }}
+                  >
+                    <span style={{ color: c.color, background: `color-mix(in oklab, ${c.color} 22%, transparent)` }}>
+                      <Icon name={c.icon as IconName} size={20} />
+                    </span>
+                    <small>{c.name}</small>
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
         </div>

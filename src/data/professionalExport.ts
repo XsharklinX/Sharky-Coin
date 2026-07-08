@@ -1,4 +1,4 @@
-import { accountSavingsRate, byCategory, dateLocale, fmt, getAccount, getCategory, localToday, monthLabel, monthlySeries, savingsBalance, totals, transactionsForTotals, txForMonth, visibleAccounts } from './helpers'
+import { accountSavingsRate, amountForCategory, byCategory, dateLocale, fmt, getAccount, getCategory, localToday, monthLabel, monthlySeries, savingsBalance, totalBalanceInBase, totals, transactionsForTotals, txForMonth } from './helpers'
 import type { FinanceState } from '@/store/finance'
 import { saveFile } from '@/hooks/useTauri'
 import { tt } from '@/i18n'
@@ -16,7 +16,7 @@ export interface ReportExecutiveSummary {
 }
 
 export function createExecutiveSummary(state: FinanceState, month?: string): ReportExecutiveSummary {
-  const visTx = transactionsForTotals(state.transactions, state.accounts)
+  const visTx = transactionsForTotals(state.transactions, state.accounts, state.currency)
   const rows = month ? txForMonth(visTx, month) : visTx
   const summary = totals(rows)
   const topCategory = byCategory(rows, 'expense', state.categories)[0]
@@ -70,7 +70,7 @@ export async function exportExcel(state: FinanceState): Promise<void> {
     { Indicador: 'Categoria top', Valor: executive.topCategoryAmount, Nota: executive.topCategory ?? 'Sin datos' },
   ])
 
-  const visTx = transactionsForTotals(state.transactions, state.accounts)
+  const visTx = transactionsForTotals(state.transactions, state.accounts, state.currency)
   const years = Array.from(new Set(visTx.map(tx => Number(tx.date.slice(0, 4))))).sort()
   const annualRows = years.flatMap(year =>
     monthlySeries(visTx, year).map(m => ({
@@ -86,8 +86,8 @@ export async function exportExcel(state: FinanceState): Promise<void> {
 
   const categoryRows = state.categories.map(c => {
     const amount = state.transactions
-      .filter(tx => tx.categoryId === c.id && tx.type === c.type)
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .filter(tx => tx.type === c.type)
+      .reduce((sum, tx) => sum + amountForCategory(tx, c.id), 0)
     return {
       Categoria: c.name,
       Tipo: c.type === 'expense' ? 'Gasto' : 'Ingreso',
@@ -160,7 +160,7 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF()
   const locale = dateLocale(lang)
-  const rows = txForMonth(transactionsForTotals(state.transactions, state.accounts), month)
+  const rows = txForMonth(transactionsForTotals(state.transactions, state.accounts, state.currency), month)
   const summary = totals(rows)
   const executive = createExecutiveSummary(state, month)
   const categories = byCategory(rows, 'expense', state.categories)
@@ -275,11 +275,11 @@ export async function exportMonthlyPdf(state: FinanceState, month: string, owner
       doc.setTextColor(23, 32, 51)
       doc.text(account.name.slice(0, 40), 16, y)
       doc.text(tt(account.type), 116, y)
-      doc.text(fmt(account.balance, state.currency), 166, y)
+      doc.text(fmt(account.balance, account.currency ?? state.currency), 166, y)
       y += 7
     })
 
-    const netWorth = visibleAccounts(state.accounts).reduce((sum, a) => sum + a.balance, 0)
+    const netWorth = totalBalanceInBase(state.accounts, state.currency)
     y += 2
     doc.setDrawColor(220, 226, 234)
     doc.line(16, y, 194, y)

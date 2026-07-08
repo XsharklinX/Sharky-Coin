@@ -406,6 +406,25 @@ button.man-quick-card {
   font-weight: 700;
 }
 
+.man-insight-action {
+  align-items: center;
+  background: color-mix(in oklab, var(--m-primary) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--m-primary) 32%, transparent);
+  border-radius: 9px;
+  color: var(--m-primary);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 4px;
+  justify-self: start;
+  margin-top: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+}
+.man-insight-action:active {
+  background: color-mix(in oklab, var(--m-primary) 24%, transparent);
+}
+
 .man-compare-list {
   display: grid;
   gap: 10px;

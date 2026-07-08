@@ -45,9 +45,13 @@ const date = (value: unknown): value is string => typeof value === 'string' && /
 
 export function sanitizeFinanceData(value: unknown): FinanceData {
   const data = (value && typeof value === 'object' ? value : {}) as Partial<FinanceData>
+  const CURRENCY_CODES = ['DOP','USD','EUR','MXN','GBP','COP','ARS','BRL','CAD']
   const accounts = (Array.isArray(data.accounts) ? data.accounts : []).filter(account =>
     text(account.id) && text(account.name) && text(account.short) && text(account.color)
     && ['debit', 'savings', 'credit', 'cash'].includes(account.type) && amount(account.balance))
+    .map(account => account.currency && !CURRENCY_CODES.includes(account.currency)
+      ? { ...account, currency: undefined }
+      : account)
   const accountIds = new Set(accounts.map(account => account.id))
   const categories = (Array.isArray(data.categories) ? data.categories : []).filter(category =>
     text(category.id) && text(category.name) && /\p{L}/u.test(category.name) && text(category.color)
@@ -71,6 +75,20 @@ export function sanitizeFinanceData(value: unknown): FinanceData {
     if (!text(tx.id) || !['income', 'expense', 'transfer'].includes(tx.type) || !amount(tx.amount) || tx.amount <= 0 || !date(tx.date) || !text(tx.note)) return false
     if (tx.type === 'transfer') return !!tx.fromAccount && !!tx.toAccount && accountIds.has(tx.fromAccount) && accountIds.has(tx.toAccount) && tx.fromAccount !== tx.toAccount
     return !!tx.accountId && !!tx.categoryId && accountIds.has(tx.accountId) && categoryIds.has(tx.categoryId)
+  }).map(tx => {
+    // toAmount: solo válido en transferencias, como número positivo.
+    if (tx.toAmount !== undefined && (tx.type !== 'transfer' || !amount(tx.toAmount) || tx.toAmount <= 0)) {
+      tx = { ...tx, toAmount: undefined }
+    }
+    // Splits: solo válidos si cada parte apunta a una categoría existente con
+    // monto positivo y la suma coincide con el total (tolerancia de centavos).
+    if (!Array.isArray(tx.splits) || tx.splits.length < 2) {
+      return tx.splits === undefined ? tx : { ...tx, splits: undefined }
+    }
+    const valid = tx.splits.every(split =>
+      split && text(split.categoryId) && categoryIds.has(split.categoryId) && amount(split.amount) && split.amount > 0)
+    const sum = valid ? tx.splits.reduce((total, split) => total + split.amount, 0) : NaN
+    return valid && Math.abs(sum - tx.amount) < 0.01 ? tx : { ...tx, splits: undefined }
   })
   const goalContributions = (Array.isArray(data.goalContributions) ? data.goalContributions : []).filter(contribution =>
     text(contribution.id) && text(contribution.goalId) && text(contribution.fromAccountId)
@@ -109,7 +127,7 @@ function applyBalance(accounts: Account[], tx: Transaction, sign: 1 | -1): Accou
   if (tx.type === 'transfer') {
     return accounts.map(a => {
       if (a.id === tx.fromAccount) return { ...a, balance: a.balance - sign * tx.amount }
-      if (a.id === tx.toAccount)   return { ...a, balance: a.balance + sign * tx.amount }
+      if (a.id === tx.toAccount)   return { ...a, balance: a.balance + sign * (tx.toAmount ?? tx.amount) }
       return a
     })
   }
@@ -146,19 +164,39 @@ function assertTransactionShape(tx: Transaction, accounts: Account[], categories
 
 function normalizeTransaction(tx: Transaction): Transaction {
   if (tx.type === 'transfer') {
-    const { id, type, amount, date, note, fromAccount, toAccount, tags } = tx
-    return { id, type, amount, date, note, fromAccount, toAccount, ...(tags?.length ? { tags } : {}) }
+    const { id, type, amount, date, note, fromAccount, toAccount, toAmount, tags } = tx
+    return {
+      id, type, amount, date, note, fromAccount, toAccount,
+      ...(toAmount !== undefined && Number.isFinite(toAmount) && toAmount > 0 ? { toAmount } : {}),
+      ...(tags?.length ? { tags } : {}),
+    }
   }
 
   const {
-    id, type, amount, date, note, categoryId, accountId,
+    id, type, amount, date, note, categoryId, accountId, splits,
     recurring, recurringStart, recurringEnd, recurringNext, skippedDates, tags,
   } = tx
   return {
     id, type, amount, date, note, categoryId, accountId,
+    ...(type === 'expense' && splits && splits.length >= 2 ? { splits } : {}),
     ...(recurring ? { recurring, recurringStart, recurringEnd, recurringNext, skippedDates } : {}),
     ...(tags?.length ? { tags } : {}),
   }
+}
+
+/**
+ * Transferencias entre cuentas de distinta divisa: fija `toAmount` (lo que
+ * recibe el destino en SU divisa) con la tasa del momento, para que el saldo
+ * de ambas cuentas quede correcto y no derive si las tasas cambian después.
+ */
+function withCrossCurrencyAmount(tx: Transaction, accounts: Account[], base: CurrencyCode): Transaction {
+  if (tx.type !== 'transfer' || tx.toAmount !== undefined) return tx
+  const from = accounts.find(a => a.id === tx.fromAccount)
+  const to = accounts.find(a => a.id === tx.toAccount)
+  const fromCur = from?.currency ?? base
+  const toCur = to?.currency ?? base
+  if (fromCur === toCur) return tx
+  return { ...tx, toAmount: convertCurrency(tx.amount, fromCur, toCur) }
 }
 
 export function assertAvailableBalance(accounts: Account[], accountId: string, amount: number): void {
@@ -259,7 +297,8 @@ export const useFinance = create<FinanceState>()(
 
       // ── Transacciones ──────────────────────────────────
       addTx: (tx) => set(s => {
-        const full: Transaction = normalizeTransaction({ id: newId(), ...tx } as Transaction)
+        const full: Transaction = withCrossCurrencyAmount(
+          normalizeTransaction({ id: newId(), ...tx } as Transaction), s.accounts, s.currency)
         assertTransactionShape(full, s.accounts, s.categories)
         if (full.type === 'transfer') assertAvailableBalance(s.accounts, full.fromAccount!, full.amount)
         assertManualExpenseBalance(s.accounts, full)
@@ -286,7 +325,13 @@ export const useFinance = create<FinanceState>()(
         const old  = s.transactions[idx]
         if (old.type === 'transfer' && fields.type && fields.type !== 'transfer') throw new Error(tt('errEditTransferAsMovement'))
         if (old.type !== 'transfer' && fields.type === 'transfer') throw new Error(tt('errUseTransferFlow'))
-        const next = normalizeTransaction({ ...old, ...fields } as Transaction)
+        let next = normalizeTransaction({ ...old, ...fields } as Transaction)
+        // Si cambió el monto o alguna cuenta de una transferencia, el toAmount
+        // guardado quedó obsoleto: se recalcula con la tasa actual.
+        if (next.type === 'transfer' && fields.toAmount === undefined
+          && (fields.amount !== undefined || fields.fromAccount !== undefined || fields.toAccount !== undefined)) {
+          next = withCrossCurrencyAmount({ ...next, toAmount: undefined }, s.accounts, s.currency)
+        }
         assertTransactionShape(next, s.accounts, s.categories)
         const reverted = applyBalance(s.accounts, old, -1)
         if (next.type === 'transfer') assertAvailableBalance(reverted, next.fromAccount!, next.amount)
@@ -313,11 +358,11 @@ export const useFinance = create<FinanceState>()(
         if (fromAccount === toAccount) throw new Error(tt('errSameAccount'))
         assertAvailableBalance(s.accounts, fromAccount, amount)
         if (!s.accounts.some(a => a.id === toAccount)) throw new Error(tt('errDestAccountNotExist'))
-        const tx: Transaction = {
+        const tx: Transaction = withCrossCurrencyAmount({
           id: newId(), type: 'transfer',
           amount, fromAccount, toAccount,
           date, note: note ?? 'Transferencia',
-        }
+        }, s.accounts, s.currency)
         return {
           transactions: sortTxns([tx, ...s.transactions]),
           accounts:     applyBalance(s.accounts, tx, 1),

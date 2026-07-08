@@ -2,7 +2,7 @@ import { isTauri } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
-import { currentMonthKey, dateLocale, fmtCompact, txForMonth } from '@/data/helpers'
+import { amountForCategory, currentMonthKey, dateLocale, fmtCompact, txForMonth } from '@/data/helpers'
 
 function isAndroidTauri(): boolean {
   return isTauri() && /android/i.test(navigator.userAgent)
@@ -31,8 +31,8 @@ function buildReminderSnapshot(): string {
     .filter(c => c.type === 'expense' && c.budget > 0)
     .map(cat => {
       const spent = monthTx
-        .filter(tx => tx.type === 'expense' && tx.categoryId === cat.id)
-        .reduce((sum, tx) => sum + tx.amount, 0)
+        .filter(tx => tx.type === 'expense')
+        .reduce((sum, tx) => sum + amountForCategory(tx, cat.id), 0)
       const pct = Math.round(spent / cat.budget * 100)
       return {
         id: cat.id,

@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { CURRENCIES } from '@/data/currencies'
-import { checkBiometric } from '@/lib/biometric'
-import { playWarningHaptic } from '@/lib/sound'
-import { isTauri } from '@/hooks/useTauri'
 import { useT, translateCategoryName } from '@/i18n'
 import { MobileOnboarding } from './MobileOnboarding'
 import type { CurrencyCode } from '@/types'
@@ -180,33 +177,20 @@ const TOTAL = 4
 const NAME_STEP = TOTAL + 1
 const CURRENCY_STEP = NAME_STEP + 1
 const ACCOUNT_STEP = CURRENCY_STEP + 1
-const SECURITY_STEP = ACCOUNT_STEP + 1
 
 // ── Main component ────────────────────────────────────────
 
 export function MobileWelcomeHub() {
   const startEmpty        = useFinance(s => s.startEmpty)
   const setCurrency       = useFinance(s => s.setCurrency)
-  const { setDisplayName, markOnboardingSeen, displayName, setAppPin, setRequireBiometric } = useSettings()
+  const { setDisplayName, markOnboardingSeen, displayName } = useSettings()
   const isExistingUser    = !!localStorage.getItem('sharky-finance-v2')
 
   const [step, setStep]   = useState(0)
   const [name, setName]   = useState(displayName || '')
-  const [nameError, setNameError] = useState(false)
   const [currency, setCurrencyChoice] = useState<CurrencyCode>('DOP')
   const t = useT()
   const SLIDES = getSlides(t)
-
-  const [securityStep, setSecurityStep] = useState<'ask' | 'pin-enter' | 'pin-confirm' | 'biometric'>('ask')
-  const [pinValue, setPinValue] = useState('')
-  const [pinDraft, setPinDraft] = useState('')
-  const [pinError, setPinError] = useState('')
-  const [pinShake, setPinShake] = useState(false)
-  const [bioAvailable, setBioAvailable] = useState(false)
-
-  useEffect(() => {
-    if (isTauri()) checkBiometric().then(s => setBioAvailable(s.available))
-  }, [])
 
   const finish = () => {
     const trimmed = name.trim()
@@ -217,8 +201,7 @@ export function MobileWelcomeHub() {
 
   const goToCurrency = () => {
     const trimmed = name.trim()
-    if (!trimmed) { setNameError(true); return }
-    setDisplayName(trimmed)
+    if (trimmed) setDisplayName(trimmed)
     startEmpty()
     nextStep()
   }
@@ -232,47 +215,8 @@ export function MobileWelcomeHub() {
     markOnboardingSeen()
   }
 
-  const nextStep = () => setStep(s => Math.min(s + 1, SECURITY_STEP))
+  const nextStep = () => setStep(s => Math.min(s + 1, ACCOUNT_STEP))
   const prevStep = () => setStep(s => Math.max(s - 1, 0))
-
-  // ── PIN setup (security step) ─────────────────────────
-  const pressPinDigit = (digit: string) => {
-    if (pinError) setPinError('')
-    setPinValue(v => {
-      if (v.length >= 4) return v
-      const next = v + digit
-      if (next.length === 4) setTimeout(() => handlePinComplete(next), 100)
-      return next
-    })
-  }
-  const backspacePin = () => { if (pinError) setPinError(''); setPinValue(v => v.slice(0, -1)) }
-
-  const triggerPinShake = (message: string) => {
-    setPinError(message)
-    setPinShake(true)
-    playWarningHaptic()
-    setTimeout(() => setPinShake(false), 380)
-  }
-
-  function handlePinComplete(value: string) {
-    if (securityStep === 'pin-enter') {
-      setPinDraft(value)
-      setPinValue('')
-      setSecurityStep('pin-confirm')
-    } else if (securityStep === 'pin-confirm') {
-      if (value === pinDraft) {
-        setAppPin(value)
-        setPinValue('')
-        if (bioAvailable) setSecurityStep('biometric')
-        else finishNewUser()
-      } else {
-        setPinValue('')
-        setPinDraft('')
-        setSecurityStep('pin-enter')
-        triggerPinShake(t('pinMismatch'))
-      }
-    }
-  }
 
   /* ── Welcome ─────────────────────────────────────────── */
   if (step === 0) {
@@ -353,16 +297,15 @@ export function MobileWelcomeHub() {
           {isExistingUser && t('nameHintExisting')}
         </p>
         <input
-          className={`mwh-name-input${nameError ? ' error' : ''}`}
+          className="mwh-name-input"
           type="text"
           value={name}
           placeholder={t('yourNamePlaceholder')}
           autoCapitalize="words"
           autoCorrect="off"
-          onChange={e => { setName(e.target.value); setNameError(false) }}
+          onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onContinue()}
         />
-        {nameError && <p className="mwh-name-error">{t('nameRequiredError')}</p>}
 
         <div className="mwh-name-actions">
           <button className="mwh-nav-back" onClick={prevStep} aria-label={t('back')}>
@@ -412,87 +355,6 @@ export function MobileWelcomeHub() {
     )
   }
 
-  /* ── Account step (new users only) ───────────────────── */
-  if (step === ACCOUNT_STEP) {
-    return <MobileOnboarding onBack={prevStep} onDone={nextStep} />
-  }
-
-  /* ── Security step (new users only) ──────────────────── */
-  return (
-    <div className="mobile-welcome-hub mwh-name-screen">
-      <div className="mwh-name-brand">
-        <BrandMark size={54} />
-      </div>
-
-      {securityStep === 'ask' && (
-        <>
-          <h2>{t('protectYourApp')}</h2>
-          <p className="mwh-name-hint">
-            {t('pinHint')}
-          </p>
-          <div className="mwh-security-actions">
-            <button className="mobile-welcome-primary" onClick={() => setSecurityStep('pin-enter')}>
-              <Icon name="key" size={16} /> {t('setupPin')}
-            </button>
-            <button className="mobile-welcome-ghost" onClick={finishNewUser}>
-              {t('notNow')}
-            </button>
-          </div>
-        </>
-      )}
-
-      {(securityStep === 'pin-enter' || securityStep === 'pin-confirm') && (
-        <>
-          <h2>{securityStep === 'pin-enter' ? t('createYourPin') : t('confirmYourPin')}</h2>
-          <p className="mwh-name-hint" style={pinError ? { color: '#ff6b8a' } : undefined}>
-            {pinError || (securityStep === 'pin-enter'
-              ? t('choosePinHint')
-              : t('confirmPinHint'))}
-          </p>
-          <div className="mpin-dots" style={{ justifyContent: 'center', margin: '4px 0 18px' }}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <span key={i} className={`mpin-dot${i < pinValue.length ? ' on' : ''}${pinShake ? ' err' : ''}`} />
-            ))}
-          </div>
-          <div className="mpin-keypad">
-            {['1','2','3','4','5','6','7','8','9'].map(d => (
-              <button key={d} onClick={() => pressPinDigit(d)}>{d}</button>
-            ))}
-            <span />
-            <button onClick={() => pressPinDigit('0')}>0</button>
-            <button aria-label={t('delete')} onClick={backspacePin}><Icon name="close" size={18} /></button>
-          </div>
-          <div className="mwh-name-actions">
-            <button className="mwh-nav-back" onClick={() => { setPinValue(''); setPinDraft(''); setPinError(''); setSecurityStep('ask') }} aria-label={t('back')}>
-              <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
-            </button>
-            <button className="mobile-welcome-ghost mwh-nav-next" onClick={finishNewUser}>
-              {t('skip')}
-            </button>
-          </div>
-        </>
-      )}
-
-      {securityStep === 'biometric' && (
-        <>
-          <h2>{t('biometricUnlock')}</h2>
-          <p className="mwh-name-hint">{t('biometricHint')}</p>
-          <div className="mwh-security-toggle-row">
-            <span>{t('enableBiometric')}</span>
-            <label className="mset-toggle-wrap">
-              <input type="checkbox" className="mset-toggle-input"
-                onChange={e => setRequireBiometric(e.target.checked)} />
-              <span className="mset-toggle" />
-            </label>
-          </div>
-          <div className="mwh-name-actions">
-            <button className="mobile-welcome-primary mwh-nav-next" onClick={finishNewUser}>
-              {t('continueBtn')}
-              <Icon name="check" size={16} />
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
+  /* ── Account step (new users only, último paso) ────────── */
+  return <MobileOnboarding onBack={prevStep} onDone={finishNewUser} />
 }

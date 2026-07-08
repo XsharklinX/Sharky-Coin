@@ -102,7 +102,10 @@ fn take_pending_shared_file(app: tauri::AppHandle) -> Result<Option<SharedFile>,
     }))
 }
 
-const SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas";
+const SECURE_STORAGE_SERVICE: &str = "com.sharky.miapp";
+// Nombre anterior del servicio keyring. Al leer, si la clave no existe bajo el
+// nombre nuevo se busca bajo el viejo y se migra (una sola vez por clave).
+const LEGACY_SECURE_STORAGE_SERVICE: &str = "com.sharky.finanzas";
 const DESKTOP_PWA_CACHE_RESET_SCRIPT: &str = r#"
 (async () => {
   const resetKey = "sharky-desktop-pwa-reset-v1";
@@ -152,7 +155,21 @@ fn secure_storage_get(key: String) -> Result<Option<String>, String> {
         .get_password()
     {
         Ok(value) => Ok(Some(value)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(keyring::Error::NoEntry) => {
+            // Migración desde el nombre de servicio anterior
+            let legacy = keyring::Entry::new(LEGACY_SECURE_STORAGE_SERVICE, &key)
+                .map_err(|e| e.to_string())?;
+            match legacy.get_password() {
+                Ok(value) => {
+                    if secure_storage_set(key, value.clone()).is_ok() {
+                        let _ = legacy.delete_credential();
+                    }
+                    Ok(Some(value))
+                }
+                Err(keyring::Error::NoEntry) => Ok(None),
+                Err(error) => Err(error.to_string()),
+            }
+        }
         Err(error) => Err(error.to_string()),
     }
 }

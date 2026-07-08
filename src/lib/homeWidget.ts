@@ -2,7 +2,7 @@ import { isTauri } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
-import { currentMonthKey, dateLocale, fmtCompact, localToday, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
+import { accountCurrency, amountForCategory, currentMonthKey, dateLocale, fmtCompact, localToday, totalBalanceInBase, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
 
 function isAndroidTauri(): boolean {
@@ -19,11 +19,11 @@ function buildWidgetSnapshot(): string {
   const { language, widgetAccountIds } = useSettings.getState()
 
   const mkey = currentMonthKey()
-  const visTx = transactionsForTotals(transactions, accounts)
+  const visTx = transactionsForTotals(transactions, accounts, currency)
   const monthTx = txForMonth(visTx, mkey)
   const locale = dateLocale(language)
 
-  const totalBalance = visibleAccounts(accounts).reduce((sum, a) => sum + a.balance, 0)
+  const totalBalance = totalBalanceInBase(accounts, currency)
 
   const widgetAccounts = (() => {
     if (widgetAccountIds && widgetAccountIds.length > 0) {
@@ -34,7 +34,7 @@ function buildWidgetSnapshot(): string {
     }
     return [...visibleAccounts(accounts)].sort((a, b) => b.balance - a.balance).slice(0, 3)
   })()
-  const topAccounts = widgetAccounts.map(a => ({ name: a.short || a.name, balanceLabel: fmtCompact(a.balance, currency) }))
+  const topAccounts = widgetAccounts.map(a => ({ name: a.short || a.name, balanceLabel: fmtCompact(a.balance, accountCurrency(a, currency)) }))
 
   const { income, expense } = totals(monthTx)
   const maxFlow = Math.max(income, expense, 1)
@@ -49,8 +49,8 @@ function buildWidgetSnapshot(): string {
     .filter(c => c.type === 'expense' && c.budget > 0)
     .map(cat => {
       const spent = monthTx
-        .filter(tx => tx.type === 'expense' && tx.categoryId === cat.id)
-        .reduce((sum, tx) => sum + tx.amount, 0)
+        .filter(tx => tx.type === 'expense')
+        .reduce((sum, tx) => sum + amountForCategory(tx, cat.id), 0)
       return {
         name: cat.name,
         pct: Math.round(spent / cat.budget * 100),

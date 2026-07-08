@@ -2,7 +2,7 @@
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { getMobileAlerts } from '@/data/alerts'
-import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, fmt, fmtCompact, monthLabel, savingsBalance, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
+import { accountCurrency, accountSavingsRate, byCategory, currentMonthKey, dateLocale, fmt, fmtCompact, monthLabel, savingsBalance, totalBalanceInBase, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { notificationActionTypeId, sendNativeNotification } from '@/hooks/useTauri'
 import { translateCategoryName, useT } from '@/i18n'
 import { useFinance } from '@/store/finance'
@@ -46,12 +46,12 @@ export function MobileHome({
 
   useEffect(() => { setExtraMonths([]) }, [mkey])
 
-  const totalsTx = transactionsForTotals(transactions, accounts)
+  const totalsTx = transactionsForTotals(transactions, accounts, currency)
   const visibleMonthTx = txForMonth(totalsTx, visibleMonth)
   const summary = totals(visibleMonthTx)
   const isCurrent = mkey === currentMonthKey()
 
-  const totalBalance = visibleAccounts(accounts).reduce((sum, account) => sum + account.balance, 0)
+  const totalBalance = totalBalanceInBase(accounts, currency)
   const balancePositive = totalBalance >= 0
   const expenseCategories = categories.filter(category => category.type === 'expense')
   const monthlyBudget = expenseCategories.reduce((sum, category) => sum + Math.max(0, category.budget), 0)
@@ -210,7 +210,11 @@ export function MobileHome({
             <div key={account.id} className="mhome-balance-row">
               <span style={{ color: account.color }}>●</span>
               <span className="mhome-balance-acct-name">{account.name}</span>
-              <strong className={account.balance < 0 ? 'expense' : ''}>{fmtVal(account.balance)}</strong>
+              <strong className={account.balance < 0 ? 'expense' : ''}>
+                {compactNumbers
+                  ? fmtCompact(account.balance, accountCurrency(account, currency))
+                  : fmt(account.balance, accountCurrency(account, currency))}
+              </strong>
             </div>
           ))}
         </div>

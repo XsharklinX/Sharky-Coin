@@ -1,5 +1,5 @@
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
-import { currentMonthKey, fmtCompact, localToday, txForMonth } from './helpers'
+import { amountForCategory, currentMonthKey, fmtCompact, localToday, txForMonth } from './helpers'
 import { tt } from '@/i18n'
 import type { Category, CurrencyCode, IconName, Transaction } from '@/types'
 
@@ -26,8 +26,8 @@ export function getMobileAlerts(
 
   categories.filter(c => c.type === 'expense' && c.budget > 0).forEach(cat => {
     const spent = monthTx
-      .filter(tx => tx.type === 'expense' && tx.categoryId === cat.id)
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .filter(tx => tx.type === 'expense')
+      .reduce((sum, tx) => sum + amountForCategory(tx, cat.id), 0)
     const pct = Math.round(spent / cat.budget * 100)
     if (pct > 100) {
       alerts.push({

@@ -13,7 +13,7 @@ export function Annual({ txns, mkey }: ViewProps) {
   const capture = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
   const year = Number(mkey.slice(0, 4))
-  const visTx = transactionsForTotals(txns, accounts)
+  const visTx = transactionsForTotals(txns, accounts, currency)
   const yearTx = visTx.filter(tx => tx.date.startsWith(String(year)))
   const summary = totals(yearTx), months = monthlySeries(visTx, year)
   const expenses = byCategory(yearTx, 'expense', categories)

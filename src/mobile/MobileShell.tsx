@@ -11,12 +11,15 @@ import { MobileAnalytics } from './MobileAnalytics'
 import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
 import { MobileCurrencySheet } from './MobileCurrencySheet'
+import { MobileCurrencyConverter } from './MobileCurrencyConverter'
 import { MobileCalendar } from './MobileCalendar'
 import { MobileGlobalSearch } from './MobileGlobalSearch'
 import { MobileMovements } from './MobileMovements'
 import { MobileProfile } from './MobileProfile'
 import { MobileReports } from './MobileReports'
 import { MobileDebt } from './MobileDebt'
+// Lazy: MobileCashflow trae recharts (~100 KB) que no debe cargar en el arranque
+const MobileCashflow = lazy(() => import('./MobileCashflow').then(m => ({ default: m.MobileCashflow })))
 import { MobileQuickAddSheet } from './MobileQuickAddSheet'
 import { MobileSubscriptions } from './MobileSubscriptions'
 const MobileCSVImport = lazy(() => import('./MobileCSVImport').then(m => ({ default: m.MobileCSVImport })))
@@ -44,7 +47,7 @@ function MobileSkeletonScreen() {
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'home'
   if (view === 'stats') return 'analysis'
-  if (view === 'reports' || view === 'annual' || view === 'calendar' || view === 'debt' || view === 'accounts' || view === 'goals') {
+  if (view === 'reports' || view === 'annual' || view === 'calendar' || view === 'debt' || view === 'cashflow' || view === 'accounts' || view === 'goals') {
     return 'reports'
   }
   if (view === 'budgets' || view === 'subscriptions') return 'profile'
@@ -65,6 +68,7 @@ function internalTitles(t: ReturnType<typeof useT>): Partial<Record<ViewId, stri
     budgets: t('budgets'),
     subscriptions: t('subscriptions'),
     debt: t('debtCalculator'),
+    cashflow: t('cashflowTitle'),
   }
 }
 
@@ -104,6 +108,7 @@ export function MobileShell({
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
   const [quickAddSheet, setQuickAddSheet] = useState<'expense' | 'income' | null>(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [converterOpen, setConverterOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
@@ -209,6 +214,13 @@ export function MobileShell({
     if (view === 'annual') return <MobileAnnual mkey={mkey} />
     if (view === 'calendar') return <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
     if (view === 'debt') return <MobileDebt />
+    if (view === 'cashflow') {
+      return (
+        <Suspense fallback={<MobileSkeletonScreen />}>
+          <MobileCashflow />
+        </Suspense>
+      )
+    }
 
     const goalsRenderer = mobileViews.goals
 
@@ -282,6 +294,7 @@ export function MobileShell({
           onAdd={() => setRoute('add')}
           onEditTx={onEditTx}
           onDeleteTx={viewProps.onDeleteTx}
+          onOpenSecurity={() => onSettings('pin')}
         />
       )
     }
@@ -366,6 +379,7 @@ export function MobileShell({
         </Suspense>
       )}
       {currencyOpen && <MobileCurrencySheet onClose={() => setCurrencyOpen(false)} />}
+      {converterOpen && <MobileCurrencyConverter onClose={() => setConverterOpen(false)} />}
       {searchOpen && (
         <MobileGlobalSearch
           onClose={() => setSearchOpen(false)}
@@ -452,6 +466,26 @@ export function MobileShell({
                   <div>
                     <b>{t('debtsLabel')}</b>
                     <small>{t('debtQuickDesc')}</small>
+                  </div>
+                  <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
+                </button>
+                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('cashflow') }}>
+                  <span className="mobile-tools-row-icon" style={{ background: '#38bdf822', color: '#38bdf8' }}>
+                    <Icon name="trend" size={20} />
+                  </span>
+                  <div>
+                    <b>{t('cashflowTitle')}</b>
+                    <small>{t('cashflowQuickDesc')}</small>
+                  </div>
+                  <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
+                </button>
+                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); setConverterOpen(true) }}>
+                  <span className="mobile-tools-row-icon" style={{ background: '#ffdd3d22', color: '#eab308' }}>
+                    <Icon name="coins" size={20} />
+                  </span>
+                  <div>
+                    <b>{t('converterTitle')}</b>
+                    <small>{t('converterQuickDesc')}</small>
                   </div>
                   <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
                 </button>

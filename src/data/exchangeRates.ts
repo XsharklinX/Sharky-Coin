@@ -59,6 +59,11 @@ function applyRates(rates: UsdRates): boolean {
   return changed
 }
 
+/** Timestamp de la última descarga de tasas (null si nunca se han descargado). */
+export function getRatesFetchedAt(): number | null {
+  return readCache()?.fetchedAt ?? null
+}
+
 /** Aplica tasas en cache (si hay) y, si están vencidas o no existen, busca tasas frescas. */
 export async function syncExchangeRates(): Promise<boolean> {
   const cached = readCache()

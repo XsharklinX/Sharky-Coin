@@ -5,24 +5,9 @@
     flex-direction: column;
     gap: 0;
     min-height: 100dvh;
+    overflow-y: auto;
     padding: env(safe-area-inset-top, 20px) 24px env(safe-area-inset-bottom, 24px);
-    justify-content: center;
-  }
-  .mob-onboard-dots {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 32px;
-  }
-  .mob-onboard-dot {
-    background: var(--m-surface-2);
-    border-radius: 999px;
-    height: 8px;
-    transition: width var(--m-duration, 190ms) var(--m-ease-out, ease), background var(--m-duration, 190ms) var(--m-ease, ease);
-    width: 8px;
-  }
-  .mob-onboard-dot.on {
-    background: var(--accent);
-    width: 24px;
+    justify-content: flex-start;
   }
   .mob-onboard-step {
     align-items: stretch;
@@ -48,6 +33,22 @@
     display: grid;
     gap: 10px;
     grid-template-columns: 1fr 1fr;
+  }
+  .mob-onboard-types-compact {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .mob-onboard-types-compact .mob-onboard-type {
+    align-items: center;
+    gap: 6px;
+    padding: 12px 4px;
+    text-align: center;
+  }
+  .mob-onboard-types-compact .mob-onboard-type-icon {
+    height: 40px;
+    width: 40px;
+  }
+  .mob-onboard-types-compact .mob-onboard-type strong {
+    font-size: 12px;
   }
   .mob-onboard-type {
     align-items: flex-start;
@@ -97,12 +98,6 @@
     width: 100%;
   }
   .mob-onboard-input:focus { border-color: var(--accent); }
-  .mob-onboard-error {
-    color: #ff6b8a;
-    font-size: 13px;
-    font-weight: 700;
-    margin: -8px 0 0;
-  }
   .mob-onboard-colors {
     display: flex;
     gap: 10px;
@@ -1010,6 +1005,35 @@
   /* Taller rows inside transaction form */
   .txf-rows .mpr-form-row { min-height: 62px; }
 
+  /* ── Splits en el editor de transacciones ── */
+  .txf-splits { margin-top: 10px; }
+  .txf-split-row { align-items: center; display: flex; gap: 8px; }
+  .txf-split-cat {
+    align-items: center; background: transparent; border: 0; color: var(--m-text);
+    display: flex; flex: 1; gap: 10px; min-width: 0; padding: 0; text-align: left;
+  }
+  .txf-split-cat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .txf-split-amount {
+    background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-text);
+    flex-shrink: 0; font-size: 13.5px; font-weight: 750; padding: 8px 12px;
+  }
+  .txf-split-remove {
+    align-items: center; background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    border: 0; border-radius: 50%; color: var(--m-muted); display: grid;
+    flex-shrink: 0; height: 26px; place-items: center; width: 26px;
+  }
+  .txf-split-footer {
+    align-items: center; display: flex; justify-content: space-between;
+    min-height: 44px; padding: 4px 2px 2px;
+  }
+  .txf-split-add {
+    align-items: center; background: transparent; border: 0; color: var(--m-primary);
+    display: flex; font-size: 13px; font-weight: 750; gap: 5px; padding: 6px 4px;
+  }
+  .txf-split-remaining { color: #f59e0b; font-size: 12px; font-weight: 700; }
+  .txf-split-remaining.ok { color: #35d0a2; }
+
   /* ── MobileTextSheet ── */
   .mtxt-overlay {
     background: rgba(0,0,0,.55);
@@ -1502,6 +1526,20 @@
   .mhome-alert p strong { color: var(--m-text); display: block; font-size: 13px; font-weight: 700; margin-bottom: 1px; }
   .mhome-alert > button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--m-muted); display: grid; flex-shrink: 0; height: 44px; margin: -7px -8px -7px 0; place-items: center; width: 44px; }
   .mhome-alert > button:active { background: color-mix(in oklab, var(--m-text) 8%, transparent); }
+  .mhome-alert-standalone { margin: 0 16px; }
+  .mhome-alert > button.mhome-alert-action {
+    background: color-mix(in oklab, var(--m-primary, #ffdd3d) 16%, transparent);
+    border-radius: 9px;
+    color: var(--m-primary, #ffdd3d);
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-weight: 800;
+    height: auto;
+    margin: 0;
+    padding: 7px 10px;
+    width: auto;
+  }
+  .mhome-alert > button.mhome-alert-action:active { background: color-mix(in oklab, var(--m-primary, #ffdd3d) 26%, transparent); }
 
 /* -- MobileDebt -------------------------------------------- */
   .mdebt-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 32px; }
@@ -1724,6 +1762,58 @@
   .mcsv-back-btn { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 12px; color: var(--m-text); flex: 1; font-size: 15px; font-weight: 600; padding: 14px; }
   .mcsv-import-btn { background: var(--m-primary); border-radius: 12px; color: #000; flex: 2; font-size: 15px; font-weight: 700; padding: 14px; }
   .mcsv-import-btn:disabled { opacity: .4; }
+
+/* -- MobileCashflow ---------------------------------------- */
+  .mcash-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 32px; }
+  .mcash-hero { padding: 18px 20px 6px; text-align: center; }
+  .mcash-hero small { color: var(--m-muted); display: block; font-size: 13px; }
+  .mcash-hero strong { color: var(--m-text); display: block; font-size: 34px; font-weight: 800; letter-spacing: -1px; margin: 4px 0 2px; }
+  .mcash-delta { font-size: 13px; font-weight: 650; }
+  .mcash-delta.up   { color: #35d0a2; }
+  .mcash-delta.down { color: #ff6b8a; }
+  .mcash-warning {
+    align-items: center; background: #ff6b8a18; border: 1px solid #ff6b8a44;
+    border-radius: 14px; color: var(--m-text); display: flex; font-size: 13px;
+    gap: 10px; line-height: 1.4; margin: 12px 16px 0; padding: 12px 14px;
+  }
+  .mcash-warning svg { color: #ff6b8a; flex-shrink: 0; }
+  .mcash-chart { margin: 10px 8px 0; }
+  .mcash-summary-row { display: flex; gap: 10px; margin: 12px 16px 0; }
+  .mcash-summary-item {
+    background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px;
+    display: flex; flex: 1; flex-direction: column; gap: 2px; padding: 13px 14px; text-align: center;
+  }
+  .mcash-summary-item small { color: var(--m-muted); font-size: 11px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
+  .mcash-summary-item b { color: var(--m-text); font-size: 17px; font-weight: 800; }
+  .mcash-summary-item span { color: var(--m-muted); font-size: 11px; }
+  .mcash-empty { align-items: center; display: flex; flex-direction: column; gap: 10px; padding: 48px 32px; text-align: center; }
+  .mcash-empty p { color: var(--m-text); font-size: 16px; font-weight: 700; margin: 0; }
+  .mcash-empty small { color: var(--m-muted); font-size: 13px; line-height: 1.5; }
+  .mcash-days { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 0; }
+  .mcash-day { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; overflow: hidden; }
+  .mcash-day header {
+    align-items: center; border-bottom: 1px solid var(--m-border);
+    display: flex; justify-content: space-between; padding: 10px 14px;
+  }
+  .mcash-day-date { color: var(--m-text); font-size: 13px; font-weight: 750; text-transform: capitalize; }
+  .mcash-day-balance { color: var(--m-muted); font-size: 13px; font-weight: 700; }
+  .mcash-events { display: flex; flex-direction: column; }
+  .mcash-event { align-items: center; display: flex; gap: 10px; padding: 9px 14px; }
+  .mcash-event + .mcash-event { border-top: 1px solid color-mix(in oklab, var(--m-border) 55%, transparent); }
+  .mcash-event-icon {
+    align-items: center; border-radius: 9px; display: grid; flex-shrink: 0;
+    height: 28px; place-items: center; width: 28px;
+  }
+  .mcash-event-expense { background: #ff6b8a1f; color: #ff6b8a; }
+  .mcash-event-income  { background: #35d0a21f; color: #35d0a2; }
+  .mcash-event-goal    { background: #a78bfa1f; color: #a78bfa; }
+  .mcash-event-note { color: var(--m-text); flex: 1; font-size: 13.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcash-event b { font-size: 13.5px; font-weight: 750; }
+  b.mcash-event-income { background: transparent; color: #35d0a2; }
+  .mcash-note {
+    align-items: center; color: var(--m-muted); display: flex; font-size: 11.5px;
+    gap: 5px; line-height: 1.4; margin: 0; padding: 14px 20px 0;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .mobile-app *,

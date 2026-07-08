@@ -1,33 +1,40 @@
 import { useState } from 'react'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
-import { totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
+import { totalBalanceInBase, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { useT } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import type { Transaction } from '@/types'
 import { MobileTransactionList } from './MobileTransactionList'
 
+const PIN_NUDGE_ID = 'pin-setup-nudge'
+const PIN_NUDGE_MIN_TXNS = 3
+
 export function MobileMovements({
   mkey,
   onAdd,
   onEditTx,
   onDeleteTx,
+  onOpenSecurity,
 }: {
   mkey: string
   onAdd: () => void
   onEditTx: (tx: Transaction) => void
   onDeleteTx?: (id: string) => void
+  onOpenSecurity?: () => void
 }) {
   const { transactions, accounts, currency } = useFinance()
-  const { compactNumbers } = useSettings()
+  const { compactNumbers, appPin, appPattern, dismissedAlerts, dismissAlert } = useSettings()
   const t = useT()
   const [showBalanceBreakdown, setShowBalanceBreakdown] = useState(false)
-  const visibleTx = transactionsForTotals(transactions, accounts)
+  const showPinNudge = !!onOpenSecurity && !appPin && !appPattern
+    && transactions.length >= PIN_NUDGE_MIN_TXNS && !dismissedAlerts.includes(PIN_NUDGE_ID)
+  const visibleTx = transactionsForTotals(transactions, accounts, currency)
   const monthTx = txForMonth(visibleTx, mkey)
   const summary = totals(monthTx)
   const activeAccounts = visibleAccounts(accounts)
-  const totalBalance = activeAccounts.reduce((sum, account) => sum + account.balance, 0)
+  const totalBalance = totalBalanceInBase(accounts, currency)
   const balancePositive = totalBalance >= 0
 
   return (
@@ -75,6 +82,17 @@ export function MobileMovements({
               </strong>
             </div>
           ))}
+        </div>
+      )}
+
+      {showPinNudge && (
+        <div className="mhome-alert warn mhome-alert-standalone">
+          <span className="mhome-alert-ico"><Icon name="key" size={16} /></span>
+          <p><strong>{t('pinNudgeTitle')}</strong>{t('pinNudgeText')}</p>
+          <button className="mhome-alert-action" onClick={onOpenSecurity}>{t('pinNudgeAction')}</button>
+          <button aria-label={t('dismissAlertLabel')} onClick={() => dismissAlert(PIN_NUDGE_ID)}>
+            <Icon name="close" size={14} />
+          </button>
         </div>
       )}
 

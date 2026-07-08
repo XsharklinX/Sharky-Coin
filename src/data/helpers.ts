@@ -1,4 +1,5 @@
 import { CURRENCIES } from './seed'
+import { convertCurrency } from './currencies'
 import type {
   Transaction, Category, Account, GoalContribution,
   Totals, CategoryTotal, MonthSeries, WeekBucket,
@@ -65,6 +66,23 @@ export function totals(txns: Transaction[]): Totals {
   return { income, expense, net: income - expense }
 }
 
+/**
+ * Partes categoría/monto de una transacción: sus `splits` si los tiene,
+ * o una sola parte con su categoría y monto completos.
+ */
+export function categoryParts(tx: Transaction): { categoryId?: string; amount: number }[] {
+  if (tx.splits && tx.splits.length > 0) return tx.splits
+  return [{ categoryId: tx.categoryId, amount: tx.amount }]
+}
+
+/** Monto de una transacción atribuido a una categoría concreta (respeta splits). */
+export function amountForCategory(tx: Transaction, categoryId: string): number {
+  if (tx.splits && tx.splits.length > 0) {
+    return tx.splits.reduce((sum, split) => split.categoryId === categoryId ? sum + split.amount : sum, 0)
+  }
+  return tx.categoryId === categoryId ? tx.amount : 0
+}
+
 export function byCategory(
   txns: Transaction[],
   type: 'income' | 'expense',
@@ -72,8 +90,11 @@ export function byCategory(
 ): CategoryTotal[] {
   const map: Record<string, number> = {}
   txns.forEach(t => {
-    if (t.type !== type || !t.categoryId) return
-    map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount
+    if (t.type !== type) return
+    categoryParts(t).forEach(part => {
+      if (!part.categoryId) return
+      map[part.categoryId] = (map[part.categoryId] ?? 0) + part.amount
+    })
   })
   return Object.entries(map)
     .map(([id, amount]) => ({ category: categories.find(c => c.id === id)!, amount }))
@@ -138,6 +159,48 @@ export function visibleAccounts(accounts: Account[]): Account[] {
   return accounts.filter(a => a.includeInTotal !== false)
 }
 
+// ── Multi-moneda ──────────────────────────────────────────
+/** Divisa efectiva de una cuenta: la propia o la base de la app. */
+export function accountCurrency(account: Account, base: CurrencyCode): CurrencyCode {
+  return account.currency ?? base
+}
+
+/** Saldo de una cuenta convertido a la divisa base de la app (tasas en vivo). */
+export function accountBalanceInBase(account: Account, base: CurrencyCode): number {
+  const cur = account.currency ?? base
+  return cur === base ? account.balance : convertCurrency(account.balance, cur, base)
+}
+
+/** Suma de saldos de las cuentas visibles, convertidos a la divisa base. */
+export function totalBalanceInBase(accounts: Account[], base: CurrencyCode): number {
+  return visibleAccounts(accounts).reduce((sum, account) => sum + accountBalanceInBase(account, base), 0)
+}
+
+/**
+ * Convierte los montos de las transacciones de cuentas con divisa propia a la
+ * divisa base (incluyendo splits, proporcionalmente). Solo para agregados y
+ * estadísticas — no altera los datos guardados. No-op si ninguna cuenta tiene
+ * divisa propia.
+ */
+export function convertTxAmountsToBase(
+  transactions: Transaction[], accounts: Account[], base: CurrencyCode,
+): Transaction[] {
+  const foreign = new Map(accounts
+    .filter(a => a.currency && a.currency !== base)
+    .map(a => [a.id, a.currency!]))
+  if (foreign.size === 0) return transactions
+  return transactions.map(tx => {
+    const cur = tx.accountId ? foreign.get(tx.accountId) : undefined
+    if (!cur) return tx
+    const rate = convertCurrency(1, cur, base)
+    return {
+      ...tx,
+      amount: tx.amount * rate,
+      splits: tx.splits?.map(split => ({ ...split, amount: split.amount * rate })),
+    }
+  })
+}
+
 /** Cuentas de ahorro reales. Cuentan como ahorro aunque esten excluidas del balance general. */
 export function savingsAccounts(accounts: Account[]): Account[] {
   return accounts.filter(a => a.type === 'savings')
@@ -162,11 +225,19 @@ export function accountSavingsRate(accounts: Account[]): number {
   return assetBase > 0 ? savings / assetBase * 100 : 0
 }
 
-/** Transacciones de ingreso/gasto excluyendo las de cuentas marcadas con `includeInTotal: false`. */
-export function transactionsForTotals(transactions: Transaction[], accounts: Account[]): Transaction[] {
+/**
+ * Transacciones de ingreso/gasto excluyendo las de cuentas marcadas con
+ * `includeInTotal: false`. Si se pasa `base`, además convierte los montos de
+ * cuentas con divisa propia a la divisa base (solo para agregados).
+ */
+export function transactionsForTotals(
+  transactions: Transaction[], accounts: Account[], base?: CurrencyCode,
+): Transaction[] {
   const excluded = new Set(accounts.filter(a => a.includeInTotal === false).map(a => a.id))
-  if (excluded.size === 0) return transactions
-  return transactions.filter(t => !t.accountId || !excluded.has(t.accountId))
+  const filtered = excluded.size === 0
+    ? transactions
+    : transactions.filter(t => !t.accountId || !excluded.has(t.accountId))
+  return base ? convertTxAmountsToBase(filtered, accounts, base) : filtered
 }
 
 /**
@@ -177,8 +248,8 @@ export function transactionsForTotals(transactions: Transaction[], accounts: Acc
 export function categoryRollover(category: Category, prevMonthTx: Transaction[]): number {
   if (!category.rolloverEnabled || category.budget <= 0) return 0
   const spent = prevMonthTx
-    .filter(t => t.type === 'expense' && t.categoryId === category.id)
-    .reduce((s, t) => s + t.amount, 0)
+    .filter(t => t.type === 'expense')
+    .reduce((s, t) => s + amountForCategory(t, category.id), 0)
   return category.budget - spent
 }
 
@@ -197,7 +268,7 @@ export function accountMovementsTotal(
     if (t.type === 'income' && t.accountId === accountId) total += t.amount
     else if (t.type === 'expense' && t.accountId === accountId) total -= t.amount
     else if (t.type === 'transfer') {
-      if (t.toAccount === accountId) total += t.amount
+      if (t.toAccount === accountId) total += t.toAmount ?? t.amount
       if (t.fromAccount === accountId) total -= t.amount
     }
   }
@@ -219,6 +290,7 @@ export function netWorthSeries(
   contributions: GoalContribution[],
   year: number,
   locale = 'es-DO',
+  base?: CurrencyCode,
 ): NetWorthPoint[] {
   const visible = visibleAccounts(accounts)
   const openings = new Map(visible.map(a => [
@@ -230,10 +302,10 @@ export function netWorthSeries(
     const cutoff = `${key}-31`
     const txUpTo = txns.filter(t => t.date <= cutoff)
     const contribUpTo = contributions.filter(c => c.date <= cutoff)
-    const value = visible.reduce(
-      (sum, a) => sum + (openings.get(a.id) ?? 0) + accountMovementsTotal(a.id, txUpTo, contribUpTo),
-      0,
-    )
+    const value = visible.reduce((sum, a) => {
+      const raw = (openings.get(a.id) ?? 0) + accountMovementsTotal(a.id, txUpTo, contribUpTo)
+      return sum + (base && a.currency && a.currency !== base ? convertCurrency(raw, a.currency, base) : raw)
+    }, 0)
     return { key, label: shortMonth(key, locale), value }
   })
 }
@@ -251,7 +323,7 @@ export function monthlyAccountSeries(
       if (t.type === 'income' && t.accountId === accountId) inflow += t.amount
       else if (t.type === 'expense' && t.accountId === accountId) outflow += t.amount
       else if (t.type === 'transfer') {
-        if (t.toAccount === accountId) inflow += t.amount
+        if (t.toAccount === accountId) inflow += t.toAmount ?? t.amount
         if (t.fromAccount === accountId) outflow += t.amount
       }
     })

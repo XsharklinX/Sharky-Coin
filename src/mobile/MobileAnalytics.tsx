@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
+import { toast } from '@/components/ui/Toast'
 import { generateFinancialIntelligence } from '@/data/financeIntelligence'
-import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthSeries, savingsBalance, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
+import { advanceRecurrenceDate } from '@/hooks/useRecurring'
+import { playConfirmSound } from '@/lib/sound'
+import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthSeries, savingsBalance, totalBalanceInBase, totals, transactionsForTotals, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -58,7 +61,7 @@ function SavingsRing({ rate, amount, t, fmtAmount }: { rate: number; amount: num
 }
 
 export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?: () => void }) {
-  const { transactions, accounts, categories, goalContributions, currency } = useFinance()
+  const { transactions, accounts, categories, goalContributions, currency, updateTx } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
   const settings = useSettings()
@@ -68,7 +71,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
   const PERIODS = getPeriods(t)
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
   const year = Number(mkey.slice(0, 4))
-  const visTx = useMemo(() => transactionsForTotals(transactions, accounts), [transactions, accounts])
+  const visTx = useMemo(() => transactionsForTotals(transactions, accounts, currency), [transactions, accounts, currency])
   const monthTx = txForMonth(visTx, mkey)
   const weekWindow = useMemo(() => {
     if (!monthTx.length) return { start: '', end: '', tx: [] as typeof monthTx }
@@ -95,11 +98,11 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
   const summary = totals(scopedTx)
   const savedAmount = savingsBalance(accounts)
   const savingsRate = accountSavingsRate(accounts)
-  const currentNetWorth = visibleAccounts(accounts).reduce((sum, account) => sum + account.balance, 0)
+  const currentNetWorth = totalBalanceInBase(accounts, currency)
   const categoryRows = byCategory(scopedTx, 'expense', categories).slice(0, 6)
   const totalExpense = Math.max(1, summary.expense)
   const monthly = monthlySeries(visTx, year)
-  const netWorth = netWorthSeries(accounts, transactions, goalContributions, year, dateLocale(lang))
+  const netWorth = netWorthSeries(accounts, transactions, goalContributions, year, dateLocale(lang), currency)
 
   const barData = useMemo(() => {
     if (period === 'year') {
@@ -206,6 +209,25 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
       : (summary.net !== 0 ? 100 : 0)
     : 0
 
+  // Convierte el gasto detectado como suscripción en un recurrente mensual real
+  const makeSubscriptionRecurring = () => {
+    if (!upcomingSubscription) return
+    const candidate = transactions
+      .filter(tx => tx.type === 'expense' && !tx.recurring
+        && tx.date === upcomingSubscription.lastDate
+        && (tx.categoryId ?? '') === (upcomingSubscription.categoryId ?? '')
+        && (tx.accountId ?? '') === (upcomingSubscription.accountId ?? ''))
+      .sort((a, b) => Math.abs(a.amount - upcomingSubscription.amount) - Math.abs(b.amount - upcomingSubscription.amount))[0]
+    if (!candidate) return toast(t('insightRecurringNotFound'), { icon: 'alert' })
+    updateTx(candidate.id, {
+      recurring: 'monthly',
+      recurringStart: candidate.date,
+      recurringNext: advanceRecurrenceDate(candidate.date, 'monthly'),
+    })
+    playConfirmSound()
+    toast(t('insightRecurringCreated').replace('{name}', candidate.note), { icon: 'repeat', type: 'ok' })
+  }
+
   const insightRows = [
     topCategory && topCategoryDelta > Math.max(500, topCategoryPrevious * 0.25)
       ? {
@@ -216,6 +238,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
             .replace('{amount}', fmtVal(topCategoryDelta, currency))
             .replace('{category}', translateCategoryName(topCategory.category, lang)),
           subtitle: t('categoryExplainsIncrease'),
+          action: onBudgets ? { label: t('insightActionBudget'), onClick: onBudgets } : undefined,
         }
       : null,
     recentAnomaly
@@ -238,6 +261,9 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
           subtitle: t('subscriptionInsightText')
             .replace('{amount}', fmtVal(upcomingSubscription.amount, currency))
             .replace('{months}', String(upcomingSubscription.months)),
+          action: upcomingSubscription.alreadyRecurring
+            ? undefined
+            : { label: t('insightActionMakeRecurring'), onClick: makeSubscriptionRecurring },
         }
       : null,
     overBudgetCategory
@@ -247,6 +273,7 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
           tone: 'warn',
           title: t('budgetRiskTitle').replace('{category}', translateCategoryName(overBudgetCategory.category, lang)),
           subtitle: t('budgetRiskText').replace('{amount}', fmtVal(overBudgetCategory.amount, currency)),
+          action: onBudgets ? { label: t('insightActionBudget'), onClick: onBudgets } : undefined,
         }
       : null,
     showTrend && spendTrend !== null
@@ -265,6 +292,9 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
           tone: projectedExpense > totalBudget && totalBudget > 0 ? 'warn' : 'ok',
           title: t('projectedAtClose').replace('{amount}', fmtVal(projectedExpense, currency)),
           subtitle: t('ifYouKeepCurrentPace'),
+          action: onBudgets && projectedExpense > totalBudget && totalBudget > 0
+            ? { label: t('insightActionViewBudgets'), onClick: onBudgets }
+            : undefined,
         }
       : null,
     topCategory
@@ -276,7 +306,10 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
           subtitle: t('topExpenseOfPeriod'),
         }
       : null,
-  ].filter(Boolean) as Array<{ id: string; icon: IconName; tone: string; title: string; subtitle: string }>
+  ].filter(Boolean) as Array<{
+    id: string; icon: IconName; tone: string; title: string; subtitle: string
+    action?: { label: string; onClick: () => void }
+  }>
 
   return (
     <div className="man-root">
@@ -462,6 +495,11 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
                   <div className="man-insight-copy">
                     <strong>{insight.title}</strong>
                     <small>{insight.subtitle}</small>
+                    {insight.action && (
+                      <button className="man-insight-action" onClick={insight.action.onClick}>
+                        {insight.action.label} <Icon name="arrowUp" size={11} style={{ transform: 'rotate(90deg)' }} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

@@ -30,7 +30,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const budgetAlertThresholds = settings.budgetAlertThresholds
   const [editing, setEditing] = useState<Category | 'new' | null>(null)
 
-  const visTxns = transactionsForTotals(txns, accounts)
+  const visTxns = transactionsForTotals(txns, accounts, currency)
   const monthTx = txForMonth(visTxns, mkey)
   const prevMonthTx = txForMonth(visTxns, prevMonthKey(mkey))
   const cats = categories.filter(c => c.type === 'expense')

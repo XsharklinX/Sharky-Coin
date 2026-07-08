@@ -4,7 +4,8 @@ import { toast } from '@/components/ui/Toast'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { CatBadge } from '@/views/shared'
 import { ACCENT_COLORS } from '@/constants'
-import { accountActivity, dateLocale, fmt, getAccount, getCategory, monthlyAccountSeries, visibleAccounts } from '@/data/helpers'
+import { accountActivity, accountBalanceInBase, accountCurrency, dateLocale, fmt, getAccount, getCategory, monthlyAccountSeries, visibleAccounts } from '@/data/helpers'
+import { CURRENCIES as CURRENCY_LIST } from '@/data/currencies'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -87,22 +88,23 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
 
   const summary = useMemo(() => {
     const visible     = visibleAccounts(accounts)
-    const assets      = visible.filter(a => accountKind(a) === 'asset').reduce((s, a) => s + Math.max(0, a.balance), 0)
-    const liabilities = visible.filter(a => accountKind(a) === 'debt').reduce((s, a) => s + Math.abs(Math.min(0, a.balance)), 0)
+    const inBase      = (a: Account) => accountBalanceInBase(a, currency)
+    const assets      = visible.filter(a => accountKind(a) === 'asset').reduce((s, a) => s + Math.max(0, inBase(a)), 0)
+    const liabilities = visible.filter(a => accountKind(a) === 'debt').reduce((s, a) => s + Math.abs(Math.min(0, inBase(a))), 0)
     const cashCount   = visible.filter(a => TYPE_META[a.type].group === t('cash')).length
     const bankCount   = visible.filter(a => TYPE_META[a.type].group === t('bankAccountsGroupLabel')).length
     const creditCount = visible.filter(a => TYPE_META[a.type].group === t('creditCardsGroupLabel')).length
     return { assets, liabilities, net: assets - liabilities, cashCount, bankCount, creditCount, visibleCount: visible.length }
-  }, [accounts, TYPE_META, t])
+  }, [accounts, currency, TYPE_META, t])
 
-  const totalBalance = visibleAccounts(accounts).reduce((s, a) => s + a.balance, 0)
+  const totalBalance = visibleAccounts(accounts).reduce((s, a) => s + accountBalanceInBase(a, currency), 0)
 
   const groups = [t('cash'), t('bankAccountsGroupLabel'), t('creditCardsGroupLabel')].map(group => ({
     group,
     accounts: accounts.filter(a => TYPE_META[a.type].group === group),
     visibleTotal: accounts
       .filter(a => a.includeInTotal !== false && TYPE_META[a.type].group === group)
-      .reduce((s, a) => s + a.balance, 0),
+      .reduce((s, a) => s + accountBalanceInBase(a, currency), 0),
   })).filter(g => g.accounts.length)
 
   return (
@@ -181,10 +183,10 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
                     key={a.id}
                     className="mrep-alloc-segment"
                     style={{
-                      flex: Math.max(0, a.balance) / Math.max(1, totalBalance),
+                      flex: Math.max(0, accountBalanceInBase(a, currency)) / Math.max(1, totalBalance),
                       background: a.color,
                     }}
-                    title={t('nameColonAmount').replace('{name}', a.name).replace('{amount}', fmtVal(a.balance, currency))}
+                    title={t('nameColonAmount').replace('{name}', a.name).replace('{amount}', fmtVal(a.balance, accountCurrency(a, currency)))}
                   />
                 ))}
               </div>
@@ -223,7 +225,11 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
                           <span className="mrep-excluded-badge">{t('excludedFromTotalBadge')}</span>
                         )}
                       </b>
-                      <small>{TYPE_META[a.type].label}{a.last4 ? ` - ****${a.last4}` : ''}</small>
+                      <small>
+                        {TYPE_META[a.type].label}
+                        {a.last4 ? ` - ****${a.last4}` : ''}
+                        {a.currency && a.currency !== currency ? ` · ${a.currency}` : ''}
+                      </small>
                       {utilPct !== null && a.limit && (
                         <div className="mrep-util-wrap">
                           <div className="mrep-util-bar">
@@ -251,7 +257,7 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
                       })}
                     </div>
                     <strong className={accountKind(a) === 'debt' ? 'text-expense' : ''}>
-                      {fmtVal(a.balance, currency)}
+                      {fmtVal(a.balance, accountCurrency(a, currency))}
                     </strong>
                     <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
                   </button>
@@ -337,7 +343,7 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { acc
             </span>
             <div className="macc-sheet-head-info">
               <small>{TYPE_META[account.type].label}{account.last4 ? ` - ****${account.last4}` : ''}</small>
-              <AnimatedMoney value={account.balance} className="macc-sheet-balance" />
+              <AnimatedMoney value={account.balance} currency={accountCurrency(account, currency)} className="macc-sheet-balance" />
             </div>
           </div>
 
@@ -461,7 +467,7 @@ function getOverdraftOptions(t: ReturnType<typeof useT>): { value: OverdraftPoli
   ]
 }
 
-type SubSheet = 'balance' | 'limit' | 'short' | 'last4' | null
+type SubSheet = 'balance' | 'limit' | 'short' | 'last4' | 'accCurrency' | null
 
 function AccountEditorSheet({
   account,
@@ -558,11 +564,17 @@ function AccountEditorSheet({
             {/* Filas tapeables */}
             <div className="mpr-form-rows">
               {row(t('balance'), 'coins',
-                fields.balance !== 0 ? fmt(fields.balance, currency) : '0.00',
+                fields.balance !== 0 ? fmt(fields.balance, fields.currency ?? currency) : '0.00',
                 fields.balance === 0, 'balance')}
 
+              {row(t('currency'), 'dollar',
+                fields.currency && fields.currency !== currency
+                  ? fields.currency
+                  : `${currency} · ${t('accountCurrencyDefault')}`,
+                !fields.currency || fields.currency === currency, 'accCurrency')}
+
               {fields.type === 'credit' && row(t('creditLimitLabel'), 'cards',
-                fields.limit ? fmt(fields.limit, currency) : t('noLimitLabel'),
+                fields.limit ? fmt(fields.limit, fields.currency ?? currency) : t('noLimitLabel'),
                 !fields.limit, 'limit')}
 
               {row(t('labelField'), 'edit',
@@ -645,7 +657,7 @@ function AccountEditorSheet({
         <MobileAmountSheet
           title={t('initialBalanceLabel')}
           value={fields.balance}
-          currency={currency}
+          currency={fields.currency ?? currency}
           allowNegative
           onDone={v => { patch('balance', v); setSub(null) }}
           onClose={() => setSub(null)}
@@ -655,10 +667,42 @@ function AccountEditorSheet({
         <MobileAmountSheet
           title={t('creditLimitTitle')}
           value={fields.limit ?? 0}
-          currency={currency}
+          currency={fields.currency ?? currency}
           onDone={v => { patch('limit', v || undefined); setSub(null) }}
           onClose={() => setSub(null)}
         />
+      )}
+      {sub === 'accCurrency' && (
+        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+          <section className="mcur-sheet" onClick={e => e.stopPropagation()}>
+            <header>
+              <span>{t('accountCurrencyTitle')}</span>
+              <button aria-label={t('close')} onClick={() => setSub(null)}><Icon name="close" size={18} /></button>
+            </header>
+            <p className="mcur-subtitle">{t('accountCurrencyHint')}</p>
+            <div className="mcur-list">
+              {CURRENCY_LIST.map(c => {
+                const selected = (fields.currency ?? currency) === c.code
+                return (
+                  <button
+                    key={c.code}
+                    className={`mcur-row${selected ? ' on' : ''}`}
+                    onClick={() => { patch('currency', c.code === currency ? undefined : c.code); setSub(null) }}
+                  >
+                    <span className="mcur-flag">{c.flag}</span>
+                    <div className="mcur-info">
+                      <strong>{c.code}</strong>
+                      <small>{c.name}{c.code === currency ? ` · ${t('accountCurrencyDefault')}` : ''}</small>
+                    </div>
+                    <div className="mcur-right">
+                      {selected && <Icon name="check" size={16} style={{ color: 'var(--accent)' }} />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </div>
       )}
       {sub === 'short' && (
         <MobileTextSheet

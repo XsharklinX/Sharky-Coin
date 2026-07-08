@@ -114,7 +114,8 @@ export function MobileTransactionList({
     return transactions
       .filter(tx => filter === 'all' || tx.type === filter)
       .filter(tx => fAccount === 'all' || tx.accountId === fAccount || tx.fromAccount === fAccount || tx.toAccount === fAccount)
-      .filter(tx => fCategory === 'all' || tx.categoryId === fCategory)
+      .filter(tx => fCategory === 'all' || tx.categoryId === fCategory
+        || (tx.splits?.some(split => split.categoryId === fCategory) ?? false))
       .filter(tx => !fFrom || tx.date >= fFrom)
       .filter(tx => !fTo || tx.date <= fTo)
       .filter(tx => {
@@ -434,6 +435,12 @@ export function MobileTransactionList({
             <dl>
               <div><dt>{t('date')}</dt><dd>{dateLabel(selected.date, locale)}</dd></div>
               <div><dt>{t('category')}</dt><dd>{(() => {
+                if (selected.splits && selected.splits.length >= 2) {
+                  return selected.splits.map(split => {
+                    const cat = mapGet(categoryMap, split.categoryId)
+                    return `${cat ? translateCategoryName(cat, lang) : '?'} ${fmt(split.amount, currency)}`
+                  }).join(' · ')
+                }
                 const cat = mapGet(categoryMap, selected.categoryId)
                 return cat ? translateCategoryName(cat, lang) : t('notApplicableShort')
               })()}</dd></div>
