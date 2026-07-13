@@ -310,6 +310,41 @@ export function netWorthSeries(
   })
 }
 
+/**
+ * Patrimonio neto de los últimos `months` meses reales terminando en `endKey`
+ * (no atado al año calendario, a diferencia de `netWorthSeries`) — para la
+ * curva histórica de Análisis, que siempre mira "los últimos 12 meses" sin
+ * importar en qué mes del año esté el usuario.
+ */
+export function rollingNetWorthSeries(
+  accounts: Account[],
+  txns: Transaction[],
+  contributions: GoalContribution[],
+  endKey: string,
+  months: number,
+  locale = 'es-DO',
+  base?: CurrencyCode,
+): NetWorthPoint[] {
+  const visible = visibleAccounts(accounts)
+  const openings = new Map(visible.map(a => [
+    a.id,
+    a.openingBalance ?? (a.balance - accountMovementsTotal(a.id, txns, contributions)),
+  ]))
+  const [endYear, endMonth] = endKey.split('-').map(Number)
+  return Array.from({ length: months }, (_, i) => {
+    const d = new Date(endYear, endMonth - 1 - (months - 1 - i), 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const cutoff = `${key}-31`
+    const txUpTo = txns.filter(t => t.date <= cutoff)
+    const contribUpTo = contributions.filter(c => c.date <= cutoff)
+    const value = visible.reduce((sum, a) => {
+      const raw = (openings.get(a.id) ?? 0) + accountMovementsTotal(a.id, txUpTo, contribUpTo)
+      return sum + (base && a.currency && a.currency !== base ? convertCurrency(raw, a.currency, base) : raw)
+    }, 0)
+    return { key, label: shortMonth(key, locale), value }
+  })
+}
+
 export function monthlyAccountSeries(
   txns: Transaction[], accountId: string, mkey: string, locale = 'es-DO',
 ): AccountMonthBucket[] {

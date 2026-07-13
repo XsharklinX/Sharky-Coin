@@ -7,12 +7,15 @@ import { useMobileBackDismiss } from './useMobileBackDismiss'
 export type MobileRoute = 'home' | 'analysis' | 'add' | 'reports' | 'profile'
 export type QuickAddMode = 'expense' | 'income'
 
-type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name']; labelKey: 'movementsLabel' | 'analysisTab' | 'reports' | 'profile' }
+type NavItem = { route: Exclude<MobileRoute, 'add'>; icon: Parameters<typeof Icon>[0]['name']; labelKey: 'movementsLabel' | 'analysisTab' | 'accounts' | 'profile' }
 
+// El route interno sigue llamándose 'reports' (no vale la pena renombrarlo en
+// todo el árbol), pero la pestaña que aterriza ahí ahora es Cuentas, con
+// Informes y Metas como sub-pestañas dentro (ver MobileShell.renderReportsRoute).
 const ITEMS: NavItem[] = [
   { route: 'home',     icon: 'list',  labelKey: 'movementsLabel' },
   { route: 'analysis', icon: 'chart', labelKey: 'analysisTab' },
-  { route: 'reports', icon: 'book', labelKey: 'reports' },
+  { route: 'reports', icon: 'cards', labelKey: 'accounts' },
   { route: 'profile',  icon: 'user', labelKey: 'profile' },
 ]
 

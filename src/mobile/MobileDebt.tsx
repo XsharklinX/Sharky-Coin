@@ -10,6 +10,7 @@ import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import { MobileAmountSheet } from './MobileAmountSheet'
+import { SheetPortal } from './SheetPortal'
 
 const COLORS = ['#ff6b8a', '#5bc0ff', '#35d0a2', '#a78bfa', '#f59e0b', '#ffdd3d']
 const EMPTY: Omit<Debt, 'id'> = { name: '', balance: 0, rate: 0, minPayment: 0, color: COLORS[0] }
@@ -225,6 +226,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
 
   return (
     <>
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={debt ? t('editDebt') : t('newDebt')} onClick={onClose}>
       <section className="mdebt-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -309,6 +311,7 @@ function DebtSheet({ debt, onClose, onSave, onDelete }: {
         </div>
       </section>
     </div>
+    </SheetPortal>
 
     {amountSheet === 'balance' && (
       <MobileAmountSheet

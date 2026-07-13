@@ -4,6 +4,7 @@ import { playBackspaceSound, playDoneSound, playKeySound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 
 const DIGIT_KEYS = ['1','2','3','4','5','6','7','8','9','0'] as const
 
@@ -46,7 +47,8 @@ export function MobileDigitSheet({
   const display = digits.padEnd(maxDigits, '·')
 
   return (
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
+    <SheetPortal>
+    <div ref={dialogRef} className="mobile-detail-sheet mamt-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mamt-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <span>{title}</span>
@@ -77,5 +79,6 @@ export function MobileDigitSheet({
         </div>
       </section>
     </div>
+    </SheetPortal>
   )
 }

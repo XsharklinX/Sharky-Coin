@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { sheetRoot } from './SheetPortal'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
@@ -77,6 +78,7 @@ export function MobileTransactionList({
   className?: string
 }) {
   const { accounts, categories, currency } = useFinance()
+  const allTransactions = useFinance(s => s.transactions)
   const { confirm } = useDialogs()
   const t = useT()
   const settings = useSettings()
@@ -102,6 +104,20 @@ export function MobileTransactionList({
   const accountMap = useMemo(() => new Map(accounts.map(account => [account.id, account])), [accounts])
   const categoryMap = useMemo(() => new Map(categories.map(category => [category.id, category])), [categories])
   const closeSwipe = () => { setOpenActionId(null) }
+
+  // Los movimientos generados a partir de una plantilla recurrente NO llevan el
+  // campo `recurring` (solo lo tiene la plantilla). Para que TODOS los pagos de
+  // una recurrencia muestren el ícono, comparamos su firma (tipo+nota+categoría+
+  // cuenta), que es exactamente como useRecurring genera las ocurrencias.
+  const recurringSignatures = useMemo(() => {
+    const set = new Set<string>()
+    for (const tx of allTransactions) {
+      if (tx.recurring) set.add(`${tx.type}|${tx.note}|${tx.categoryId ?? ''}|${tx.accountId ?? ''}`)
+    }
+    return set
+  }, [allTransactions])
+  const isRecurring = (tx: Transaction) =>
+    !!tx.recurring || recurringSignatures.has(`${tx.type}|${tx.note}|${tx.categoryId ?? ''}|${tx.accountId ?? ''}`)
 
   useMobileBackDismiss(searchOpen, () => setSearchOpen(false))
   useMobileBackDismiss(!!selected, () => setSelected(null))
@@ -231,7 +247,9 @@ export function MobileTransactionList({
           <span>
             <b>
               {tx.type === 'transfer' ? t('transfer') : tx.note}
-              {tx.recurring && <i className="mobile-recur-dot" title={t('recurring')}><Icon name="repeat" size={11} /></i>}
+              {tx.type !== 'transfer' && isRecurring(tx) && (
+                <i className="mobile-recur-dot" title={t('recurring')}><Icon name="repeat" size={11} /></i>
+              )}
             </b>
             <small>{subtitle}</small>
           </span>
@@ -461,7 +479,7 @@ export function MobileTransactionList({
             </div>
           </section>
         </div>,
-        document.body,
+        sheetRoot(),
       )}
     </section>
   )

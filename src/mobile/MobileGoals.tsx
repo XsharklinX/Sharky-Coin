@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { sheetRoot } from './SheetPortal'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
@@ -9,6 +11,7 @@ import { CURRENCIES } from '@/data/seed'
 import { playKeySound, playBackspaceSound, playDoneSound, playConfirmSound, playDeleteSound, playAchievementSound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
+import { nextWeekdayDate, rampPlan, requiredContribution } from '@/data/goalPlans'
 import { MobileDatePicker } from './MobileDatePicker'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import type { CurrencyCode, Goal, GoalAutoContribute, IconName, RecurrenceFrequency, ViewProps } from '@/types'
@@ -27,14 +30,89 @@ const ICONS: IconName[] = [
   'banknote','coins','handCoins','landmark','receipt',
 ]
 
-type Sheet = { type: 'add' | 'edit'; goal?: Goal } | { type: 'detail'; goal: Goal } | null
+interface GoalPurpose {
+  id: string
+  icon: IconName
+  color: string
+  titleKey: 'goalPurposeSavingsTitle' | 'goalPurposeExpensesTitle' | 'goalPurposeDebtTitle' | 'goalPurposeTravelTitle' | 'goalPurposeSimpleTitle' | 'goalPurposeCustomTitle'
+  descKey: 'goalPurposeSavingsDesc' | 'goalPurposeExpensesDesc' | 'goalPurposeDebtDesc' | 'goalPurposeTravelDesc' | 'goalPurposeSimpleDesc' | 'goalPurposeCustomDesc'
+  placeholderKey?: 'egGoalNameSavings' | 'egGoalNameExpenses' | 'egGoalNameDebt' | 'egGoalNameTravel'
+}
+
+const GOAL_PURPOSES: GoalPurpose[] = [
+  { id: 'savings', icon: 'piggy', color: '#ffd60a', titleKey: 'goalPurposeSavingsTitle', descKey: 'goalPurposeSavingsDesc', placeholderKey: 'egGoalNameSavings' },
+  { id: 'expenses', icon: 'wallet', color: '#64d2ff', titleKey: 'goalPurposeExpensesTitle', descKey: 'goalPurposeExpensesDesc', placeholderKey: 'egGoalNameExpenses' },
+  { id: 'debt', icon: 'handCoins', color: '#e8445a', titleKey: 'goalPurposeDebtTitle', descKey: 'goalPurposeDebtDesc', placeholderKey: 'egGoalNameDebt' },
+  { id: 'travel', icon: 'plane', color: '#0a84ff', titleKey: 'goalPurposeTravelTitle', descKey: 'goalPurposeTravelDesc', placeholderKey: 'egGoalNameTravel' },
+  { id: 'simple', icon: 'target', color: '#c765ff', titleKey: 'goalPurposeSimpleTitle', descKey: 'goalPurposeSimpleDesc' },
+  { id: 'custom', icon: 'star', color: COLORS[0], titleKey: 'goalPurposeCustomTitle', descKey: 'goalPurposeCustomDesc' },
+]
+
+type Sheet =
+  | { type: 'purpose' }
+  | { type: 'add' | 'edit'; goal?: Goal; presetIcon?: IconName; presetColor?: string; presetPlaceholder?: string }
+  | { type: 'detail'; goal: Goal }
+  | null
 
 function pct(saved: number, target: number) {
+  if (!target) return 0
   return Math.min(100, Math.round((saved / target) * 100))
+}
+
+function ProgressRing({
+  pct: value,
+  color,
+  size = 52,
+  stroke = 5,
+  children,
+}: {
+  pct: number
+  color: string
+  size?: number
+  stroke?: number
+  children?: ReactNode
+}) {
+  const radius = (size - stroke) / 2
+  const dash = 2 * Math.PI * radius
+  const clamped = Math.min(100, Math.max(0, value))
+  const fill = (dash * clamped) / 100
+  const c = size / 2
+  return (
+    <div className="mgl-ring" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+        <circle cx={c} cy={c} r={radius} fill="none" strokeWidth={stroke} stroke="rgba(255,255,255,.08)" />
+        <circle
+          cx={c} cy={c} r={radius} fill="none" strokeWidth={stroke} stroke={color}
+          strokeDasharray={`${fill} ${dash - fill}`}
+          strokeDashoffset={dash / 4}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray var(--m-duration-slow, 220ms) var(--m-ease-out, ease)' }}
+        />
+      </svg>
+      {children && <span className="mgl-ring-content">{children}</span>}
+    </div>
+  )
+}
+
+function daysLeftLabel(deadline: string | undefined, today: string, t: ReturnType<typeof useT>): { text: string; overdue: boolean } | null {
+  if (!deadline) return null
+  const diff = Math.ceil((new Date(`${deadline}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86400000)
+  if (diff < 0) return { text: t('goalOverdueLabel'), overdue: true }
+  if (diff === 0) return { text: t('goalDueToday'), overdue: false }
+  if (diff === 1) return { text: t('goalDaysLeftOne'), overdue: false }
+  return { text: t('goalDaysLeftMany').replace('{n}', String(diff)), overdue: false }
 }
 
 function currencyPrefix(currency: CurrencyCode): string {
   return CURRENCIES[currency].symbol
+}
+
+// Días de la semana empezando en lunes, con su índice JS (0=Dom … 6=Sáb).
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+function weekdayShortLabels(locale: string): string[] {
+  // 2024-01-01 fue lunes: generamos etiquetas cortas localizadas lunes→domingo.
+  return Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }).replace('.', '').slice(0, 3))
 }
 
 function fmtAmountText(text: string, prefix: string): string {
@@ -80,48 +158,111 @@ function GoalNumpad({
 
 function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; onClick: () => void }) {
   const t = useT()
-  const lang = useSettings(s => s.language)
   const p = pct(goal.saved, goal.target)
   const cur = currency as Parameters<typeof fmt>[1]
+  const today = localToday()
+  const done = goal.saved >= goal.target
+  const deadlineInfo = !done ? daysLeftLabel(goal.deadline, today, t) : null
   return (
     <button className="mgl-card" onClick={onClick}>
       <div className="mgl-card-top">
-        <span className="mgl-icon" style={{ background: goal.color + '22', color: goal.color }}>
-          <Icon name={goal.icon} size={22} />
-        </span>
+        <ProgressRing pct={p} color={goal.color} size={52} stroke={5}>
+          <Icon name={goal.icon} size={20} style={{ color: goal.color }} />
+        </ProgressRing>
         <div className="mgl-card-info">
           <strong>{goal.name}</strong>
-          {goal.deadline && <small>{new Date(goal.deadline).toLocaleDateString(dateLocale(lang), { day:'numeric', month:'short', year:'numeric' })}</small>}
+          <span className="mgl-card-amounts">
+            {fmt(goal.saved, cur)} <span className="mgl-dim">{t('of')} {fmt(goal.target, cur)}</span>
+          </span>
         </div>
         <span className="mgl-pct" style={{ color: goal.color }}>{p}%</span>
       </div>
-      <div className="mgl-bar-track">
-        <div className="mgl-bar-fill" style={{ width: `${p}%`, background: goal.color }} />
-      </div>
-      <div className="mgl-card-bottom">
-        <span>{fmt(goal.saved, cur)}</span>
-        <span className="mgl-dim"> {t('of')} {fmt(goal.target, cur)}</span>
-      </div>
-      {goal.autoContribute && (
-        <div className="mgl-auto-badge">
-          <Icon name="repeat" size={11} />
-          {t('autoContributeBadge')
-            .replace('{amount}', fmt(goal.autoContribute.amount, cur))
-            .replace('{freq}', goal.autoContribute.frequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))}
+      {(deadlineInfo || goal.autoContribute || done) && (
+        <div className="mgl-card-chips">
+          {done && (
+            <span className="mgl-chip mgl-chip-done">
+              <Icon name="check" size={11} /> {t('goalCompletedLabel')}
+            </span>
+          )}
+          {deadlineInfo && (
+            <span className={`mgl-chip${deadlineInfo.overdue ? ' mgl-chip-warn' : ''}`}>
+              <Icon name="calendar" size={11} /> {deadlineInfo.text}
+            </span>
+          )}
+          {goal.autoContribute && (
+            <span className="mgl-chip">
+              <Icon name="repeat" size={11} />
+              {t('autoContributeBadge')
+                .replace('{amount}', fmt(goal.autoContribute.amount, cur))
+                .replace('{freq}', goal.autoContribute.frequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))}
+            </span>
+          )}
         </div>
       )}
     </button>
   )
 }
 
+function GoalPurposeSheet({
+  onPick,
+  onClose,
+}: {
+  onPick: (purpose: GoalPurpose) => void
+  onClose: () => void
+}) {
+  const t = useT()
+  useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, true)
+
+  return createPortal(
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('newGoal')} onClick={onClose}>
+      <section className="mgl-purpose-sheet" onClick={e => e.stopPropagation()}>
+        <header>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
+          <span>{t('newGoal')}</span>
+          <span aria-hidden="true" />
+        </header>
+        <div className="mgl-purpose-body">
+          <h2>{t('goalPurposeTitle')}</h2>
+          <p>{t('goalPurposeSubtitle')}</p>
+          <div className="mgl-purpose-list">
+            {GOAL_PURPOSES.map(purpose => (
+              <button key={purpose.id} className="mgl-purpose-card" onClick={() => onPick(purpose)}>
+                <span className="mgl-purpose-icon" style={{
+                  color: purpose.color,
+                  background: `color-mix(in oklab, ${purpose.color} 18%, transparent)`,
+                }}>
+                  <Icon name={purpose.icon} size={22} />
+                </span>
+                <span className="mgl-purpose-text">
+                  <strong>{t(purpose.titleKey)}</strong>
+                  <small>{t(purpose.descKey)}</small>
+                </span>
+                <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>,
+    sheetRoot(),
+  )
+}
+
 function GoalForm({
   initial,
   currency,
+  presetIcon,
+  presetColor,
+  presetPlaceholder,
   onSave,
   onClose,
 }: {
   initial?: Goal
   currency: string
+  presetIcon?: IconName
+  presetColor?: string
+  presetPlaceholder?: string
   onSave: (data: Omit<Goal,'id'|'saved'>) => void
   onClose: () => void
 }) {
@@ -129,8 +270,8 @@ function GoalForm({
   const { accounts } = useFinance()
   const [name, setName]             = useState(initial?.name ?? '')
   const [amountText, setAmountText] = useState(initial?.target?.toString() ?? '')
-  const [color, setColor]           = useState(initial?.color ?? COLORS[0])
-  const [icon, setIcon]             = useState<IconName>(initial?.icon ?? 'target')
+  const [color, setColor]           = useState(initial?.color ?? presetColor ?? COLORS[0])
+  const [icon, setIcon]             = useState<IconName>(initial?.icon ?? presetIcon ?? 'target')
   const [deadline, setDeadline]     = useState(initial?.deadline ?? '')
   const [showNumpad, setShowNumpad] = useState(false)
   const [showDate, setShowDate]     = useState(false)
@@ -141,15 +282,38 @@ function GoalForm({
   const [autoFrequency, setAutoFrequency] = useState<RecurrenceFrequency>(initial?.autoContribute?.frequency ?? 'monthly')
   const [autoAccountId, setAutoAccountId] = useState(initial?.autoContribute?.fromAccountId ?? validAccounts[0]?.id ?? '')
   const [autoAmountSheet, setAutoAmountSheet] = useState(false)
+  const [autoPlan, setAutoPlan] = useState<'fixed' | 'ramp'>(initial?.autoContribute?.increment ? 'ramp' : 'fixed')
+  const [autoIncrement, setAutoIncrement] = useState(initial?.autoContribute?.increment ?? 0)
+  const [autoIncrementSheet, setAutoIncrementSheet] = useState(false)
+  const [autoWeekday, setAutoWeekday] = useState<number | null>(
+    initial?.autoContribute?.frequency === 'weekly' && initial.autoContribute.nextDate
+      ? new Date(`${initial.autoContribute.nextDate}T00:00:00`).getDay()
+      : null,
+  )
 
   const lang = useSettings(s => s.language)
   const cur = currency as CurrencyCode
   const prefix = currencyPrefix(cur)
   const today = localToday()
   const deadlinePast = !!deadline && deadline < today
+  const weekdayLabels = useMemo(() => weekdayShortLabels(dateLocale(lang)), [lang])
 
-  useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : showDate ? () => setShowDate(false) : autoAmountSheet ? () => setAutoAmountSheet(false) : onClose)
-  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad && !showDate && !autoAmountSheet)
+  useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : showDate ? () => setShowDate(false) : autoAmountSheet ? () => setAutoAmountSheet(false) : autoIncrementSheet ? () => setAutoIncrementSheet(false) : onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad && !showDate && !autoAmountSheet && !autoIncrementSheet)
+
+  // Vista previa del reto incremental: primeros aportes, nº de plazos y total.
+  const rampPreview = useMemo(
+    () => autoPlan === 'ramp' ? rampPlan(autoAmount, autoIncrement, parseFloat(amountText) || 0) : null,
+    [autoPlan, autoAmount, autoIncrement, amountText],
+  )
+
+  // Calculadora inversa: con meta + fecha límite, sugerimos el aporte por
+  // período para llegar a tiempo ("necesitas RD$X/semana").
+  const suggestion = useMemo(() => {
+    const target = parseFloat(amountText) || 0
+    if (!deadline || target <= 0 || deadlinePast) return null
+    return requiredContribution(target, initial?.saved ?? 0, deadline, autoFrequency, localToday())
+  }, [amountText, deadline, deadlinePast, autoFrequency, initial?.saved])
 
   const pressAmt = (key: string) => {
     if (key === 'back') {
@@ -181,12 +345,18 @@ function GoalForm({
     if (!name.trim() || !targetVal || targetVal <= 0) return
     if (autoEnabled && (!autoAmount || autoAmount <= 0 || !autoAccountId)) return
     playConfirmSound()
+    // nextDate: si es semanal y eligieron un día, el próximo de ese día; si no,
+    // se conserva el existente (edición) o el próximo período desde hoy.
+    const nextDate = autoFrequency === 'weekly' && autoWeekday !== null
+      ? nextWeekdayDate(today, autoWeekday)
+      : initial?.autoContribute?.nextDate ?? advanceRecurrenceDate(today, autoFrequency)
     const autoContribute: GoalAutoContribute | undefined = autoEnabled
       ? {
           amount: autoAmount,
           frequency: autoFrequency,
           fromAccountId: autoAccountId,
-          nextDate: initial?.autoContribute?.nextDate ?? advanceRecurrenceDate(today, autoFrequency),
+          nextDate,
+          ...(autoPlan === 'ramp' && autoIncrement > 0 ? { increment: autoIncrement } : {}),
         }
       : undefined
     onSave({ name: name.trim(), target: targetVal, color, icon, deadline: deadline || undefined, autoContribute })
@@ -196,9 +366,9 @@ function GoalForm({
     ? new Date(`${deadline}T00:00:00`).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
     : t('noDeadlineLabel')
 
-  return (
+  return createPortal(
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? t('editGoal') : t('newGoal')} onClick={onClose}>
-      <section className="mgl-form" onClick={e => e.stopPropagation()}>
+      <section className={`mgl-form${showNumpad ? ' mgl-form-numpad' : ''}`} onClick={e => e.stopPropagation()}>
         <header>
           <span>{initial ? t('editGoal') : t('newGoal')}</span>
           <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
@@ -213,7 +383,7 @@ function GoalForm({
                 <span>{t('name')}</span>
                 <input
                   className="mgl-input"
-                  placeholder={t('egGoalName')}
+                  placeholder={presetPlaceholder ?? t('egGoalName')}
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />
@@ -243,6 +413,28 @@ function GoalForm({
                 )}
               </div>
 
+              {/* Calculadora inversa: aporte sugerido para llegar a la fecha */}
+              {suggestion && (
+                <div className="mgl-suggestion" style={{ borderColor: color + '55' }}>
+                  <Icon name="bolt" size={14} style={{ color, flexShrink: 0 }} />
+                  <span>
+                    {t('goalSuggestionText')
+                      .replace('{amount}', fmt(suggestion.amount, cur))
+                      .replace('{freq}', autoFrequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))
+                      .replace('{n}', String(suggestion.periods))
+                      .replace('{periods}', autoFrequency === 'weekly' ? t('weeksLabel') : t('monthsLabel'))}
+                  </span>
+                  <button
+                    type="button"
+                    className="mgl-suggestion-use"
+                    style={{ background: color + '22', color }}
+                    onClick={() => { setAutoEnabled(true); setAutoPlan('fixed'); setAutoAmount(suggestion.amount) }}
+                  >
+                    {t('useSuggestionLabel')}
+                  </button>
+                </div>
+              )}
+
               <div className="mgl-field">
                 <span>{t('color')}</span>
                 <div className="mgl-colors">
@@ -252,7 +444,7 @@ function GoalForm({
                       className={`mgl-color-dot${color === c ? ' on' : ''}`}
                       aria-label={t('colorOption').replace('{c}', c)}
                       aria-pressed={color === c}
-                      style={{ background: c }}
+                      style={{ background: c, color: c }}
                       onClick={() => setColor(c)}
                     />
                   ))}
@@ -297,13 +489,59 @@ function GoalForm({
 
               {autoEnabled && (
                 <>
+                  <div className="mpr-form-section">
+                    <span className="mpr-overdraft-label">{t('savingsPlanLabel')}</span>
+                    <div className="mpr-pill-row">
+                      {(['fixed', 'ramp'] as const).map(pl => (
+                        <button
+                          key={pl}
+                          className={`mpr-pill${autoPlan === pl ? ' on' : ''}`}
+                          style={autoPlan === pl ? { borderColor: color, color } : {}}
+                          onClick={() => setAutoPlan(pl)}
+                        >
+                          {pl === 'fixed' ? t('planFixedLabel') : t('planRampLabel')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="mgl-field">
-                    <span>{t('autoContributeAmountLabel')}</span>
+                    <span>{autoPlan === 'ramp' ? t('firstContributionLabel') : t('autoContributeAmountLabel')}</span>
                     <button className="mgl-amount-tap" onClick={() => setAutoAmountSheet(true)}>
                       <span>{fmt(autoAmount, cur)}</span>
                       <Icon name="edit" size={14} style={{ opacity: .4 }} />
                     </button>
                   </div>
+
+                  {autoPlan === 'ramp' && (
+                    <>
+                      <div className="mgl-field">
+                        <span>{t('rampIncrementLabel')}</span>
+                        <button className="mgl-amount-tap" onClick={() => setAutoIncrementSheet(true)}>
+                          <span>+{fmt(autoIncrement, cur)}</span>
+                          <Icon name="edit" size={14} style={{ opacity: .4 }} />
+                        </button>
+                      </div>
+                      {rampPreview && autoIncrement > 0 && (
+                        <div className="mgl-ramp-preview" style={{ borderColor: color + '55' }}>
+                          <div className="mgl-ramp-seq">
+                            {rampPreview.first.map((v, i) => (
+                              <span key={i}>{fmt(v, cur)}</span>
+                            ))}
+                            <span className="mgl-ramp-dots">···</span>
+                          </div>
+                          {parseFloat(amountText) > 0 && (
+                            <small>
+                              {t('rampPreviewSummary')
+                                .replace('{n}', String(rampPreview.periods))
+                                .replace('{freq}', autoFrequency === 'weekly' ? t('weeksLabel') : t('monthsLabel'))
+                                .replace('{total}', fmt(rampPreview.total, cur))}
+                            </small>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
 
                   <div className="mpr-form-section">
                     <span className="mpr-overdraft-label">{t('frequencyLabel')}</span>
@@ -320,6 +558,31 @@ function GoalForm({
                       ))}
                     </div>
                   </div>
+
+                  {autoFrequency === 'weekly' && (
+                    <div className="mgl-field">
+                      <span>{t('chargeDayLabel')}</span>
+                      <div className="mgl-weekday-row">
+                        {WEEKDAY_ORDER.map((wd, i) => {
+                          const on = autoWeekday === wd
+                          return (
+                            <button
+                              key={wd}
+                              type="button"
+                              className={`mgl-weekday${on ? ' on' : ''}`}
+                              style={on ? { borderColor: color, background: color + '22', color } : {}}
+                              onClick={() => setAutoWeekday(on ? null : wd)}
+                            >
+                              {weekdayLabels[i]}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <small className="mgl-weekday-hint">
+                        {autoWeekday === null ? t('chargeDayAnyHint') : t('chargeDayPickedHint')}
+                      </small>
+                    </div>
+                  )}
 
                   <label className="mgl-field">
                     <span>{t('sourceAccount')}</span>
@@ -353,15 +616,148 @@ function GoalForm({
 
       {autoAmountSheet && (
         <MobileAmountSheet
-          title={t('autoContributeAmountLabel')}
+          title={autoPlan === 'ramp' ? t('firstContributionLabel') : t('autoContributeAmountLabel')}
           value={autoAmount}
           currency={cur}
           onDone={v => { setAutoAmount(v); setAutoAmountSheet(false) }}
           onClose={() => setAutoAmountSheet(false)}
         />
       )}
-    </div>
+
+      {autoIncrementSheet && (
+        <MobileAmountSheet
+          title={t('rampIncrementLabel')}
+          value={autoIncrement}
+          currency={cur}
+          onDone={v => { setAutoIncrement(v); setAutoIncrementSheet(false) }}
+          onClose={() => setAutoIncrementSheet(false)}
+        />
+      )}
+    </div>,
+    sheetRoot(),  )
+}
+
+function GoalDetailSheet({
+  goal,
+  currency,
+  onClose,
+  onContribute,
+  onEdit,
+  onDelete,
+}: {
+  goal: Goal
+  currency: string
+  onClose: () => void
+  onContribute: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const t = useT()
+  const lang = useSettings(s => s.language)
+  const { accounts, goalContributions } = useFinance()
+  const cur = currency as Parameters<typeof fmt>[1]
+  const p = pct(goal.saved, goal.target)
+  const remaining = Math.max(0, goal.target - goal.saved)
+  const done = goal.saved >= goal.target
+  const today = localToday()
+  const deadlineInfo = !done ? daysLeftLabel(goal.deadline, today, t) : null
+  const history = useMemo(
+    () => goalContributions.filter(c => c.goalId === goal.id).sort((a, b) => b.date.localeCompare(a.date)),
+    [goalContributions, goal.id],
   )
+
+  useMobileBackDismiss(true, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, true)
+
+  return createPortal(
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={goal.name} onClick={onClose}>
+      <section className="mgl-form mgl-detail" onClick={e => e.stopPropagation()}>
+        <header>
+          <span>{goal.name}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
+        </header>
+
+        <div className="mgl-detail-body">
+          <div className="mgl-detail-hero">
+            <ProgressRing pct={p} color={goal.color} size={112} stroke={9}>
+              <Icon name={goal.icon} size={26} style={{ color: goal.color }} />
+              <strong>{p}%</strong>
+            </ProgressRing>
+            {done && (
+              <span className="mgl-chip mgl-chip-done mgl-detail-done-badge">
+                <Icon name="check" size={11} /> {t('goalCompletedLabel')}
+              </span>
+            )}
+            {deadlineInfo && (
+              <span className={`mgl-chip${deadlineInfo.overdue ? ' mgl-chip-warn' : ''}`}>
+                <Icon name="calendar" size={11} /> {deadlineInfo.text}
+              </span>
+            )}
+          </div>
+
+          <div className="mgl-detail-stats">
+            <div className="mgl-detail-stat">
+              <span>{t('saved')}</span>
+              <strong>{fmt(goal.saved, cur)}</strong>
+            </div>
+            <div className="mgl-detail-stat">
+              <span>{t('target')}</span>
+              <strong>{fmt(goal.target, cur)}</strong>
+            </div>
+            <div className="mgl-detail-stat">
+              <span>{t('goalRemainingLabel')}</span>
+              <strong>{fmt(remaining, cur)}</strong>
+            </div>
+          </div>
+
+          {goal.autoContribute && (
+            <div className="mgl-auto-badge mgl-detail-auto">
+              <Icon name="repeat" size={12} />
+              {t('autoContributeBadge')
+                .replace('{amount}', fmt(goal.autoContribute.amount, cur))
+                .replace('{freq}', goal.autoContribute.frequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))}
+            </div>
+          )}
+
+          <div className="mgl-detail-history">
+            <span className="mgl-detail-history-title">{t('contributionHistory')}</span>
+            {history.length === 0 ? (
+              <p className="mgl-detail-history-empty">{t('noContributionsYet')}</p>
+            ) : (
+              <div className="mgl-history-list">
+                {history.map(c => (
+                  <div key={c.id} className="mgl-history-row">
+                    <span className="mgl-history-icon" style={{ background: goal.color + '22', color: goal.color }}>
+                      <Icon name="plus" size={13} />
+                    </span>
+                    <div className="mgl-history-info">
+                      <strong>{fmt(c.amount, cur)}</strong>
+                      <small>{accounts.find(a => a.id === c.fromAccountId)?.name ?? '—'}</small>
+                    </div>
+                    <small className="mgl-history-date">
+                      {new Date(`${c.date}T00:00:00`).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short' })}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mgl-form-actions">
+          <button className="mgl-btn-cancel" onClick={onEdit}>
+            <Icon name="edit" size={15} /> {t('edit')}
+          </button>
+          <button className="mgl-btn-cancel mgl-detail-del" aria-label={t('deleteGoalNamed').replace('{name}', goal.name)} onClick={onDelete}>
+            <Icon name="trash" size={15} />
+          </button>
+          <button className="mgl-btn-save" style={{ background: goal.color }} onClick={onContribute}>
+            {t('contribute')}
+          </button>
+        </div>
+      </section>
+    </div>,
+    sheetRoot(),  )
 }
 
 function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: string; onClose: () => void }) {
@@ -415,9 +811,9 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
     }
   }
 
-  return (
+  return createPortal(
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('contributeToGoal').replace('{name}', goal.name)} onClick={onClose}>
-      <section className="mgl-form" onClick={e => e.stopPropagation()}>
+      <section className={`mgl-form${showNumpad ? ' mgl-form-numpad' : ''}`} onClick={e => e.stopPropagation()}>
         <header>
           <span>{t('contributeToGoal').replace('{name}', goal.name)}</span>
           <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
@@ -465,8 +861,8 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
           </>
         )}
       </section>
-    </div>
-  )
+    </div>,
+    sheetRoot(),  )
 }
 
 export function MobileGoals(_props: ViewProps) {
@@ -476,8 +872,14 @@ export function MobileGoals(_props: ViewProps) {
   const [sheet, setSheet] = useState<Sheet>(null)
   const [contributeGoal, setContributeGoal] = useState<Goal | null>(null)
 
+  const askDelete = (g: Goal) => {
+    void confirm({ title: t('deleteGoalConfirmTitle').replace('{name}', g.name), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' })
+      .then(ok => { if (ok) { playDeleteSound(); deleteGoal(g.id); setSheet(null) } })
+  }
+
   const totalSaved  = goals.reduce((s, g) => s + g.saved, 0)
   const totalTarget = goals.reduce((s, g) => s + g.target, 0)
+  const overallPct = pct(totalSaved, totalTarget)
   const backedSavings = savingsBalance(accounts)
   const savingsCoverage = totalSaved > 0 ? Math.min(999, Math.round(backedSavings / totalSaved * 100)) : 0
   const cur = currency as Parameters<typeof fmt>[1]
@@ -486,20 +888,22 @@ export function MobileGoals(_props: ViewProps) {
     <div className="mgl-root">
       {goals.length > 0 && (
         <div className="mgl-summary">
-          <div className="mgl-sum-item">
-            <span className="mgl-sum-label">{t('saved')}</span>
-            <strong className="mgl-sum-value">{fmt(totalSaved, cur)}</strong>
-          </div>
-          <div className="mgl-sum-div" />
-          <div className="mgl-sum-item">
-            <span className="mgl-sum-label">{t('target')}</span>
-            <strong className="mgl-sum-value">{fmt(totalTarget, cur)}</strong>
-          </div>
-          <div className="mgl-sum-div" />
-          <div className="mgl-sum-item">
-            <span className="mgl-sum-label">{t('savings')}</span>
-            <strong className="mgl-sum-value">{savingsCoverage}%</strong>
-            <small className="mgl-sum-hint">{fmt(backedSavings, cur)}</small>
+          <ProgressRing pct={overallPct} color="var(--m-primary)" size={80} stroke={8}>
+            <strong>{overallPct}%</strong>
+          </ProgressRing>
+          <div className="mgl-summary-rows">
+            <div className="mgl-summary-row">
+              <span className="mgl-sum-label">{t('saved')}</span>
+              <strong className="mgl-sum-value">{fmt(totalSaved, cur)}</strong>
+            </div>
+            <div className="mgl-summary-row">
+              <span className="mgl-sum-label">{t('target')}</span>
+              <strong className="mgl-sum-value">{fmt(totalTarget, cur)}</strong>
+            </div>
+            <div className="mgl-summary-row mgl-summary-row-dim">
+              <span className="mgl-sum-label">{t('savings')}</span>
+              <strong className="mgl-sum-value">{savingsCoverage}% · {fmt(backedSavings, cur)}</strong>
+            </div>
           </div>
         </div>
       )}
@@ -508,7 +912,7 @@ export function MobileGoals(_props: ViewProps) {
         <div className="mgl-empty">
           <Icon name="target" size={48} style={{ opacity: .25 }} />
           <p>{t('noGoals')}</p>
-          <button className="mgl-empty-btn" onClick={() => setSheet({ type: 'add' })}>
+          <button className="mgl-empty-btn" onClick={() => setSheet({ type: 'purpose' })}>
             {t('createFirstGoal')}
           </button>
         </div>
@@ -524,25 +928,37 @@ export function MobileGoals(_props: ViewProps) {
                 <button className="mgl-action-btn" aria-label={t('editGoalNamed').replace('{name}', g.name)} onClick={() => setSheet({ type: 'edit', goal: g })}>
                   <Icon name="edit" size={15} />
                 </button>
-                <button className="mgl-action-btn mgl-action-del" aria-label={t('deleteGoalNamed').replace('{name}', g.name)} onClick={() => {
-                  void confirm({ title: t('deleteGoalConfirmTitle').replace('{name}', g.name), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' }).then(ok => { if (ok) { playDeleteSound(); deleteGoal(g.id) } })
-                }}>
+                <button className="mgl-action-btn mgl-action-del" aria-label={t('deleteGoalNamed').replace('{name}', g.name)} onClick={() => askDelete(g)}>
                   <Icon name="trash" size={15} />
                 </button>
               </div>
             </div>
           ))}
+          <button className="mgl-add-goal" onClick={() => setSheet({ type: 'purpose' })}>
+            <Icon name="plus" size={18} /> {t('newGoal')}
+          </button>
         </div>
       )}
 
-      <button className="mgl-fab" aria-label={t('newGoal')} onClick={() => setSheet({ type: 'add' })}>
-        <Icon name="plus" size={24} />
-      </button>
+      {sheet?.type === 'purpose' && (
+        <GoalPurposeSheet
+          onPick={purpose => setSheet({
+            type: 'add',
+            presetIcon: purpose.icon,
+            presetColor: purpose.color,
+            presetPlaceholder: purpose.placeholderKey ? t(purpose.placeholderKey) : undefined,
+          })}
+          onClose={() => setSheet(null)}
+        />
+      )}
 
       {(sheet?.type === 'add' || sheet?.type === 'edit') && (
         <GoalForm
           initial={sheet.goal}
           currency={currency}
+          presetIcon={sheet.presetIcon}
+          presetColor={sheet.presetColor}
+          presetPlaceholder={sheet.presetPlaceholder}
           onSave={data => {
             if (sheet.type === 'edit' && sheet.goal) {
               updateGoal(sheet.goal.id, data)
@@ -552,6 +968,17 @@ export function MobileGoals(_props: ViewProps) {
             setSheet(null)
           }}
           onClose={() => setSheet(null)}
+        />
+      )}
+
+      {sheet?.type === 'detail' && (
+        <GoalDetailSheet
+          goal={goals.find(g => g.id === sheet.goal.id) ?? sheet.goal}
+          currency={currency}
+          onClose={() => setSheet(null)}
+          onContribute={() => { setContributeGoal(sheet.goal); setSheet(null) }}
+          onEdit={() => setSheet({ type: 'edit', goal: sheet.goal })}
+          onDelete={() => askDelete(sheet.goal)}
         />
       )}
 

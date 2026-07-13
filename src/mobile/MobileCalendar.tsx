@@ -11,6 +11,14 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+// En las celdas del calendario (≈1/7 del ancho) no cabe "RD$ 26,000.00": se
+// cortaba a "RD$ 26…". Mostramos el número agrupado sin símbolo ni decimales
+// —el color (verde/rojo) ya indica ingreso/gasto y la moneda va en la cabecera—
+// para que el monto se vea completo y de un vistazo.
+function fmtDayAmount(n: number): string {
+  return Math.round(n).toLocaleString('en-US')
+}
+
 function weekdayLabels(locale: string): string[] {
   // Monday-first week
   return Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }))
@@ -129,8 +137,8 @@ export function MobileCalendar({
               onClick={() => setSelectedDay(prev => prev === day ? null : day)}
             >
               <span className="mcal-day-num">{day}</span>
-              {income  > 0 && <span className="mcal-amt inc">{fmtCompact(income, currency)}</span>}
-              {expense > 0 && <span className="mcal-amt exp">{fmtCompact(expense, currency)}</span>}
+              {income  > 0 && <span className="mcal-amt inc">+{fmtDayAmount(income)}</span>}
+              {expense > 0 && <span className="mcal-amt exp">−{fmtDayAmount(expense)}</span>}
             </button>
           )
         })}

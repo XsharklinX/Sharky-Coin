@@ -3,14 +3,20 @@ import { Icon } from '@/components/ui/Icon'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { toast } from '@/components/ui/Toast'
 import { generateFinancialIntelligence } from '@/data/financeIntelligence'
+import { compareCategoryTotals } from '@/data/comparisons'
+import { exportCsv, exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { playConfirmSound } from '@/lib/sound'
-import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthSeries, savingsBalance, totalBalanceInBase, totals, transactionsForTotals, txForMonth } from '@/data/helpers'
+import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthSeries, rollingNetWorthSeries, savingsBalance, shortMonth, totalBalanceInBase, totals, transactionsForTotals, txForMonth, type NetWorthPoint } from '@/data/helpers'
+import { projectNetWorth } from '@/data/netWorthProjection'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
 import { translateCategoryName, useT } from '@/i18n'
-import type { IconName } from '@/types'
+import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
+import type { CurrencyCode, IconName } from '@/types'
 
 type AnalyticsPeriod = 'week' | 'month' | 'year'
 
@@ -60,7 +66,78 @@ function SavingsRing({ rate, amount, t, fmtAmount }: { rate: number; amount: num
   )
 }
 
-export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?: () => void }) {
+/**
+ * Curva de patrimonio neto: últimos 12 meses reales + proyección lineal a 6
+ * meses. SVG a mano (sin recharts) para no meter ~150 KB de librería de
+ * gráficos en Análisis, que carga en el arranque (no es lazy).
+ */
+function NetWorthHistoryChart({ history, projected, currency, lang, fmtAmount }: {
+  history: NetWorthPoint[]
+  projected: NetWorthPoint[]
+  currency: CurrencyCode
+  lang: 'en' | 'es'
+  fmtAmount: (n: number, c: CurrencyCode) => string
+}) {
+  const t = useT()
+  const all = [...history, ...projected]
+  if (all.length < 2) return null
+
+  const W = 300
+  const H = 90
+  const PAD_Y = 8
+  const values = all.map(p => p.value)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const stepX = W / (all.length - 1)
+  const yOf = (v: number) => H - PAD_Y - ((v - min) / span) * (H - PAD_Y * 2)
+  const xOf = (i: number) => i * stepX
+
+  const historyPoints = history.map((p, i) => `${xOf(i)},${yOf(p.value)}`).join(' ')
+  const projectedPoints = [history[history.length - 1], ...projected]
+    .map((p, i) => `${xOf(history.length - 1 + i)},${yOf(p.value)}`)
+    .join(' ')
+  const areaPath = `M${xOf(0)},${H} L${historyPoints.split(' ').map(pt => pt).join(' L')} L${xOf(history.length - 1)},${H} Z`
+
+  const current = history[history.length - 1]
+  const projectedEnd = projected[projected.length - 1]
+
+  return (
+    <div className="man-networth-chart">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
+        <line x1={0} y1={H - PAD_Y} x2={W} y2={H - PAD_Y} stroke="rgba(255,255,255,.08)" strokeWidth={1} />
+        <path d={areaPath} fill="url(#nwGrad)" stroke="none" />
+        <defs>
+          <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#35d0a2" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#35d0a2" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <polyline points={historyPoints} fill="none" stroke="#35d0a2" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={projectedPoints} fill="none" stroke="#35d0a2" strokeWidth={1.6} strokeDasharray="3 3" strokeLinecap="round" strokeLinejoin="round" opacity={0.55} />
+        <circle cx={xOf(history.length - 1)} cy={yOf(current.value)} r={3} fill="#35d0a2" />
+      </svg>
+      <div className="man-networth-legend">
+        <div>
+          <span>{shortMonth(history[0].key, lang === 'en' ? 'en-US' : 'es-DO')}</span>
+          <strong>{fmtAmount(history[0].value, currency)}</strong>
+        </div>
+        <div>
+          <span>{t('today')}</span>
+          <strong>{fmtAmount(current.value, currency)}</strong>
+        </div>
+        {projectedEnd && (
+          <div className="man-networth-projected">
+            <span>{t('netWorthProjectedLabel')}</span>
+            <strong>{fmtAmount(projectedEnd.value, currency)}</strong>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; onBudgets?: () => void; onImport?: () => void }) {
   const { transactions, accounts, categories, goalContributions, currency, updateTx } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
@@ -70,6 +147,33 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
   const MONTHS_SHORT = getMonthsShort(t)
   const PERIODS = getPeriods(t)
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
+  const finance = useFinance()
+  const ownerName = useSettings(s => s.displayName) || '$harky'
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | 'csv' | null>(null)
+  useMobileBackDismiss(exportOpen, () => setExportOpen(false))
+  const exportRef = useDialogA11y<HTMLDivElement>(() => setExportOpen(false), exportOpen)
+
+  const runExport = async (kind: 'pdf' | 'excel' | 'csv') => {
+    setExporting(kind)
+    try {
+      if (kind === 'pdf') {
+        await exportMonthlyPdf(finance, mkey, ownerName, lang)
+        toast(t('pdfExportedFor').replace('{month}', monthLabel(mkey, dateLocale(lang))), { icon: 'download', type: 'ok' })
+      } else if (kind === 'excel') {
+        await exportExcel(finance)
+        toast(t('excelExported'), { icon: 'download', type: 'ok' })
+      } else {
+        await exportCsv(finance)
+        toast(t('csvExported'), { icon: 'download', type: 'ok' })
+      }
+      setExportOpen(false)
+    } catch {
+      toast(t(kind === 'pdf' ? 'pdfExportError' : kind === 'excel' ? 'excelExportError' : 'csvExportError'), { icon: 'alert' })
+    } finally {
+      setExporting(null)
+    }
+  }
   const year = Number(mkey.slice(0, 4))
   const visTx = useMemo(() => transactionsForTotals(transactions, accounts, currency), [transactions, accounts, currency])
   const monthTx = txForMonth(visTx, mkey)
@@ -167,6 +271,13 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
     { label: t('netLabel'), current: summary.net, prev: comparePrev.net, goodWhenUp: true, cls: summary.net >= 0 ? 'income' : 'expense' },
   ]
   const showCompare = period === 'month' || period === 'year'
+  const previousScopedTx = period === 'year'
+    ? visTx.filter(tx => tx.date.startsWith(String(prevYear)))
+    : txForMonth(visTx, prevMkey)
+  const categoryComparison = useMemo(
+    () => showCompare ? compareCategoryTotals(scopedTx, previousScopedTx, categories, 'expense').slice(0, 5) : [],
+    [scopedTx, previousScopedTx, categories, showCompare],
+  )
 
   const donutValueLabel = fmtVal(summary.expense, currency)
   const donutValueSize = donutValueLabel.length > 11 ? 12 : donutValueLabel.length > 8 ? 14 : 16
@@ -208,6 +319,12 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
       ? Math.round(((summary.net - comparePrev.net) / Math.abs(comparePrev.net)) * 100)
       : (summary.net !== 0 ? 100 : 0)
     : 0
+
+  const netWorthRolling = useMemo(
+    () => rollingNetWorthSeries(accounts, transactions, goalContributions, mkey, 12, dateLocale(lang), currency),
+    [accounts, transactions, goalContributions, mkey, lang, currency],
+  )
+  const netWorthProjected = useMemo(() => projectNetWorth(netWorthRolling, 6), [netWorthRolling])
 
   // Convierte el gasto detectado como suscripción en un recurrente mensual real
   const makeSubscriptionRecurring = () => {
@@ -485,6 +602,30 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
             </div>
           )}
 
+          {showCompare && categoryComparison.length > 0 && (
+            <div className="man-catcompare-list">
+              <p className="man-catcompare-title">{t('categoryComparisonTitle')}</p>
+              {categoryComparison.map(row => {
+                const isUp = row.delta >= 0
+                return (
+                  <div key={row.category.id} className="man-catcompare-row">
+                    <span className="man-catcompare-icon" style={{ color: row.category.color, background: `color-mix(in oklab, ${row.category.color} 16%, transparent)` }}>
+                      <Icon name={row.category.icon} size={15} />
+                    </span>
+                    <div className="man-catcompare-main">
+                      <span>{translateCategoryName(row.category, lang)}</span>
+                      <small>{fmtVal(row.current, currency)}</small>
+                    </div>
+                    <span className={`man-catcompare-delta ${row.delta === 0 ? '' : isUp ? 'warn' : 'ok'}`}>
+                      <Icon name={isUp ? 'arrowUp' : 'arrowDn'} size={11} />
+                      {row.deltaPct === null ? t('newLabel') : `${Math.abs(row.deltaPct)}%`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {insightRows.length > 0 && (
             <div className="man-insights">
               {insightRows.map(insight => (
@@ -505,6 +646,15 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {netWorthRolling.length >= 2 && (
+        <section className="man-panel man-panel-networth">
+          <div className="man-panel-head">
+            <h3>{t('netWorthTimelineTitle')}</h3>
+          </div>
+          <NetWorthHistoryChart history={netWorthRolling} projected={netWorthProjected} currency={currency} lang={lang} fmtAmount={fmtVal} />
         </section>
       )}
 
@@ -589,7 +739,52 @@ export function MobileAnalytics({ mkey, onBudgets }: { mkey: string; onBudgets?:
         </section>
       )}
 
+      {/* Exportar e importar — compacto, sin robar espacio al análisis */}
+      <div className="man-export-bar">
+        <button className="man-export-btn" onClick={() => setExportOpen(true)}>
+          <Icon name="download" size={16} />
+          {t('exportData')}
+        </button>
+        {onImport && (
+          <button className="man-export-btn ghost" onClick={onImport}>
+            <Icon name="upload" size={16} />
+            {t('importLabel')}
+          </button>
+        )}
+      </div>
+
       <div style={{ height: 'calc(12px + env(safe-area-inset-bottom))' }} />
+
+      {exportOpen && (
+        <SheetPortal>
+          <div ref={exportRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('exportData')} onClick={() => setExportOpen(false)}>
+            <section className="man-export-sheet" onClick={e => e.stopPropagation()}>
+              <header>
+                <span>{t('exportData')}</span>
+                <button aria-label={t('close')} onClick={() => setExportOpen(false)}><Icon name="close" size={18} /></button>
+              </header>
+              <button className="man-export-row" disabled={exporting !== null} onClick={() => void runExport('pdf')}>
+                <span className="man-export-ic" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}><Icon name="book" size={20} /></span>
+                <div><b>{t('monthStatementPdf')}</b><small>{exporting === 'pdf' ? t('generatingPdf') : monthLabel(mkey, dateLocale(lang))}</small></div>
+              </button>
+              <button className="man-export-row" disabled={exporting !== null} onClick={() => void runExport('excel')}>
+                <span className="man-export-ic" style={{ background: '#35d0a222', color: '#35d0a2' }}><Icon name="trend" size={20} /></span>
+                <div><b>{t('fullReportExcelTitle')}</b><small>{exporting === 'excel' ? t('generatingExcel') : t('movementsAccountsCategories')}</small></div>
+              </button>
+              <button className="man-export-row" disabled={exporting !== null} onClick={() => void runExport('csv')}>
+                <span className="man-export-ic" style={{ background: '#5b9bff22', color: '#5b9bff' }}><Icon name="fileJson" size={20} /></span>
+                <div><b>{t('fullReportCsvTitle')}</b><small>{exporting === 'csv' ? t('generatingCsv') : t('csvReportReady')}</small></div>
+              </button>
+              {onImport && (
+                <button className="man-export-row" onClick={() => { setExportOpen(false); onImport() }}>
+                  <span className="man-export-ic" style={{ background: '#a78bfa22', color: '#a78bfa' }}><Icon name="upload" size={20} /></span>
+                  <div><b>{t('importBankStatement')}</b><small>{t('csvOfxFromBanks')}</small></div>
+                </button>
+              )}
+            </section>
+          </div>
+        </SheetPortal>
+      )}
     </div>
   )
 }

@@ -82,9 +82,16 @@
 
             <!-- Compartir hacia $harky: recibos (foto/PDF) desde Galería, Drive, WhatsApp, etc.
                  NOTA: este directorio se regenera con `tauri android init` — si eso ocurre,
-                 hay que volver a agregar este intent-filter. -->
+                 hay que volver a agregar estos dos intent-filters. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <!-- Recibos por lotes: varias fotos compartidas a la vez desde Galería. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/pdf" />
@@ -142,6 +149,28 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/sharky_budgets_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.sharky.finanzas.homewidget.SharkyConverterWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sharky_converter_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.sharky.finanzas.homewidget.SharkyQuickAddWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sharky_quickadd_widget_info" />
         </receiver>
     </application>
 </manifest>

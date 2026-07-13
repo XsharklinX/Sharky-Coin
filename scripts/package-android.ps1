@@ -65,6 +65,15 @@ function Get-TauriVersionProps {
 }
 
 if ($Mode -eq 'build') {
+  # Sube el patch (X.Y.Z -> X.Y.Z+1) en package.json/tauri.conf.json/Cargo.toml
+  # antes de generar el paquete, para que la version visible en la app suba
+  # sola con cada build. No toca el versionCode interno de Android (abajo).
+  node (Join-Path $repoRoot 'scripts\bump-version.mjs')
+  if ($LASTEXITCODE -ne 0) { throw 'No se pudo actualizar la version antes del build.' }
+
+  # VersionCode: se sigue leyendo del archivo generado (gen/android/.../tauri.properties)
+  # + el ultimo build empaquetado, porque ese contador NUNCA debe bajar ni
+  # repetirse (Play Store lo exige) y es independiente del numero de version.
   $tauriVersion = Get-TauriVersionProps -Path $tauriPropsFile
   $baseVersionCode = [int]$tauriVersion.VersionCode
   $lastBuiltVersionCode = if (Test-Path -LiteralPath $androidVersionStateFile) {
@@ -76,7 +85,13 @@ if ($Mode -eq 'build') {
 
   $nextVersionCode = [Math]::Max($baseVersionCode, $lastBuiltVersionCode) + 1
   $env:SHARKY_ANDROID_VERSION_CODE = "$nextVersionCode"
-  $env:SHARKY_ANDROID_VERSION_NAME = "$($tauriVersion.VersionName)"
+
+  # VersionName: se lee directo de tauri.conf.json (ya actualizado arriba por
+  # bump-version.mjs), NO del archivo generado — ese todavia tiene el numero
+  # viejo hasta que el build de abajo lo regenera, y para entonces ya es tarde
+  # para que este env var lo recoja.
+  $tauriConfJson = Get-Content -LiteralPath (Join-Path $repoRoot 'src-tauri\tauri.conf.json') -Raw | ConvertFrom-Json
+  $env:SHARKY_ANDROID_VERSION_NAME = "$($tauriConfJson.version)"
 
   Write-Host "Android versionName: $($env:SHARKY_ANDROID_VERSION_NAME)"
   Write-Host "Android versionCode: $($env:SHARKY_ANDROID_VERSION_CODE)"

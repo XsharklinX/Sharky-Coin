@@ -4,6 +4,7 @@ import { makeDemo, makeEmpty, newId, CURRENCIES } from '@/data/seed'
 import { learnCategoryRule } from '@/data/bankCsv'
 import { convertCurrency } from '@/data/currencies'
 import { accountMovementsTotal, localToday } from '@/data/helpers'
+import { validateEnvelopeTransfer } from '@/data/envelopes'
 import { createRecoverySnapshot } from '@/data/recovery'
 import { tt } from '@/i18n'
 import { useSettings } from '@/store/settings'
@@ -174,12 +175,13 @@ function normalizeTransaction(tx: Transaction): Transaction {
 
   const {
     id, type, amount, date, note, categoryId, accountId, splits,
-    recurring, recurringStart, recurringEnd, recurringNext, skippedDates, tags,
+    recurring, recurringStart, recurringEnd, recurringNext, skippedDates, serviceId, tags,
   } = tx
   return {
     id, type, amount, date, note, categoryId, accountId,
     ...(type === 'expense' && splits && splits.length >= 2 ? { splits } : {}),
     ...(recurring ? { recurring, recurringStart, recurringEnd, recurringNext, skippedDates } : {}),
+    ...(recurring && serviceId ? { serviceId } : {}),
     ...(tags?.length ? { tags } : {}),
   }
 }
@@ -273,6 +275,7 @@ export interface FinanceState {
   addCategory:    (c: Omit<Category, 'id'>) => void
   updateCategory: (id: string, fields: Partial<Category>) => void
   deleteCategory: (id: string) => void
+  transferEnvelopeFunds: (fromCategoryId: string, toCategoryId: string, amount: number) => void
 
   // Config
   setCurrency: (code: CurrencyCode) => void
@@ -450,6 +453,26 @@ export const useFinance = create<FinanceState>()(
       deleteCategory: (id) => set(s => {
         if (!canDeleteCategory(id, s.transactions)) throw new Error(tt('errDeleteCategoryWithTxns'))
         return { categories: s.categories.filter(c => c.id !== id) }
+      }),
+
+      // Mueve dinero asignado de un sobre a otro (envelope budgeting): resta
+      // del origen y suma al destino en una sola actualización atómica, sin
+      // tocar transacciones ni saldos de cuenta reales.
+      transferEnvelopeFunds: (fromCategoryId, toCategoryId, amount) => set(s => {
+        const from = s.categories.find(c => c.id === fromCategoryId)
+        const to = s.categories.find(c => c.id === toCategoryId)
+        const error = validateEnvelopeTransfer(from, to, amount)
+        if (error === 'notFound') throw new Error(tt('errEnvelopeNotFound'))
+        if (error === 'sameCategory') throw new Error(tt('errEnvelopeSameCategory'))
+        if (error === 'invalidAmount') throw new Error(tt('errEnvelopeInvalidAmount'))
+        if (error === 'insufficientFunds') throw new Error(tt('errEnvelopeInsufficientFunds'))
+        return {
+          categories: s.categories.map(c => {
+            if (c.id === fromCategoryId) return { ...c, budget: c.budget - amount }
+            if (c.id === toCategoryId) return { ...c, budget: c.budget + amount }
+            return c
+          }),
+        }
       }),
 
       // ── Config ─────────────────────────────────────────

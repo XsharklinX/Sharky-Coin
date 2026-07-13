@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 
 export function MobileTextSheet({
   title,
@@ -34,6 +35,7 @@ export function MobileTextSheet({
   const confirm = () => { onDone(text.trim()); onClose() }
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mtxt-overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <div className="mtxt-bar" onClick={e => e.stopPropagation()}>
         <span className="mtxt-label">{title}</span>
@@ -56,5 +58,6 @@ export function MobileTextSheet({
         </div>
       </div>
     </div>
+    </SheetPortal>
   )
 }

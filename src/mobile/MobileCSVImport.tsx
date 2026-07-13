@@ -36,11 +36,15 @@ function parseCSV(text: string): string[][] {
 
 // ── Column auto-detection ─────────────────────────────────────────────────────
 
-const DATE_KEYS  = ['fecha', 'date', 'f.transacción', 'fecha transacción', 'fecha de transacción']
-const DESC_KEYS  = ['descripcion', 'descripción', 'description', 'detalle', 'concepto', 'narration', 'referencia']
-const DEBIT_KEYS = ['debito', 'débito', 'cargo', 'debit', 'retiro', 'egreso', 'monto débito']
-const CREDIT_KEYS= ['credito', 'crédito', 'abono', 'credit', 'deposito', 'depósito', 'ingreso', 'monto crédito']
-const AMOUNT_KEYS= ['monto', 'amount', 'importe', 'valor', 'transaccion']
+// Palabras clave genéricas: entre más bancos dominicanos se agreguen aquí, más
+// fiable es la auto-detección para TODOS (no hay perfil por banco — un solo
+// detector amplio). Banesco, APAP y Qik añadidos junto a los ya cubiertos
+// (Banreservas, Popular, Scotiabank, BHD).
+const DATE_KEYS  = ['fecha', 'date', 'f.transacción', 'fecha transacción', 'fecha de transacción', 'fecha movimiento', 'fecha operacion', 'fecha operación']
+const DESC_KEYS  = ['descripcion', 'descripción', 'description', 'detalle', 'concepto', 'narration', 'referencia', 'transaccion', 'transacción', 'comercio', 'establecimiento']
+const DEBIT_KEYS = ['debito', 'débito', 'cargo', 'debit', 'retiro', 'egreso', 'monto débito', 'monto debito', 'envio', 'envío', 'pago enviado']
+const CREDIT_KEYS= ['credito', 'crédito', 'abono', 'credit', 'deposito', 'depósito', 'ingreso', 'monto crédito', 'monto credito', 'recibido', 'pago recibido']
+const AMOUNT_KEYS= ['monto', 'amount', 'importe', 'valor', 'transaccion', 'monto transaccion', 'monto transacción']
 
 function matchCol(headers: string[], keys: string[]): number {
   return headers.findIndex(h => keys.includes(h.toLowerCase().trim()))
@@ -204,6 +208,9 @@ export function MobileCSVImport({ onClose }: { onClose: () => void }) {
                 { name: 'Banco Popular', note: t('bankHintPopular') },
                 { name: 'Scotiabank DR', note: t('bankHintScotia') },
                 { name: 'BHD León', note: t('bankHintBhd') },
+                { name: 'Banesco', note: t('bankHintBanesco') },
+                { name: 'APAP', note: t('bankHintApap') },
+                { name: 'Qik', note: t('bankHintQik') },
               ].map(b => (
                 <div key={b.name} className="mcsv-bank-row">
                   <b>{b.name}</b>

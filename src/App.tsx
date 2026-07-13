@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
+import { flushPendingFeedback } from '@/data/feedback'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { currentMonthKey, monthKeys } from '@/data/helpers'
@@ -21,6 +22,8 @@ import { useAndroidChrome } from '@/hooks/useAndroidChrome'
 import { useAppShortcut } from '@/hooks/useAppShortcut'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useWeeklyAutoBackup } from '@/hooks/useWeeklyAutoBackup'
+import { useUpdateCheck } from '@/hooks/useUpdateCheck'
+import { MobileUpdateDialog } from '@/mobile/MobileUpdateDialog'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { useLiveExchangeRates } from '@/hooks/useLiveExchangeRates'
@@ -59,6 +62,9 @@ export default function App() {
   const initializeAuth = useAuth(state => state.initialize)
   useEffect(() => { initializeAuth() }, [initializeAuth])
 
+  // Reintentar comentarios que quedaron encolados sin conexión
+  useEffect(() => { void flushPendingFeedback() }, [])
+
   // Primer arranque: adoptar el idioma del dispositivo si el usuario aún no
   // pasó por el onboarding (después de eso, respetamos su elección manual).
   useEffect(() => {
@@ -89,6 +95,7 @@ export default function App() {
   const [appShortcut, consumeAppShortcut] = useAppShortcut()
   useAutoBackup()
   useWeeklyAutoBackup()
+  const availableUpdate = useUpdateCheck()
   useCloudWorkspace()
   useAutoCloudSync()
   useLiveExchangeRates()
@@ -210,6 +217,9 @@ export default function App() {
           onConsumeAppShortcut={consumeAppShortcut}
         />
         <ToastHost />
+        {availableUpdate && !s.dismissedAlerts.includes(`update-${availableUpdate.version}`) && (
+          <MobileUpdateDialog update={availableUpdate} onDismiss={() => s.dismissAlert(`update-${availableUpdate.version}`)} />
+        )}
         {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
         {settingsOpen && (
           <MobileSettings

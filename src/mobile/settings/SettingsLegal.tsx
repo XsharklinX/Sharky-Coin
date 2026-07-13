@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { submitFeedback } from '@/data/feedback'
 import { APP_VERSION } from '@/data/release'
 import { useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
@@ -161,12 +162,19 @@ const TERMS_SECTIONS: { title: string; body: string[] }[] = [
 export function SettingsLegal({ activeSheet, onOpen, onClose }: SheetProps) {
   const t = useT()
   const [commentText, setCommentText] = useState('')
+  const [sending, setSending] = useState(false)
 
-  const sendComment = () => {
-    if (!commentText.trim()) return
-    toast(t('thanksForComment'), { icon: 'check', type: 'ok' })
-    setCommentText('')
-    onClose()
+  const sendComment = async () => {
+    if (!commentText.trim() || sending) return
+    setSending(true)
+    try {
+      const result = await submitFeedback(commentText)
+      toast(result === 'sent' ? t('thanksForComment') : t('commentQueued'), { icon: 'check', type: 'ok' })
+      setCommentText('')
+      onClose()
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -200,8 +208,8 @@ export function SettingsLegal({ activeSheet, onOpen, onClose }: SheetProps) {
               value={commentText} placeholder={t('commentPlaceholder')}
               onChange={e => setCommentText(e.target.value)}
             />
-            <button className="mset-sheet-confirm" disabled={!commentText.trim()} onClick={sendComment}>
-              <Icon name="edit" size={16} style={{ marginRight: 8 }} /> {t('sendComment')}
+            <button className="mset-sheet-confirm" disabled={!commentText.trim() || sending} onClick={() => void sendComment()}>
+              <Icon name="edit" size={16} style={{ marginRight: 8 }} /> {sending ? t('sendingComment') : t('sendComment')}
             </button>
           </div>
         </SettingsSheet>

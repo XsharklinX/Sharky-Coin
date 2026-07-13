@@ -200,13 +200,15 @@ export interface SharedReceipt {
 }
 
 /**
- * Revisa si el usuario compartió una foto/PDF hacia $harky (ej. desde Galería o WhatsApp).
- * Consume el archivo pendiente una sola vez — llamadas siguientes devuelven `null`
- * hasta que se comparta algo nuevo. No hace nada en web/PWA.
+ * Revisa si el usuario compartió una o varias fotos/PDFs hacia $harky (ej.
+ * desde Galería o WhatsApp — compartir varias a la vez habilita el flujo de
+ * recibos por lotes). Consume los archivos pendientes una sola vez —
+ * llamadas siguientes devuelven `[]` hasta que se comparta algo nuevo.
+ * No hace nada en web/PWA.
  */
-export async function checkSharedFile(): Promise<SharedReceipt | null> {
-  if (!isTauri()) return null
-  return tauriInvoke<SharedReceipt | null>('take_pending_shared_file')
+export async function checkSharedFiles(): Promise<SharedReceipt[]> {
+  if (!isTauri()) return []
+  return tauriInvoke<SharedReceipt[]>('take_pending_shared_files')
 }
 
 /**

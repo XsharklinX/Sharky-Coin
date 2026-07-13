@@ -11,6 +11,9 @@ export type BankId =
   | 'banreservasCard'
   | 'scotiabank'
   | 'scotiabankCard'
+  | 'banesco'
+  | 'apap'
+  | 'qik'
 
 export interface Columns {
   date: string
@@ -147,6 +150,30 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
       credit: ['abono', 'pago'],
     },
   },
+  banesco: {
+    id: 'banesco',
+    label: 'Banesco',
+    version: 'banesco-cuenta-v1',
+    kind: 'mixed',
+    notes: 'Movimientos de cuenta Banesco con monto firmado o cargos/abonos separados.',
+    hints: { note: ['descripcion', 'concepto', 'referencia'], amount: ['monto', 'importe'], debit: ['cargo', 'debito'], credit: ['abono', 'credito'] },
+  },
+  apap: {
+    id: 'apap',
+    label: 'APAP',
+    version: 'apap-cuenta-v1',
+    kind: 'account',
+    notes: 'Extracto de cuenta APAP con retiro/deposito y fecha de operacion.',
+    hints: { date: ['fecha operacion', 'fecha'], note: ['concepto', 'descripcion', 'detalle'], debit: ['retiro', 'debito'], credit: ['deposito', 'credito'] },
+  },
+  qik: {
+    id: 'qik',
+    label: 'Qik',
+    version: 'qik-billetera-v1',
+    kind: 'account',
+    notes: 'Historial de billetera digital Qik: envios y pagos recibidos.',
+    hints: { note: ['descripcion', 'concepto', 'transaccion'], debit: ['envio', 'pago enviado'], credit: ['recibido', 'pago recibido'] },
+  },
 }
 
 const CATEGORY_RULES: Array<[RegExp, string]> = [
@@ -185,6 +212,9 @@ export function deleteCategoryRule(pattern: string): void {
   const rules = learnedRules()
   delete rules[clean(pattern)]
   localStorage.setItem(LEARNED_RULES_KEY, JSON.stringify(rules))
+}
+export function clearCategoryRules(): void {
+  localStorage.removeItem(LEARNED_RULES_KEY)
 }
 export function learnCategoryRule(note: string, categoryId: string): void {
   try {

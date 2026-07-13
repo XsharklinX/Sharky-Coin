@@ -89,7 +89,17 @@ Provide:
   (auth user deletion), since self-service auth-account deletion isn't
   exposed in the Supabase client SDK without a backend function.
 
-## 6. Outstanding before submission
+## 6. After the release goes live on Play Store
+
+Update `docs/version.json` (`android.version`) to match the version that is
+now actually live and reviewable on the Play Store listing, then commit and
+push. The in-app update dialog (`useUpdateCheck`) fetches this file from
+GitHub Pages and only shows "update available" once this number changes —
+do **not** bump it until the new `.aab` has cleared Play Console review and
+is publicly installable, or users will be sent to a Play Store version that
+isn't the newer one yet.
+
+## 7. Outstanding before submission
 
 - [ ] Enable GitHub Pages for `XsharklinX/Sharky-Coin` (`/docs` folder) and
       verify `privacy.html` / `terms.html` load publicly.

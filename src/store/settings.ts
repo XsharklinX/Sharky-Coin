@@ -14,6 +14,7 @@ interface SettingsState {
   overdraftPolicy:   OverdraftPolicy
   budgetAlertThresholds: number[]
   anomalySensitivity: 'strict' | 'balanced' | 'relaxed'
+  anomalyAlertsEnabled: boolean
   releaseChannel: 'stable' | 'beta'
   errorTelemetryEnabled: boolean
   displayName: string
@@ -35,6 +36,10 @@ interface SettingsState {
   weeklyAutoBackupEnabled: boolean
   weeklyAutoBackupDay: number
   weeklyAutoBackupHour: number
+  fxAlertEnabled: boolean
+  fxAlertCurrency: string
+  fxAlertThreshold: number
+  fxAlertDirection: 'above' | 'below'
 
   setTheme:             (v: ThemeName)  => void
   setAccent:            (v: string)     => void
@@ -45,6 +50,7 @@ interface SettingsState {
   setOverdraftPolicy:   (v: OverdraftPolicy) => void
   setBudgetAlertThresholds: (v: number[]) => void
   setAnomalySensitivity: (v: SettingsState['anomalySensitivity']) => void
+  setAnomalyAlertsEnabled: (v: boolean) => void
   setReleaseChannel: (v: SettingsState['releaseChannel']) => void
   setErrorTelemetryEnabled: (v: boolean) => void
   setDisplayName: (v: string) => void
@@ -66,6 +72,10 @@ interface SettingsState {
   setWeeklyAutoBackupEnabled: (v: boolean) => void
   setWeeklyAutoBackupDay: (v: number) => void
   setWeeklyAutoBackupHour: (v: number) => void
+  setFxAlertEnabled:    (v: boolean) => void
+  setFxAlertCurrency:   (v: string) => void
+  setFxAlertThreshold:  (v: number) => void
+  setFxAlertDirection:  (v: 'above' | 'below') => void
 }
 
 export const useSettings = create<SettingsState>()(
@@ -80,6 +90,7 @@ export const useSettings = create<SettingsState>()(
       overdraftPolicy:   'warn',
       budgetAlertThresholds: [50, 80, 100],
       anomalySensitivity: 'balanced',
+      anomalyAlertsEnabled: false, // opt-in: hay que calibrar sensibilidad con uso real antes de avisar
       releaseChannel: 'stable',
       errorTelemetryEnabled: false,
       displayName: '',
@@ -101,6 +112,10 @@ export const useSettings = create<SettingsState>()(
       weeklyAutoBackupEnabled: true,
       weeklyAutoBackupDay: 1,
       weeklyAutoBackupHour: 3,
+      fxAlertEnabled: false,
+      fxAlertCurrency: 'USD',
+      fxAlertThreshold: 60,
+      fxAlertDirection: 'above',
 
       setTheme:             (theme)             => set({ theme }),
       setAccent:            (accent)            => set({ accent }),
@@ -111,6 +126,7 @@ export const useSettings = create<SettingsState>()(
       setOverdraftPolicy:   (overdraftPolicy)   => set({ overdraftPolicy }),
       setBudgetAlertThresholds: (budgetAlertThresholds) => set({ budgetAlertThresholds }),
       setAnomalySensitivity: (anomalySensitivity) => set({ anomalySensitivity }),
+      setAnomalyAlertsEnabled: (anomalyAlertsEnabled) => set({ anomalyAlertsEnabled }),
       setReleaseChannel: (releaseChannel) => set({ releaseChannel }),
       setErrorTelemetryEnabled: (errorTelemetryEnabled) => set({ errorTelemetryEnabled }),
       setDisplayName: (displayName) => set({ displayName }),
@@ -154,6 +170,10 @@ export const useSettings = create<SettingsState>()(
       setWeeklyAutoBackupEnabled: (weeklyAutoBackupEnabled) => set({ weeklyAutoBackupEnabled }),
       setWeeklyAutoBackupDay: (weeklyAutoBackupDay) => set({ weeklyAutoBackupDay: Math.max(0, Math.min(6, weeklyAutoBackupDay)) }),
       setWeeklyAutoBackupHour: (weeklyAutoBackupHour) => set({ weeklyAutoBackupHour: Math.max(0, Math.min(23, weeklyAutoBackupHour)) }),
+      setFxAlertEnabled:   (fxAlertEnabled) => set({ fxAlertEnabled }),
+      setFxAlertCurrency:  (fxAlertCurrency) => set({ fxAlertCurrency }),
+      setFxAlertThreshold: (fxAlertThreshold) => set({ fxAlertThreshold: Math.max(0, fxAlertThreshold) }),
+      setFxAlertDirection: (fxAlertDirection) => set({ fxAlertDirection }),
     }),
     {
       name:    'sharky-settings-v2',

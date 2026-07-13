@@ -2,7 +2,11 @@ import { isTauri } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
-import { amountForCategory, currentMonthKey, dateLocale, fmtCompact, txForMonth } from '@/data/helpers'
+import { amountForCategory, currentMonthKey, dateLocale, fmtCompact, localToday, txForMonth } from '@/data/helpers'
+import { currentRate, fxAlertTriggered } from '@/data/fxAlerts'
+import { getCurrencyMeta } from '@/data/currencies'
+import { detectSpendingAnomalies } from '@/data/financeIntelligence'
+import type { CurrencyCode } from '@/types'
 
 function isAndroidTauri(): boolean {
   return isTauri() && /android/i.test(navigator.userAgent)
@@ -20,12 +24,16 @@ function lacksFunds(account: { type: string; balance: number; limit?: number }, 
 }
 
 function buildReminderSnapshot(): string {
-  const { transactions, accounts, categories, currency } = useFinance.getState()
-  const { language, dismissedAlerts } = useSettings.getState()
+  const { transactions, accounts, categories, currency, goals } = useFinance.getState()
+  const {
+    language, dismissedAlerts, fxAlertEnabled, fxAlertCurrency, fxAlertThreshold, fxAlertDirection,
+    anomalyAlertsEnabled, anomalySensitivity,
+  } = useSettings.getState()
 
   const mkey = currentMonthKey()
   const monthTx = txForMonth(transactions, mkey)
   const locale = dateLocale(language)
+  const today = localToday()
 
   const categoriesSnapshot = categories
     .filter(c => c.type === 'expense' && c.budget > 0)
@@ -65,11 +73,80 @@ function buildReminderSnapshot(): string {
   const lastTransactionDate = transactions.reduce<string | null>(
     (latest, tx) => (latest === null || tx.date > latest ? tx.date : latest), null)
 
+  // Metas con aporte automático: recordatorio el día en que toca aportar.
+  const goalsSnapshot = goals
+    .filter(g => g.autoContribute && g.saved < g.target)
+    .map(g => ({
+      id: g.id,
+      name: g.name,
+      nextDate: g.autoContribute!.nextDate,
+      amountLabel: fmtCompact(g.autoContribute!.amount, currency),
+    }))
+
+  // Resumen semanal (últimos 7 días, para empujar los domingos por la tarde).
+  const weekAgo = new Date(`${today}T00:00:00`)
+  weekAgo.setDate(weekAgo.getDate() - 6)
+  const weekStart = localToday(weekAgo)
+  const weekTx = transactions.filter(tx => tx.date >= weekStart && tx.date <= today && tx.type !== 'transfer')
+  let weekIncome = 0
+  let weekExpense = 0
+  const byCategory: Record<string, number> = {}
+  for (const tx of weekTx) {
+    if (tx.type === 'income') weekIncome += tx.amount
+    else if (tx.type === 'expense') {
+      weekExpense += tx.amount
+      if (tx.categoryId) byCategory[tx.categoryId] = (byCategory[tx.categoryId] ?? 0) + tx.amount
+    }
+  }
+  const topEntry = Object.entries(byCategory).sort((a, b) => b[1] - a[1])[0]
+  const topCat = topEntry ? categories.find(c => c.id === topEntry[0]) : undefined
+  const weekly = weekTx.length > 0 ? {
+    incomeLabel: fmtCompact(weekIncome, currency),
+    expenseLabel: fmtCompact(weekExpense, currency),
+    topCategory: topCat?.name ?? '',
+    topCategoryLabel: topEntry ? fmtCompact(topEntry[1], currency) : '',
+  } : null
+
+  // Alerta de tasa de cambio: la condición se evalúa aquí (con las tasas ya
+  // sincronizadas) para que el worker nativo solo tenga que mostrar el aviso,
+  // sin reimplementar la lógica de comparación en Kotlin.
+  const fxConfig = {
+    enabled: fxAlertEnabled,
+    currency: fxAlertCurrency as CurrencyCode,
+    threshold: fxAlertThreshold,
+    direction: fxAlertDirection,
+  }
+  const fx = fxAlertTriggered(fxConfig, currency) ? {
+    currency: fxAlertCurrency,
+    rateLabel: fmtCompact(currentRate(fxAlertCurrency as CurrencyCode, currency), currency),
+    thresholdLabel: fmtCompact(fxAlertThreshold, currency),
+    direction: fxAlertDirection,
+    currencyFlag: getCurrencyMeta(fxAlertCurrency as CurrencyCode).flag,
+  } : null
+
+  // Gasto inusual: solo transacciones de hoy, para que el worker avise una
+  // vez por movimiento (deduplicado por id) apenas se registra, no por todo
+  // el histórico del mes en cada corrida.
+  const anomaliesSnapshot = anomalyAlertsEnabled
+    ? detectSpendingAnomalies(transactions, mkey, anomalySensitivity)
+        .filter(a => a.tx.date === today)
+        .map(a => ({
+          txId: a.tx.id,
+          note: a.tx.note,
+          amountLabel: fmtCompact(a.tx.amount, currency),
+          baselineLabel: fmtCompact(a.baseline, currency),
+        }))
+    : []
+
   return JSON.stringify({
     dismissedAlerts,
     lastTransactionDate,
     categories: categoriesSnapshot,
     recurring: recurringSnapshot,
+    goals: goalsSnapshot,
+    weekly,
+    fx,
+    anomalies: anomaliesSnapshot,
   })
 }
 

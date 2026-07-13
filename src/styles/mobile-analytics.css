@@ -30,6 +30,7 @@
 .man-panel-bars { order: 2; }
 .man-panel-distribution { order: 3; }
 .man-panel-trend { order: 4; }
+.man-panel-networth { order: 4; }
 .man-hero { order: 5; }
 .man-metrics { order: 6; }
 .man-panel-categories { order: 7; }
@@ -486,6 +487,95 @@ button.man-quick-card {
 .man-compare-delta.ok { background: rgba(53, 208, 162, .14); color: #35d0a2; }
 .man-compare-delta.warn { background: rgba(255, 107, 138, .14); color: #ff6b8a; }
 
+/* Comparativa por categoría (mayores cambios vs período anterior) */
+.man-catcompare-list {
+  border-top: 1px solid var(--m-border);
+  display: grid;
+  gap: 2px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.man-catcompare-title {
+  color: var(--m-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.man-catcompare-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+}
+.man-catcompare-icon {
+  align-items: center;
+  border-radius: 10px;
+  display: grid;
+  flex-shrink: 0;
+  height: 32px;
+  place-items: center;
+  width: 32px;
+}
+.man-catcompare-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.man-catcompare-main span { font-size: 13px; font-weight: 700; }
+.man-catcompare-main small { color: var(--m-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.man-catcompare-delta {
+  align-items: center;
+  background: color-mix(in oklab, var(--m-text) 8%, transparent);
+  border-radius: 999px;
+  color: var(--m-muted);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 850;
+  gap: 3px;
+  padding: 3px 8px;
+}
+.man-catcompare-delta.ok { background: rgba(53, 208, 162, .14); color: #35d0a2; }
+.man-catcompare-delta.warn { background: rgba(255, 107, 138, .14); color: #ff6b8a; }
+
+.man-networth-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.man-networth-chart svg { display: block; width: 100%; }
+.man-networth-legend {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+.man-networth-legend > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.man-networth-legend span {
+  color: var(--m-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.man-networth-legend strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+.man-networth-projected {
+  align-items: flex-end;
+  text-align: right;
+}
+.man-networth-projected strong { color: #35d0a2; }
+
 .man-bar-chart {
   align-items: end;
   display: flex;
@@ -667,3 +757,84 @@ button.man-quick-card {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Exportar / Importar (fusionado desde Informes) ── */
+.man-export-bar {
+  display: flex;
+  gap: 8px;
+  margin: 0 16px;
+  order: 8;
+}
+.man-export-btn {
+  align-items: center;
+  background: color-mix(in oklab, var(--m-text) 5%, transparent);
+  border: 1px solid var(--m-border);
+  border-radius: 13px;
+  color: var(--m-text);
+  display: flex;
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 46px;
+}
+.man-export-btn.ghost { color: var(--m-muted); }
+.man-export-btn:active { background: color-mix(in oklab, var(--m-text) 10%, transparent); }
+.man-export-sheet {
+  background: var(--m-bg, #0f0f10);
+  border-radius: 24px 24px 0 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  left: 0;
+  padding: 8px 14px calc(16px + env(safe-area-inset-bottom));
+  position: fixed;
+  right: 0;
+  width: 100%;
+}
+.man-export-sheet > header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 6px 10px;
+}
+.man-export-sheet > header > span { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+.man-export-sheet > header > button {
+  align-items: center;
+  background: color-mix(in oklab, var(--m-text) 8%, transparent);
+  border: 0;
+  border-radius: 50%;
+  color: var(--m-text);
+  display: grid;
+  height: 30px;
+  place-items: center;
+  width: 30px;
+}
+.man-export-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  color: var(--m-text);
+  display: flex;
+  gap: 12px;
+  padding: 11px 8px;
+  text-align: left;
+  width: 100%;
+}
+.man-export-row:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
+.man-export-row:disabled { opacity: .55; }
+.man-export-ic {
+  align-items: center;
+  border-radius: 12px;
+  display: grid;
+  flex-shrink: 0;
+  height: 42px;
+  place-items: center;
+  width: 42px;
+}
+.man-export-row > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.man-export-row b { font-size: 14.5px; font-weight: 700; }
+.man-export-row small { color: var(--m-muted); font-size: 12px; }

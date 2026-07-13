@@ -5,6 +5,104 @@
     gap: 14px;
     padding: 10px 0 calc(18px + env(safe-area-inset-bottom));
   }
+  .mbud-envelope-card {
+    background: color-mix(in oklab, var(--surface) 97%, var(--accent));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    display: grid;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .mbud-envelope-top {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .mbud-envelope-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mbud-envelope-col.unassigned { text-align: right; }
+  .mbud-envelope-col span {
+    color: var(--text-dim);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .mbud-envelope-col strong {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 900;
+  }
+  .mbud-envelope-col strong.over { color: #ff6b8a; }
+  .mbud-envelope-col strong.zero { color: #35d0a2; }
+  .mbud-envelope-bar-track {
+    background: color-mix(in oklab, var(--text) 8%, transparent);
+    border-radius: 999px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .mbud-envelope-bar-fill {
+    border-radius: 999px;
+    height: 100%;
+    transition: width var(--m-duration-slow, 220ms) var(--m-ease-out, cubic-bezier(.2,.8,.2,1));
+  }
+  .mbud-envelope-foot {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mbud-envelope-foot span {
+    align-items: center;
+    color: var(--text-dim);
+    display: inline-flex;
+    font-size: 11.5px;
+    font-weight: 700;
+    gap: 4px;
+  }
+  .mbud-envelope-foot span.over { color: #ff6b8a; }
+  .mbud-envelope-foot span.zero { color: #35d0a2; }
+  .mbud-move-btn {
+    align-items: center;
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+    border-radius: 999px;
+    color: var(--accent);
+    display: inline-flex;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 850;
+    gap: 5px;
+    min-height: 34px;
+    padding: 6px 12px;
+  }
+  .mbud-move-btn:disabled { opacity: .4; }
+  .mbud-envelope-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mbud-envelope-chip {
+    align-items: center;
+    background: color-mix(in oklab, var(--text) 6%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text);
+    display: inline-flex;
+    font-size: 12.5px;
+    font-weight: 750;
+    gap: 6px;
+    padding: 7px 12px;
+  }
+  .mbud-envelope-chip.on { border-color: currentColor; font-weight: 850; }
+  .mbud-envelope-chip:disabled { opacity: .35; }
+  .mbud-envelope-chip-hint {
+    color: var(--text-dim);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+  }
   .mbud-summary {
     background:
       radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 36%),
@@ -30,7 +128,7 @@
   }
   .mbud-summary-total {
     display: block;
-    font-size: 31px;
+    font-size: clamp(21px, 7.4vw, 31px);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
     letter-spacing: -.03em;
@@ -295,7 +393,17 @@
     flex-shrink: 0;
     justify-content: space-between;
     padding: 18px 20px 14px;
+    position: relative;
   }
+  /* Halo sutil del acento, como el editor de Cuentas */
+  .mbud-editor-sheet > header::before {
+    background: radial-gradient(120% 140% at 22% -10%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 60%);
+    content: '';
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+  .mbud-editor-sheet > header > * { position: relative; }
   .mbud-editor-sheet > header > span { font-size: 18px; font-weight: 900; letter-spacing: -.03em; }
   .mbud-editor-sheet > header > button {
     background: color-mix(in oklab, var(--text) 8%, transparent);
@@ -303,9 +411,9 @@
     border-radius: 50%;
     color: var(--text);
     display: grid;
-    height: 30px;
+    height: 44px;
     place-items: center;
-    width: 30px;
+    width: 44px;
   }
   .mbud-editor-body {
     display: flex;
@@ -320,6 +428,25 @@
   }
   .mbud-field { display: flex; flex-direction: column; gap: 8px; }
   .mbud-field > span { color: var(--text-dim); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .mbud-nolimit {
+    align-items: center;
+    align-self: flex-start;
+    background: color-mix(in oklab, var(--text) 6%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-dim);
+    display: inline-flex;
+    font-size: 12.5px;
+    font-weight: 700;
+    gap: 5px;
+    height: 40px;
+    padding: 0 14px;
+  }
+  .mbud-nolimit.on {
+    background: color-mix(in oklab, var(--accent) 16%, transparent);
+    border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+    color: var(--accent);
+  }
   .mbud-input {
     background: color-mix(in oklab, var(--text) 6%, transparent);
     border: 1px solid var(--border);
@@ -338,9 +465,15 @@
     border-radius: 50%;
     flex-shrink: 0;
     height: 40px;
+    transition: transform var(--m-duration-fast, 160ms) var(--m-ease, ease), box-shadow var(--m-duration-fast, 160ms) var(--m-ease, ease);
     width: 40px;
   }
-  .mbud-color-dot.on { outline: 2px solid var(--text); outline-offset: 2px; }
+  /* Mismo tratamiento que el editor de Cuentas: anillo + glow del propio color */
+  .mbud-color-dot.on {
+    border-color: var(--bg);
+    box-shadow: 0 0 0 2px currentColor, 0 4px 12px color-mix(in oklab, currentColor 45%, transparent);
+    transform: scale(1.12);
+  }
   .mbud-icon-grid-sheet {
     display: grid;
     gap: 9px;
@@ -393,6 +526,7 @@
     height: 48px;
   }
   .mbud-btn-save {
+    background: var(--accent, #ffdd3d);
     border: 0;
     border-radius: 14px;
     color: #000;
@@ -401,6 +535,7 @@
     font-weight: 700;
     height: 48px;
   }
+  .mbud-btn-save:disabled { opacity: .4; }
   /* Legacy icon grid */
   .mbud-icon-grid {
     display: grid;
@@ -597,11 +732,23 @@
     place-items: center;
   }
   .mobile-create-recurring-toggle.active .mobile-recur-icon { color: var(--accent); }
-  .mobile-recur-label {
+  .mobile-recur-copy {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    text-align: left;
+  }
+  .mobile-recur-label {
     font-size: 14px;
     font-weight: 750;
     text-align: left;
+  }
+  .mobile-recur-desc {
+    color: var(--text-dim);
+    font-size: 11.5px;
+    font-weight: 600;
   }
   .mobile-recur-switch {
     background: color-mix(in oklab, var(--text) 18%, transparent);
@@ -627,11 +774,41 @@
   .mobile-recur-switch.on::after { background: #151515; transform: translateX(20px); }
   .mobile-create-recurring-opts {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 10px;
+    background: color-mix(in oklab, var(--accent) 5%, transparent);
+    border: 1px solid color-mix(in oklab, var(--accent) 18%, transparent);
+    border-radius: 14px;
+    padding: 12px;
+  }
+  .mobile-recur-opt-row {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .mobile-recur-opt-label {
+    color: var(--text-dim);
+    flex-shrink: 0;
+    font-size: 12.5px;
+    font-weight: 700;
   }
   .mobile-recur-freq {
-    flex: 1;
+    flex: 0 0 auto;
+    width: 60%;
   }
+  .mobile-recur-opt-row .mobile-create-date-pill { width: 60%; }
+  .mobile-recur-hint {
+    align-items: flex-start;
+    color: var(--text-dim);
+    display: flex;
+    font-size: 11.5px;
+    font-weight: 600;
+    gap: 6px;
+    line-height: 1.4;
+    margin: 0;
+  }
+  .mobile-recur-hint svg { flex-shrink: 0; margin-top: 1px; }
   /* Recurring badge on tx rows */
   .mobile-recur-dot {
     align-items: center;

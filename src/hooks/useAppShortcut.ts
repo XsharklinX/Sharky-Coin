@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { isTauri } from './useTauri'
 
-export type AppShortcut = 'add-expense' | 'add-income' | 'reports'
+export type AppShortcut = 'add-expense' | 'add-income' | 'reports' | 'converter' | 'accounts' | 'budgets'
 
 const SHORTCUT_PREFIX = 'sharky://shortcut/'
+const SHORTCUT_IDS: AppShortcut[] = ['add-expense', 'add-income', 'reports', 'converter', 'accounts', 'budgets']
 
 function parseShortcut(url: string): AppShortcut | null {
   if (!url.startsWith(SHORTCUT_PREFIX)) return null
   const id = url.slice(SHORTCUT_PREFIX.length).replace(/\/$/, '')
-  return id === 'add-expense' || id === 'add-income' || id === 'reports' ? id : null
+  return (SHORTCUT_IDS as string[]).includes(id) ? id as AppShortcut : null
 }
 
 function firstShortcut(urls: string[] | null | undefined): AppShortcut | null {

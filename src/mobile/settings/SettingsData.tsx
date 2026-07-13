@@ -6,6 +6,7 @@ import { wipeCloudData } from '@/data/cloudSync'
 import { getDataHealthStatus } from '@/data/dataHealth'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { dateLocale, monthLabel } from '@/data/helpers'
+import { decryptWithPassphrase, encryptWithPassphrase, looksEncrypted } from '@/lib/backupCrypto'
 import { useFinance } from '@/store/finance'
 import { useAuth } from '@/store/auth'
 import { clearCloudWorkspaceCache } from '@/hooks/useCloudWorkspace'
@@ -32,6 +33,12 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
   const [exportingExcel,  setExportingExcel]  = useState(false)
   const [pendingReset,    setPendingReset]    = useState(false)
   const [resetting,       setResetting]       = useState(false)
+  const [encryptExport,   setEncryptExport]   = useState(false)
+  const [exportPassword,  setExportPassword]  = useState('')
+  const [exporting,       setExporting]       = useState(false)
+  const [restorePendingText, setRestorePendingText] = useState<string | null>(null)
+  const [restorePassword, setRestorePassword] = useState('')
+  const [restoring,       setRestoring]       = useState(false)
 
   const weekdayLabels = [
     t('daySunday'),
@@ -49,15 +56,24 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
 
   // Limpiar reset cuando el sheet se cierra
   useEffect(() => { if (activeSheet !== 'reset') setPendingReset(false) }, [activeSheet])
+  useEffect(() => {
+    if (activeSheet !== 'backupPassword') { setEncryptExport(false); setExportPassword('') }
+    if (activeSheet !== 'restorePassword') { setRestorePendingText(null); setRestorePassword('') }
+  }, [activeSheet])
 
-  const exportBackup = async () => {
-    const json = JSON.stringify(createBackup(finance), null, 2)
+  const exportBackup = async (passphrase?: string) => {
+    setExporting(true)
     try {
-      const saved = await saveBackup(json)
+      const json = JSON.stringify(createBackup(finance), null, 2)
+      const payload = passphrase ? await encryptWithPassphrase(json, passphrase) : json
+      const saved = await saveBackup(payload)
       if (saved && isTauri()) toast(t('backupSavedToFolder'), { icon: 'check', type: 'ok' })
+      onClose()
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return
       toast(error instanceof Error ? error.message : t('exportError'), { icon: 'alert' })
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -65,11 +81,31 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
     try {
       const text = await openBackup()
       if (!text) return
+      if (looksEncrypted(text)) {
+        setRestorePendingText(text)
+        onOpen('restorePassword')
+        return
+      }
       finance.restoreBackup(parseBackup(text))
       toast(t('backupRestored'), { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
       toast(error instanceof Error ? error.message : t('invalidFile'), { icon: 'alert' })
+    }
+  }
+
+  const confirmEncryptedRestore = async () => {
+    if (!restorePendingText) return
+    setRestoring(true)
+    try {
+      const decrypted = await decryptWithPassphrase(restorePendingText, restorePassword)
+      finance.restoreBackup(parseBackup(decrypted))
+      toast(t('backupRestored'), { icon: 'check', type: 'ok' })
+      onClose()
+    } catch (error) {
+      toast(error instanceof Error ? error.message : t('invalidFile'), { icon: 'alert' })
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -169,7 +205,7 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
             <p className="mset-legal-intro">{t('exportDataIntro')}</p>
             <div className="mset-card" style={{ margin: 0 }}>
               <SettingsRow icon="fileJson" iconColor="#35d0a2" label={t('backupJson')}
-                onClick={() => void exportBackup()} />
+                onClick={() => onOpen('backupPassword')} />
               <SettingsRow icon="download" iconColor="#5bc0ff"
                 label={exportingExcel ? t('generatingExcel') : t('fullReportExcel')}
                 onClick={() => { if (!exportingExcel) void handleExportExcel() }} />
@@ -177,6 +213,84 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
                 label={exportingPdf ? t('generatingPdf') : t('statementOfMonth').replace('{month}', monthLabel(mkey))}
                 onClick={() => { if (!exportingPdf) void handleExportPdf() }} />
             </div>
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'backupPassword' && (
+        <SettingsSheet title={t('backupPasswordTitle')} onClose={onClose}>
+          <div className="mset-sheet-body">
+            <div className="mset-card" style={{ margin: 0 }}>
+              <div className="mpr-form-section mpr-toggle-row" style={{ padding: '14px 16px' }}>
+                <div className="mpr-toggle-row-text">
+                  <span className="mpr-toggle-row-label">{t('backupPasswordEnableLabel')}</span>
+                  <small className="mpr-toggle-row-desc">{t('backupPasswordEnableDesc')}</small>
+                </div>
+                <label className="mset-toggle-wrap">
+                  <input
+                    type="checkbox"
+                    className="mset-toggle-input"
+                    checked={encryptExport}
+                    onChange={e => setEncryptExport(e.target.checked)}
+                  />
+                  <span className="mset-toggle" />
+                </label>
+              </div>
+            </div>
+
+            {encryptExport && (
+              <div className="mset-card" style={{ margin: 0 }}>
+                <div className="mset-field-stack">
+                  <input
+                    type="password"
+                    className="mset-text-input"
+                    placeholder={t('backupPasswordPlaceholder')}
+                    value={exportPassword}
+                    onChange={e => setExportPassword(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <small className="mset-field-label" style={{ textTransform: 'none', fontWeight: 700, letterSpacing: 0 }}>
+                    {t('backupPasswordHint')}
+                  </small>
+                </div>
+              </div>
+            )}
+
+            <button
+              className="mset-sheet-primary"
+              disabled={exporting || (encryptExport && exportPassword.trim().length < 10)}
+              onClick={() => void exportBackup(encryptExport ? exportPassword : undefined)}
+            >
+              <Icon name="fileJson" size={18} />
+              {encryptExport ? t('exportEncryptedLabel') : t('exportPlainLabel')}
+            </button>
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'restorePassword' && (
+        <SettingsSheet title={t('restorePasswordTitle')} onClose={onClose}>
+          <div className="mset-sheet-body">
+            <p className="mset-legal-intro">{t('restorePasswordDesc')}</p>
+            <div className="mset-card" style={{ margin: 0 }}>
+              <div className="mset-field-stack">
+                <input
+                  type="password"
+                  className="mset-text-input"
+                  placeholder={t('restorePasswordPlaceholder')}
+                  value={restorePassword}
+                  onChange={e => setRestorePassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+            <button
+              className="mset-sheet-primary"
+              disabled={restoring || !restorePassword}
+              onClick={() => void confirmEncryptedRestore()}
+            >
+              <Icon name="upload" size={18} /> {restoring ? t('restoringEllipsis') : t('unlockAndRestoreLabel')}
+            </button>
           </div>
         </SettingsSheet>
       )}

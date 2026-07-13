@@ -13,6 +13,7 @@ import { MobileAmountSheet } from '@/mobile/MobileAmountSheet'
 import { MobileTextSheet } from '@/mobile/MobileTextSheet'
 import { MobileDatePicker } from '@/mobile/MobileDatePicker'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
+import { SheetPortal } from '@/mobile/SheetPortal'
 import type { CurrencyCode, IconName, RecurrenceFrequency, Transaction, TxSplit, TxType } from '@/types'
 
 function currencyPrefix(c: CurrencyCode): string {
@@ -415,6 +416,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       )}
 
       {sub === 'account' && (
+        <SheetPortal>
         <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
@@ -439,6 +441,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {splitSub?.kind === 'amount' && (
@@ -452,6 +455,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       )}
 
       {splitSub?.kind === 'category' && (
+        <SheetPortal>
         <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSplitSub(null)}>
           <section className="mobile-detail-sheet mpr-editor-sheet" onClick={e => e.stopPropagation()}>
             <header className="mpr-editor-header">
@@ -479,9 +483,11 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {sub === 'category' && (
+        <SheetPortal>
         <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
           <section className="mobile-detail-sheet mpr-editor-sheet" onClick={e => e.stopPropagation()}>
             <header className="mpr-editor-header">
@@ -509,6 +515,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
     </>
   )

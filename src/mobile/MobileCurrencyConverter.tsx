@@ -9,6 +9,7 @@ import { playBackspaceSound, playKeySound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 import type { CurrencyCode } from '@/types'
 
 const NUMPAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'] as const
@@ -36,9 +37,11 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
   useMobileBackDismiss(true, onClose)
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
-  const [amountText, setAmountText] = useState('100')
-  const [from, setFrom] = useState<CurrencyCode>(appCurrency)
-  const [to, setTo] = useState<CurrencyCode>(appCurrency === 'USD' ? 'DOP' : 'USD')
+  // El dólar va SIEMPRE primero (arriba) y el monto arranca en 1, para leer la
+  // tasa directa (1 USD = X). Desde ahí cada quien cambia lo que necesite.
+  const [amountText, setAmountText] = useState('1')
+  const [from, setFrom] = useState<CurrencyCode>('USD')
+  const [to, setTo] = useState<CurrencyCode>(appCurrency === 'USD' ? 'DOP' : appCurrency)
   const [picker, setPicker] = useState<'from' | 'to' | null>(null)
   // Bump para re-renderizar cuando llegan tasas frescas (mutan CURRENCIES in place)
   const [, setRatesVersion] = useState(0)
@@ -92,6 +95,7 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
   }
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('converterTitle')} onClick={onClose}>
       <section className="mcur-sheet mconv-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -184,5 +188,6 @@ export function MobileCurrencyConverter({ onClose }: { onClose: () => void }) {
         )}
       </section>
     </div>
+    </SheetPortal>
   )
 }

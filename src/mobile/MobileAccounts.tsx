@@ -17,6 +17,7 @@ import { MobileAmountSheet } from './MobileAmountSheet'
 import { MobileTextSheet } from './MobileTextSheet'
 import { MobileDigitSheet } from './MobileDigitSheet'
 import { MobileTransactionList } from './MobileTransactionList'
+import { SheetPortal } from './SheetPortal'
 import type { Account, AccountType, OverdraftPolicy, Transaction, ViewProps } from '@/types'
 
 const COLORS = ACCENT_COLORS
@@ -326,6 +327,7 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { acc
   const utilPct = used !== null && account.limit ? Math.min(100, used / account.limit * 100) : null
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={account.name} onClick={onClose}>
       <section className="macc-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -426,6 +428,7 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { acc
         </div>
       </section>
     </div>
+    </SheetPortal>
   )
 }
 
@@ -447,6 +450,7 @@ function AccountActivitySheet({ account, onClose, onEditTx, onDeleteTx }: {
   )
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-search-overlay" role="dialog" aria-modal="true" aria-label={account.name}>
       <div className="mobile-search-head">
         <button onClick={onClose}>{t('close')}</button>
@@ -455,6 +459,7 @@ function AccountActivitySheet({ account, onClose, onEditTx, onDeleteTx }: {
       </div>
       <MobileTransactionList transactions={activity} onEdit={onEditTx} onDelete={onDeleteTx} />
     </div>
+    </SheetPortal>
   )
 }
 
@@ -512,13 +517,14 @@ function AccountEditorSheet({
 
   return (
     <>
+      <SheetPortal>
       <div ref={dialogRef} className="mobile-detail-sheet mpr-editor-overlay" role="dialog" aria-modal="true" onClick={onClose}>
         <section className="mpr-editor-sheet" onClick={e => e.stopPropagation()}>
 
           {/* Header compacto con icono dinámico */}
           <header className="mpr-editor-header">
             <div className="mpr-editor-header-icon" style={{ background: fields.color + '28', color: fields.color }}>
-              <Icon name={TYPE_META[fields.type].icon} size={18} />
+              <Icon name={TYPE_META[fields.type].icon} size={22} />
             </div>
             <input
               className="mpr-editor-name-input"
@@ -535,33 +541,40 @@ function AccountEditorSheet({
           <div className="mpr-editor-body">
 
             {/* Tipo */}
-            <div className="mpr-form-section">
-              {(Object.entries(TYPE_META) as [AccountType, typeof TYPE_META[AccountType]][]).map(([type, meta]) => (
-                <button
-                  key={type}
-                  className={`mpr-type-pill${fields.type === type ? ' on' : ''}`}
-                  style={fields.type === type ? { borderColor: fields.color, background: fields.color + '20', color: fields.color } : {}}
-                  onClick={() => patch('type', type)}
-                >
-                  <Icon name={meta.icon} size={14} />
-                  {meta.label}
-                </button>
-              ))}
+            <div className="mpr-field-group">
+              <span className="mpr-group-label">{t('type')}</span>
+              <div className="mpr-form-section">
+                {(Object.entries(TYPE_META) as [AccountType, typeof TYPE_META[AccountType]][]).map(([type, meta]) => (
+                  <button
+                    key={type}
+                    className={`mpr-type-pill${fields.type === type ? ' on' : ''}`}
+                    style={fields.type === type ? { borderColor: fields.color, background: fields.color + '20', color: fields.color } : {}}
+                    onClick={() => patch('type', type)}
+                  >
+                    <Icon name={meta.icon} size={14} />
+                    {meta.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Color */}
-            <div className="mpr-form-section mpr-color-strip">
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  className={`mpr-color-dot${fields.color === c ? ' on' : ''}`}
-                  style={{ background: c }}
-                  onClick={() => patch('color', c)}
-                />
-              ))}
+            <div className="mpr-field-group">
+              <span className="mpr-group-label">{t('color')}</span>
+              <div className="mpr-form-section mpr-color-strip">
+                {COLORS.map(c => (
+                  <button
+                    key={c}
+                    className={`mpr-color-dot${fields.color === c ? ' on' : ''}`}
+                    style={{ background: c, color: c }}
+                    onClick={() => patch('color', c)}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Filas tapeables */}
+            <span className="mpr-group-label mpr-group-label-rows">{t('detailsLabel')}</span>
             <div className="mpr-form-rows">
               {row(t('balance'), 'coins',
                 fields.balance !== 0 ? fmt(fields.balance, fields.currency ?? currency) : '0.00',
@@ -652,6 +665,7 @@ function AccountEditorSheet({
           </div>
         </section>
       </div>
+      </SheetPortal>
 
       {sub === 'balance' && (
         <MobileAmountSheet
@@ -673,7 +687,8 @@ function AccountEditorSheet({
         />
       )}
       {sub === 'accCurrency' && (
-        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+        <SheetPortal>
+        <div className="mobile-detail-sheet" style={{ zIndex: 420 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
           <section className="mcur-sheet" onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('accountCurrencyTitle')}</span>
@@ -703,6 +718,7 @@ function AccountEditorSheet({
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
       {sub === 'short' && (
         <MobileTextSheet

@@ -1,9 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { ACCENT_COLORS } from '@/constants'
-import { byCategory, currentMonthKey, fmtCompact, totalBalanceInBase, txForMonth } from '@/data/helpers'
+import { CURRENCIES } from '@/data/currencies'
+import { currentRate } from '@/data/fxAlerts'
+import { byCategory, currentMonthKey, fmt, fmtCompact, totalBalanceInBase, txForMonth } from '@/data/helpers'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { isTauri } from '@/hooks/useTauri'
 import { useT } from '@/i18n'
@@ -11,7 +13,8 @@ import { requestPinHomeWidget } from '@/lib/homeWidget'
 import { playSoundPreview } from '@/lib/sound'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import type { DensityName, OverdraftPolicy, ThemeName } from '@/types'
+import type { CurrencyCode, DensityName, OverdraftPolicy, ThemeName } from '@/types'
+import { MobileAmountSheet } from '../MobileAmountSheet'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
 const isAndroidTauri = isTauri() && /android/i.test(navigator.userAgent)
@@ -82,6 +85,22 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
     full: t('soundProfileFull'),
   } as const
 
+  const [fxThresholdSheet, setFxThresholdSheet] = useState(false)
+  const fxWatchedCurrency = settings.fxAlertCurrency as CurrencyCode
+  const fxAlertSummary = settings.fxAlertEnabled
+    ? `${fxWatchedCurrency} ${settings.fxAlertDirection === 'above' ? '≥' : '≤'} ${fmt(settings.fxAlertThreshold, finance.currency)}`
+    : t('fxAlertOffLabel')
+  const fxCurrentRate = currentRate(fxWatchedCurrency, finance.currency)
+
+  const sensitivityLabels: Record<'strict' | 'balanced' | 'relaxed', string> = {
+    strict: t('anomalySensitivityStrict'),
+    balanced: t('anomalySensitivityBalanced'),
+    relaxed: t('anomalySensitivityRelaxed'),
+  }
+  const anomalyAlertSummary = settings.anomalyAlertsEnabled
+    ? sensitivityLabels[settings.anomalySensitivity]
+    : t('anomalyAlertOffLabel')
+
   // Datos reales para que las vistas previas de widgets se vean como el
   // widget final en lugar de texto instructivo (bug visual anterior).
   const widgetPreviewBalance = useMemo(
@@ -121,6 +140,20 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
             label={t('overdraft')}
             value={overdraftLabels[settings.overdraftPolicy]}
             onClick={() => onOpen('overdraft')}
+          />
+          <SettingsRow
+            icon="trend"
+            iconColor="#5b9bff"
+            label={t('fxAlertLabel')}
+            value={fxAlertSummary}
+            onClick={() => onOpen('fxAlert')}
+          />
+          <SettingsRow
+            icon="alert"
+            iconColor="#ff6b8a"
+            label={t('anomalyAlertLabel')}
+            value={anomalyAlertSummary}
+            onClick={() => onOpen('anomalyAlert')}
           />
         </div>
       </div>
@@ -306,6 +339,30 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
                   <b>{t('widgetBudgetsTitle')}</b>
                   <small>{t('widgetBudgetsSizes')}</small>
                 </button>
+                <button
+                  className="mset-widget-card converter"
+                  onClick={async () => {
+                    const result = await requestPinHomeWidget('converter')
+                    if (result === 'requested') toast(t('homeWidgetRequested'), { icon: 'grid', type: 'ok' })
+                    else if (result === 'unsupported') toast(t('homeWidgetUnsupported'), { icon: 'alert', type: 'warn' })
+                  }}
+                >
+                  <span><Icon name="refresh" size={22} /></span>
+                  <b>{t('widgetConverterTitle')}</b>
+                  <small>{t('widgetConverterSizes')}</small>
+                </button>
+                <button
+                  className="mset-widget-card quickadd"
+                  onClick={async () => {
+                    const result = await requestPinHomeWidget('quickadd')
+                    if (result === 'requested') toast(t('homeWidgetRequested'), { icon: 'grid', type: 'ok' })
+                    else if (result === 'unsupported') toast(t('homeWidgetUnsupported'), { icon: 'alert', type: 'warn' })
+                  }}
+                >
+                  <span><Icon name="plus" size={22} /></span>
+                  <b>{t('widgetQuickAddTitle')}</b>
+                  <small>{t('widgetQuickAddSizes')}</small>
+                </button>
               </div>
               <button className="mset-widget-accounts" onClick={() => onOpen('widgetAccounts')}>
                 <span><Icon name="cards" size={18} /></span>
@@ -433,6 +490,130 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
                 {finance.currency === code && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 'auto', flexShrink: 0 }} />}
               </button>
             ))}
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'fxAlert' && (
+        <SettingsSheet title={t('fxAlertLabel')} onClose={onClose}>
+          <div className="mset-field-stack">
+            <span className="mset-field-label">{t('fxAlertCurrentRateLabel')}</span>
+            <p className="mset-note-block">
+              {t('fxAlertCurrentRateText')
+                .replace('{currency}', fxWatchedCurrency)
+                .replace('{rate}', fmt(fxCurrentRate, finance.currency))}
+            </p>
+          </div>
+          <div className="mpr-form-section mpr-toggle-row" style={{ padding: '14px 16px' }}>
+            <div className="mpr-toggle-row-text">
+              <span className="mpr-toggle-row-label">{t('fxAlertEnableLabel')}</span>
+              <small className="mpr-toggle-row-desc">{t('fxAlertEnableDesc')}</small>
+            </div>
+            <label className="mset-toggle-wrap">
+              <input
+                type="checkbox"
+                className="mset-toggle-input"
+                checked={settings.fxAlertEnabled}
+                onChange={e => settings.setFxAlertEnabled(e.target.checked)}
+              />
+              <span className="mset-toggle" />
+            </label>
+          </div>
+          <div className="mset-field-stack">
+            <span className="mset-field-label">{t('fxAlertWatchLabel')}</span>
+            <div className="mset-chip-grid">
+              {(['USD', 'EUR', 'MXN', 'GBP', 'COP', 'ARS', 'BRL', 'CAD'] as const).map(code => (
+                <button
+                  key={code}
+                  className={`mset-chip${settings.fxAlertCurrency === code ? ' on' : ''}`}
+                  disabled={!settings.fxAlertEnabled}
+                  onClick={() => settings.setFxAlertCurrency(code)}
+                >
+                  {CURRENCIES.find(c => c.code === code)?.flag} {code}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mset-field-stack">
+            <span className="mset-field-label">{t('fxAlertDirectionLabel')}</span>
+            <div className="mset-chip-grid">
+              <button
+                className={`mset-chip${settings.fxAlertDirection === 'above' ? ' on' : ''}`}
+                disabled={!settings.fxAlertEnabled}
+                onClick={() => settings.setFxAlertDirection('above')}
+              >
+                {t('fxAlertAboveLabel')}
+              </button>
+              <button
+                className={`mset-chip${settings.fxAlertDirection === 'below' ? ' on' : ''}`}
+                disabled={!settings.fxAlertEnabled}
+                onClick={() => settings.setFxAlertDirection('below')}
+              >
+                {t('fxAlertBelowLabel')}
+              </button>
+            </div>
+          </div>
+          <div className="mset-field-stack">
+            <span className="mset-field-label">{t('fxAlertThresholdLabel')}</span>
+            <button
+              className="mset-row"
+              disabled={!settings.fxAlertEnabled}
+              onClick={() => setFxThresholdSheet(true)}
+            >
+              <span className="mset-label">{fmt(settings.fxAlertThreshold, finance.currency)}</span>
+              <Icon name="edit" size={16} style={{ opacity: .5 }} />
+            </button>
+            <p className="mset-note-block">
+              {t('fxAlertHint')
+                .replace('{currency}', fxWatchedCurrency)
+                .replace('{direction}', settings.fxAlertDirection === 'above' ? t('fxAlertAboveLabel').toLowerCase() : t('fxAlertBelowLabel').toLowerCase())}
+            </p>
+          </div>
+        </SettingsSheet>
+      )}
+
+      {fxThresholdSheet && (
+        <MobileAmountSheet
+          title={t('fxAlertThresholdLabel')}
+          value={settings.fxAlertThreshold}
+          currency={finance.currency}
+          onDone={v => { settings.setFxAlertThreshold(v); setFxThresholdSheet(false) }}
+          onClose={() => setFxThresholdSheet(false)}
+        />
+      )}
+
+      {activeSheet === 'anomalyAlert' && (
+        <SettingsSheet title={t('anomalyAlertLabel')} onClose={onClose}>
+          <div className="mpr-form-section mpr-toggle-row" style={{ padding: '14px 16px' }}>
+            <div className="mpr-toggle-row-text">
+              <span className="mpr-toggle-row-label">{t('anomalyAlertEnableLabel')}</span>
+              <small className="mpr-toggle-row-desc">{t('anomalyAlertEnableDesc')}</small>
+            </div>
+            <label className="mset-toggle-wrap">
+              <input
+                type="checkbox"
+                className="mset-toggle-input"
+                checked={settings.anomalyAlertsEnabled}
+                onChange={e => settings.setAnomalyAlertsEnabled(e.target.checked)}
+              />
+              <span className="mset-toggle" />
+            </label>
+          </div>
+          <div className="mset-field-stack">
+            <span className="mset-field-label">{t('anomalySensitivityLabel')}</span>
+            <div className="mset-chip-grid">
+              {(['relaxed', 'balanced', 'strict'] as const).map(level => (
+                <button
+                  key={level}
+                  className={`mset-chip${settings.anomalySensitivity === level ? ' on' : ''}`}
+                  disabled={!settings.anomalyAlertsEnabled}
+                  onClick={() => settings.setAnomalySensitivity(level)}
+                >
+                  {sensitivityLabels[level]}
+                </button>
+              ))}
+            </div>
+            <p className="mset-note-block">{t('anomalySensitivityHint')}</p>
           </div>
         </SettingsSheet>
       )}

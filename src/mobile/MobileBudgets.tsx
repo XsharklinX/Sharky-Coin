@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { categoryRollover, fmt, fmtCompact, prevMonthKey, transactionsForTotals, txForMonth } from '@/data/helpers'
+import { computeEnvelopeSummary } from '@/data/envelopes'
 import { CAT_COLORS } from '@/constants'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -10,7 +11,8 @@ import { translateCategoryName, useCategoryName, useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import { MobileAmountSheet } from './MobileAmountSheet'
-import type { Category, IconName, ViewProps } from '@/types'
+import { SheetPortal } from './SheetPortal'
+import type { Category, CurrencyCode, IconName, ViewProps } from '@/types'
 
 const COLORS = CAT_COLORS
 
@@ -23,12 +25,13 @@ const ALL_ICONS: IconName[] = [
 ]
 
 export function MobileBudgets({ txns, mkey }: ViewProps) {
-  const { accounts, categories, currency, addCategory, updateCategory, deleteCategory } = useFinance()
+  const { accounts, categories, currency, addCategory, updateCategory, deleteCategory, transferEnvelopeFunds } = useFinance()
   const t = useT()
   const settings = useSettings()
   const lang = (settings.language ?? 'es') as 'en' | 'es'
   const budgetAlertThresholds = settings.budgetAlertThresholds
   const [editing, setEditing] = useState<Category | 'new' | null>(null)
+  const [transferOpen, setTransferOpen] = useState(false)
 
   const visTxns = transactionsForTotals(txns, accounts, currency)
   const monthTx = txForMonth(visTxns, mkey)
@@ -54,6 +57,12 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const globalPct   = totalBudget > 0 ? Math.min(100, totalSpent / totalBudget * 100) : 0
   const overCount   = cats.filter(c => (spent[c.id] ?? 0) > effectiveBudget[c.id] && c.budget > 0).length
 
+  const envelopes = cats.filter(c => c.budget > 0)
+  const envelopeSummary = computeEnvelopeSummary(cats, monthTx)
+  const assignedPct = envelopeSummary.income > 0
+    ? Math.min(100, Math.max(0, Math.round(envelopeSummary.assigned / envelopeSummary.income * 100)))
+    : 0
+
   const save = (fields: { name: string; budget: number; color: string; icon: IconName; rolloverEnabled: boolean }) => {
     if (!fields.name.trim()) { toast(t('enterCategoryName'), { icon: 'alert' }); return }
     if (editing === 'new') {
@@ -76,10 +85,61 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
     }
   }
 
+  const moveMoney = (fromCategoryId: string, toCategoryId: string, amount: number) => {
+    try {
+      transferEnvelopeFunds(fromCategoryId, toCategoryId, amount)
+      toast(t('envelopeTransferSuccess'), { icon: 'check', type: 'ok' })
+      setTransferOpen(false)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t('couldNotDelete'), { icon: 'alert' })
+    }
+  }
+
   useMobileBackDismiss(!!editing, () => setEditing(null))
+  useMobileBackDismiss(transferOpen, () => setTransferOpen(false))
 
   return (
     <div className="mbud-root">
+      <div className="mbud-envelope-card">
+        <div className="mbud-envelope-top">
+          <div className="mbud-envelope-col">
+            <span>{t('envelopeIncomeLabel')}</span>
+            <strong><AnimatedMoney value={envelopeSummary.income} compact /></strong>
+          </div>
+          <div className="mbud-envelope-col">
+            <span>{t('envelopeAssignedLabel')}</span>
+            <strong><AnimatedMoney value={envelopeSummary.assigned} compact /></strong>
+          </div>
+          <div className="mbud-envelope-col unassigned">
+            <span>{t('envelopeUnassignedLabel')}</span>
+            <strong className={envelopeSummary.unassigned < 0 ? 'over' : envelopeSummary.unassigned === 0 ? 'zero' : ''}>
+              <AnimatedMoney value={envelopeSummary.unassigned} compact />
+            </strong>
+          </div>
+        </div>
+        <div className="mbud-envelope-bar-track">
+          <div className="mbud-envelope-bar-fill" style={{
+            width: `${assignedPct}%`,
+            background: envelopeSummary.unassigned < 0 ? '#ff6b8a' : 'var(--accent, #ffdd3d)',
+          }} />
+        </div>
+        <div className="mbud-envelope-foot">
+          {envelopeSummary.unassigned < 0 ? (
+            <span className="over"><Icon name="alert" size={12} /> {t('envelopeOverAssignedHint')}</span>
+          ) : envelopeSummary.unassigned === 0 && envelopeSummary.income > 0 ? (
+            <span className="zero"><Icon name="check" size={12} /> {t('envelopeAllAssignedHint')}</span>
+          ) : <span />}
+          <button
+            className="mbud-move-btn"
+            onClick={() => envelopes.length < 2
+              ? toast(t('envelopeTransferEmptyHint'), { icon: 'alert' })
+              : setTransferOpen(true)}
+          >
+            <Icon name="refresh" size={13} /> {t('moveMoneyLabel')}
+          </button>
+        </div>
+      </div>
+
       <div className="mbud-summary">
         <div className="mbud-summary-top">
           <div>
@@ -234,7 +294,129 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
           onDelete={editing !== 'new' ? remove : undefined}
         />
       )}
+
+      {transferOpen && (
+        <EnvelopeTransferSheet
+          envelopes={envelopes}
+          lang={lang}
+          currency={currency}
+          onClose={() => setTransferOpen(false)}
+          onMove={moveMoney}
+        />
+      )}
     </div>
+  )
+}
+
+function EnvelopeTransferSheet({
+  envelopes,
+  lang,
+  currency,
+  onClose,
+  onMove,
+}: {
+  envelopes: Category[]
+  lang: 'en' | 'es'
+  currency: CurrencyCode
+  onClose: () => void
+  onMove: (fromCategoryId: string, toCategoryId: string, amount: number) => void
+}) {
+  const t = useT()
+  const [fromId, setFromId] = useState(envelopes[0]?.id ?? '')
+  const [toId, setToId] = useState(envelopes.find(e => e.id !== envelopes[0]?.id)?.id ?? '')
+  const [amount, setAmount] = useState(0)
+  const [amountSheet, setAmountSheet] = useState(false)
+
+  const from = envelopes.find(e => e.id === fromId)
+  const to = envelopes.find(e => e.id === toId)
+  const canMove = !!from && !!to && from.id !== to.id && amount > 0 && amount <= from.budget
+
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !amountSheet)
+  useMobileBackDismiss(amountSheet, () => setAmountSheet(false))
+
+  return (
+    <>
+    <SheetPortal>
+    <div ref={dialogRef} className="mobile-detail-sheet mbud-editor-overlay" role="dialog" aria-modal="true" aria-label={t('envelopeTransferTitle')} onClick={onClose}>
+      <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
+        <header>
+          <span>{t('envelopeTransferTitle')}</span>
+          <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
+        </header>
+
+        <div className="mbud-editor-body">
+          <div className="mbud-field">
+            <span>{t('envelopeTransferFromLabel')}</span>
+            <div className="mbud-envelope-chip-row">
+              {envelopes.map(env => (
+                <button
+                  key={env.id}
+                  className={`mbud-envelope-chip${fromId === env.id ? ' on' : ''}`}
+                  disabled={env.id === toId}
+                  onClick={() => setFromId(env.id)}
+                  style={fromId === env.id ? { color: env.color, background: `color-mix(in oklab, ${env.color} 18%, transparent)` } : {}}
+                >
+                  <Icon name={env.icon} size={14} />
+                  {translateCategoryName(env, lang)}
+                </button>
+              ))}
+            </div>
+            {from && <small className="mbud-envelope-chip-hint">{t('envelopeTransferAvailable').replace('{amount}', fmt(from.budget, currency))}</small>}
+          </div>
+
+          <div className="mbud-field">
+            <span>{t('envelopeTransferToLabel')}</span>
+            <div className="mbud-envelope-chip-row">
+              {envelopes.map(env => (
+                <button
+                  key={env.id}
+                  className={`mbud-envelope-chip${toId === env.id ? ' on' : ''}`}
+                  disabled={env.id === fromId}
+                  onClick={() => setToId(env.id)}
+                  style={toId === env.id ? { color: env.color, background: `color-mix(in oklab, ${env.color} 18%, transparent)` } : {}}
+                >
+                  <Icon name={env.icon} size={14} />
+                  {translateCategoryName(env, lang)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mbud-field">
+            <span>{t('envelopeTransferAmountLabel')}</span>
+            <button className="mdebt-amount-row" onClick={() => setAmountSheet(true)}>
+              <span className={amount > 0 ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
+                {amount > 0 ? fmt(amount, currency) : fmt(0, currency)}
+              </span>
+              <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mbud-editor-actions">
+          <button className="mbud-btn-cancel" onClick={onClose}>{t('cancel')}</button>
+          <button
+            className="mbud-btn-save"
+            disabled={!canMove}
+            onClick={() => from && to && onMove(from.id, to.id, amount)}
+          >
+            {t('moveMoneyLabel')}
+          </button>
+        </div>
+      </section>
+    </div>
+    </SheetPortal>
+
+    {amountSheet && (
+      <MobileAmountSheet
+        title={t('envelopeTransferAmountLabel')}
+        value={amount}
+        currency={currency}
+        onDone={v => { setAmount(v); setAmountSheet(false) }}
+        onClose={() => setAmountSheet(false)}
+      />
+    )}
+    </>
   )
 }
 
@@ -266,6 +448,7 @@ function BudgetEditor({
 
   return (
     <>
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet mbud-editor-overlay" role="dialog" aria-modal="true" aria-label={category ? t('editCategory') : t('newCategory')} onClick={onClose}>
       <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -293,6 +476,14 @@ function BudgetEditor({
                 {budget > 0 ? fmt(budget, currency) : t('noLimitLabel')}
               </span>
               <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
+            </button>
+            <button
+              type="button"
+              className={`mbud-nolimit${budget === 0 ? ' on' : ''}`}
+              onClick={() => setBudget(0)}
+            >
+              {budget === 0 && <Icon name="check" size={13} />}
+              {t('noLimitLabel')}
             </button>
           </div>
 
@@ -323,7 +514,7 @@ function BudgetEditor({
                   className={`mbud-color-dot${color === c ? ' on' : ''}`}
                   aria-label={t('colorOption').replace('{c}', c)}
                   aria-pressed={color === c}
-                  style={{ background: c }}
+                  style={{ background: c, color: c }}
                   onClick={() => setColor(c)}
                 />
               ))}
@@ -379,6 +570,7 @@ function BudgetEditor({
         </div>
       </section>
     </div>
+    </SheetPortal>
 
     {budgetSheet && (
       <MobileAmountSheet

@@ -24,20 +24,25 @@ export function useGoalAutoContributions(): void {
     goals.filter(g => g.autoContribute).forEach(goal => {
       const auto = goal.autoContribute!
       let next = auto.nextDate
+      let amount = auto.amount
       let saved = goal.saved
       let generated = 0
       while (next <= today && saved < goal.target && generated < 24) {
         try {
-          contribute(goal.id, auto.amount, auto.fromAccountId, undefined, next)
-          saved += auto.amount
+          contribute(goal.id, amount, auto.fromAccountId, undefined, next)
+          saved += amount
           created++
+          // Reto incremental: el siguiente aporte sube `increment`.
+          if (auto.increment) amount += auto.increment
         } catch {
           skipped++
         }
         next = advanceRecurrenceDate(next, auto.frequency)
         generated++
       }
-      if (next !== auto.nextDate) updateGoal(goal.id, { autoContribute: { ...auto, nextDate: next } })
+      if (next !== auto.nextDate || amount !== auto.amount) {
+        updateGoal(goal.id, { autoContribute: { ...auto, nextDate: next, amount } })
+      }
     })
 
     if (created > 0) toast(

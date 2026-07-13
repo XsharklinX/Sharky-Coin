@@ -8,28 +8,32 @@ import type { Transaction, ViewId, ViewProps } from '@/types'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
 import { MobileAccounts } from './MobileAccounts'
 import { MobileAnalytics } from './MobileAnalytics'
-import { MobileAnnual } from './MobileAnnual'
 import { MobileCreateFlow } from './MobileCreateFlow'
-import { MobileCurrencySheet } from './MobileCurrencySheet'
-import { MobileCurrencyConverter } from './MobileCurrencyConverter'
-import { MobileCalendar } from './MobileCalendar'
-import { MobileGlobalSearch } from './MobileGlobalSearch'
+import { SheetPortal } from './SheetPortal'
 import { MobileMovements } from './MobileMovements'
 import { MobileProfile } from './MobileProfile'
-import { MobileReports } from './MobileReports'
-import { MobileDebt } from './MobileDebt'
-// Lazy: MobileCashflow trae recharts (~100 KB) que no debe cargar en el arranque
+// Lazy: ninguna de estas pantallas se ve en el primer render (Movimientos).
+// Diferirlas achica el bundle que hay que parsear/hidratar al abrir la app.
+const MobileAnnual = lazy(() => import('./MobileAnnual').then(m => ({ default: m.MobileAnnual })))
+const MobileCalendar = lazy(() => import('./MobileCalendar').then(m => ({ default: m.MobileCalendar })))
+const MobileDebt = lazy(() => import('./MobileDebt').then(m => ({ default: m.MobileDebt })))
 const MobileCashflow = lazy(() => import('./MobileCashflow').then(m => ({ default: m.MobileCashflow })))
-import { MobileQuickAddSheet } from './MobileQuickAddSheet'
-import { MobileSubscriptions } from './MobileSubscriptions'
+const MobileSubscriptions = lazy(() => import('./MobileSubscriptions').then(m => ({ default: m.MobileSubscriptions })))
+const MobileCurrencySheet = lazy(() => import('./MobileCurrencySheet').then(m => ({ default: m.MobileCurrencySheet })))
+const MobileCurrencyConverter = lazy(() => import('./MobileCurrencyConverter').then(m => ({ default: m.MobileCurrencyConverter })))
+const MobileGlobalSearch = lazy(() => import('./MobileGlobalSearch').then(m => ({ default: m.MobileGlobalSearch })))
 const MobileCSVImport = lazy(() => import('./MobileCSVImport').then(m => ({ default: m.MobileCSVImport })))
+const MobileReceiptBatch = lazy(() => import('./MobileReceiptBatch').then(m => ({ default: m.MobileReceiptBatch })))
+import { MobileQuickAddSheet } from './MobileQuickAddSheet'
 import { MobileTopBar } from './MobileTopBar'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import type { Sheet } from './settings/shared'
 
 type MobileViewRenderer = (props: ViewProps) => React.ReactNode
-const REPORT_TAB_VIEWS: ViewId[] = ['reports', 'accounts', 'goals']
+// Orden visual de las sub-pestañas: Cuentas primero (landing por defecto del
+// tab "Cuentas" en el bottom nav), luego Informes, luego Metas.
+const REPORT_TAB_VIEWS: ViewId[] = ['accounts', 'goals']
 const TOOL_VIEWS: ViewId[] = ['budgets', 'subscriptions']
 
 function MobileSkeletonScreen() {
@@ -47,7 +51,7 @@ function MobileSkeletonScreen() {
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'home'
   if (view === 'stats') return 'analysis'
-  if (view === 'reports' || view === 'annual' || view === 'calendar' || view === 'debt' || view === 'cashflow' || view === 'accounts' || view === 'goals') {
+  if (view === 'annual' || view === 'calendar' || view === 'debt' || view === 'cashflow' || view === 'accounts' || view === 'goals') {
     return 'reports'
   }
   if (view === 'budgets' || view === 'subscriptions') return 'profile'
@@ -56,7 +60,7 @@ function routeFromView(view: ViewId): MobileRoute {
 
 function viewFromRoute(route: Exclude<MobileRoute, 'add'>): ViewId {
   if (route === 'analysis') return 'stats'
-  if (route === 'reports') return 'reports'
+  if (route === 'reports') return 'accounts'
   if (route === 'profile') return 'dashboard'
   return 'transactions'
 }
@@ -98,7 +102,7 @@ export function MobileShell({
   onSettings: (sheet?: Sheet) => void
   onEditTx: (transaction: Transaction) => void
   userName?: string
-  sharedReceipt?: SharedReceipt | null
+  sharedReceipt?: SharedReceipt[]
   onConsumeSharedReceipt?: () => void
   appShortcut?: AppShortcut | null
   onConsumeAppShortcut?: () => void
@@ -106,6 +110,7 @@ export function MobileShell({
   const t = useT()
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
+  const [batchReceipts, setBatchReceipts] = useState<{ dataUrl: string; name: string }[] | null>(null)
   const [quickAddSheet, setQuickAddSheet] = useState<'expense' | 'income' | null>(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [converterOpen, setConverterOpen] = useState(false)
@@ -153,9 +158,9 @@ export function MobileShell({
   useMobileBackDismiss(toolsOpen, () => setToolsOpen(false))
   const toolsRef = useDialogA11y<HTMLDivElement>(() => setToolsOpen(false), toolsOpen)
 
-  const lastReportsHome = useRef<ViewId>('reports')
+  const lastReportsHome = useRef<ViewId>('accounts')
   useEffect(() => {
-    if (view === 'reports' || view === 'accounts' || view === 'goals') {
+    if (view === 'accounts' || view === 'goals') {
       lastReportsHome.current = view
     }
   }, [view])
@@ -169,7 +174,7 @@ export function MobileShell({
     previousReportTab.current = nextIndex
   }, [route, view])
 
-  const isInReportsSub = route === 'reports' && view !== 'reports' && view !== 'accounts' && view !== 'goals'
+  const isInReportsSub = route === 'reports' && view !== 'accounts' && view !== 'goals'
   useMobileBackDismiss(isInReportsSub, () => { rememberScroll(); setView(lastReportsHome.current) })
 
   const isInProfileSub = route === 'profile' && (view === 'budgets' || view === 'subscriptions')
@@ -185,7 +190,7 @@ export function MobileShell({
   }, [route, view])
 
   useEffect(() => {
-    if (!sharedReceipt) return
+    if (!sharedReceipt?.length) return
     setQuickAddMode('expense')
     setRoute('add')
   }, [sharedReceipt])
@@ -195,7 +200,13 @@ export function MobileShell({
     if (appShortcut === 'add-expense' || appShortcut === 'add-income') {
       setQuickAddSheet(appShortcut === 'add-expense' ? 'expense' : 'income')
     } else if (appShortcut === 'reports') {
-      gotoView('reports')
+      gotoView('accounts')
+    } else if (appShortcut === 'accounts') {
+      gotoView('accounts')
+    } else if (appShortcut === 'budgets') {
+      gotoView('budgets')
+    } else if (appShortcut === 'converter') {
+      setConverterOpen(true)
     }
     onConsumeAppShortcut?.()
   }, [appShortcut, onConsumeAppShortcut])
@@ -211,9 +222,27 @@ export function MobileShell({
   }
 
   const renderReportsRoute = () => {
-    if (view === 'annual') return <MobileAnnual mkey={mkey} />
-    if (view === 'calendar') return <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
-    if (view === 'debt') return <MobileDebt />
+    if (view === 'annual') {
+      return (
+        <Suspense fallback={<MobileSkeletonScreen />}>
+          <MobileAnnual mkey={mkey} />
+        </Suspense>
+      )
+    }
+    if (view === 'calendar') {
+      return (
+        <Suspense fallback={<MobileSkeletonScreen />}>
+          <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
+        </Suspense>
+      )
+    }
+    if (view === 'debt') {
+      return (
+        <Suspense fallback={<MobileSkeletonScreen />}>
+          <MobileDebt />
+        </Suspense>
+      )
+    }
     if (view === 'cashflow') {
       return (
         <Suspense fallback={<MobileSkeletonScreen />}>
@@ -227,15 +256,7 @@ export function MobileShell({
     return (
       <>
         <div className="mobile-tab-segment">
-          <div className="mobile-segment mobile-segment-3" role="tablist" aria-label={t('reports')}>
-            <button
-              className={view === 'reports' ? 'on' : ''}
-              role="tab"
-              aria-selected={view === 'reports'}
-              onClick={() => gotoView('reports')}
-            >
-              {t('reports')}
-            </button>
+          <div className="mobile-segment mobile-segment-2" role="tablist" aria-label={t('accounts')}>
             <button
               className={view === 'accounts' ? 'on' : ''}
               role="tab"
@@ -255,15 +276,13 @@ export function MobileShell({
           </div>
         </div>
         <div className={`mobile-report-pane mobile-report-pane-${reportTransition}`} key={view}>
-          {view === 'accounts'
-            ? <MobileAccounts mkey={mkey} createRequest={viewProps.createRequest} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
-            : view === 'goals'
-              ? (goalsRenderer && (
-                  <ViewErrorBoundary resetKey={`${route}:goals`}>
-                    {goalsRenderer(viewProps)}
-                  </ViewErrorBoundary>
-                ))
-              : <MobileReports onImport={() => setCsvOpen(true)} mkey={mkey} />}
+          {view === 'goals'
+            ? (goalsRenderer && (
+                <ViewErrorBoundary resetKey={`${route}:goals`}>
+                  {goalsRenderer(viewProps)}
+                </ViewErrorBoundary>
+              ))
+            : <MobileAccounts mkey={mkey} createRequest={viewProps.createRequest} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />}
         </div>
       </>
     )
@@ -271,12 +290,37 @@ export function MobileShell({
 
   const renderMain = () => {
     if (route === 'add') {
+      const batch = batchReceipts ?? (sharedReceipt && sharedReceipt.length > 1 ? sharedReceipt : null)
+      if (batch) {
+        return (
+          <Suspense fallback={null}>
+            <MobileReceiptBatch
+              receipts={batch}
+              mkey={mkey}
+              onDone={() => {
+                setQuickAddMode(null)
+                setBatchReceipts(null)
+                setRoute('home')
+                setView('transactions')
+                onConsumeSharedReceipt?.()
+              }}
+              onCancel={() => {
+                setQuickAddMode(null)
+                setBatchReceipts(null)
+                setRoute('home')
+                onConsumeSharedReceipt?.()
+              }}
+            />
+          </Suspense>
+        )
+      }
       return (
         <MobileCreateFlow
           key={createKey}
           mkey={mkey}
           initialMode={quickAddMode ?? undefined}
-          receiptPreview={sharedReceipt ?? undefined}
+          receiptPreview={sharedReceipt?.[0] ?? undefined}
+          onOpenBatch={setBatchReceipts}
           onSaved={() => {
             setQuickAddMode(null)
             setRoute('home')
@@ -300,7 +344,7 @@ export function MobileShell({
     }
 
     if (route === 'analysis') {
-      return <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} />
+      return <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} onImport={() => setCsvOpen(true)} />
     }
 
     if (route === 'reports') {
@@ -311,7 +355,9 @@ export function MobileShell({
       if (view === 'subscriptions') {
         return (
           <div className={`mobile-tool-pane mobile-tool-pane-${toolTransition}`} key={view}>
-            <MobileSubscriptions />
+            <Suspense fallback={<MobileSkeletonScreen />}>
+              <MobileSubscriptions />
+            </Suspense>
           </div>
         )
       }
@@ -378,18 +424,29 @@ export function MobileShell({
           <MobileCSVImport onClose={() => setCsvOpen(false)} />
         </Suspense>
       )}
-      {currencyOpen && <MobileCurrencySheet onClose={() => setCurrencyOpen(false)} />}
-      {converterOpen && <MobileCurrencyConverter onClose={() => setConverterOpen(false)} />}
+      {currencyOpen && (
+        <Suspense fallback={null}>
+          <MobileCurrencySheet onClose={() => setCurrencyOpen(false)} />
+        </Suspense>
+      )}
+      {converterOpen && (
+        <Suspense fallback={null}>
+          <MobileCurrencyConverter onClose={() => setConverterOpen(false)} />
+        </Suspense>
+      )}
       {searchOpen && (
-        <MobileGlobalSearch
-          onClose={() => setSearchOpen(false)}
-          onEditTx={onEditTx}
-          onGotoAccounts={() => gotoView('accounts')}
-          onGotoCategories={() => gotoView('budgets')}
-          onGotoGoals={() => gotoView('goals')}
-        />
+        <Suspense fallback={null}>
+          <MobileGlobalSearch
+            onClose={() => setSearchOpen(false)}
+            onEditTx={onEditTx}
+            onGotoAccounts={() => gotoView('accounts')}
+            onGotoCategories={() => gotoView('budgets')}
+            onGotoGoals={() => gotoView('goals')}
+          />
+        </Suspense>
       )}
       {toolsOpen && (
+        <SheetPortal>
         <div
           ref={toolsRef}
           className="mobile-detail-sheet mobile-tools-sheet-wrap"
@@ -493,6 +550,7 @@ export function MobileShell({
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
       <MobileTopBar
         route={route}

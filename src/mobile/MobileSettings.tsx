@@ -13,6 +13,7 @@ import { SettingsData } from './settings/SettingsData'
 import { SettingsSecurity } from './settings/SettingsSecurity'
 import { SettingsBankNotifications } from './settings/SettingsBankNotifications'
 import { SettingsLegal } from './settings/SettingsLegal'
+import { SettingsMigration } from './settings/SettingsMigration'
 import { SettingsSyncConflicts } from './settings/SettingsSyncConflicts'
 
 export function MobileSettings({
@@ -63,7 +64,7 @@ export function MobileSettings({
   return (
     <div className="mobile-settings-screen" role="dialog" aria-modal="true">
       <header className="mset-header">
-        <button className="mset-back" onClick={onClose}>
+        <button className="mset-back" aria-label={t('back')} onClick={onClose}>
           <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
         </button>
         <strong>{t('settings')}</strong>
@@ -90,6 +91,7 @@ export function MobileSettings({
         <SettingsAppearance activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsCategories activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsData mkey={mkey} activeSheet={activeSheet} onOpen={open} onClose={close} />
+        <SettingsMigration activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsSecurity activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsBankNotifications activeSheet={activeSheet} onOpen={open} onClose={close} />
         <SettingsLegal activeSheet={activeSheet} onOpen={open} onClose={close} />

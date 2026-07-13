@@ -1,144 +1,8 @@
-  /* -- Mobile Home (new) -- */
-  .mobile-home {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 14px 0 24px;
-  }
-  .mhome-hero {
-    background: var(--m-surface);
-    border-top: 1px solid var(--m-border);
-    border-bottom: 1px solid var(--m-border);
-    display: grid;
-    gap: 16px;
-    overflow: hidden;
-    padding: 18px 16px;
-    position: relative;
-  }
-  .mhome-hero::after { display: none; }
-  .mhome-hero-copy,
-  .mhome-hero-actions {
-    position: relative;
-    z-index: 1;
-  }
-  .mhome-hero-copy {
-    display: grid;
-    gap: 8px;
-  }
-  .mhome-kicker {
-    color: var(--m-muted);
-    font-size: 12px;
-    font-weight: 850;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-  .mhome-hero-copy h2 {
-    font-size: 16px;
-    margin: 0;
-  }
-  .mhome-hero-copy p {
-    color: var(--m-muted);
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.5;
-    margin: 0;
-  }
-  .mhome-hero-balance {
-    align-items: center;
-    background: transparent;
-    border: 0;
-    color: var(--m-text);
-    display: inline-flex;
-    gap: 8px;
-    justify-content: flex-start;
-    padding: 0;
-    width: fit-content;
-  }
-  .mhome-hero-balance strong {
-    color: var(--m-text);
-    font-size: clamp(30px, 10vw, 42px);
-    font-weight: 950;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -.06em;
-  }
-  .mhome-hero-balance strong.income { color: #35d0a2; }
-  .mhome-hero-balance strong.expense { color: #ff6b8a; }
-  .mhome-hero-actions {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .mhome-primary-btn,
-  .mhome-secondary-btn {
-    align-items: center;
-    border-radius: 14px;
-    display: inline-flex;
-    font-size: 14px;
-    font-weight: 900;
-    gap: 8px;
-    justify-content: center;
-    min-height: 48px;
-    padding: 0 16px;
-  }
-  .mhome-primary-btn {
-    background: var(--m-primary);
-    border: 0;
-    color: var(--m-primary-text);
-  }
-  .mhome-secondary-btn {
-    background: color-mix(in oklab, var(--m-text) 6%, transparent);
-    border: 1px solid var(--m-border);
-    color: var(--m-text);
-  }
-  .mhome-pulse-grid {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .mhome-pulse-card {
-    background: var(--m-surface);
-    border: 1px solid var(--m-border);
-    border-radius: 16px;
-    display: grid;
-    gap: 8px;
-    min-height: 132px;
-    padding: 14px;
-  }
-  .mhome-pulse-card small {
-    color: var(--m-muted);
-    font-size: 11px;
-    font-weight: 850;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-  .mhome-pulse-card strong {
-    color: var(--m-text);
-    font-size: 22px;
-    font-weight: 900;
-    letter-spacing: -.04em;
-    line-height: 1.1;
-  }
-  .mhome-pulse-card strong.income { color: #35d0a2; }
-  .mhome-pulse-card strong.expense { color: #ff6b8a; }
-  .mhome-pulse-card p {
-    color: var(--m-muted);
-    font-size: 12px;
-    font-weight: 750;
-    line-height: 1.45;
-    margin: 0;
-  }
-  .mhome-mini-progress {
-    background: color-mix(in oklab, var(--m-text) 10%, transparent);
-    border-radius: 999px;
-    height: 7px;
-    overflow: hidden;
-  }
-  .mhome-mini-progress span {
-    background: var(--m-primary);
-    border-radius: inherit;
-    display: block;
-    height: 100%;
-  }
+  /* -- Mobile Home -- */
+  /* MobileHome.tsx fue reemplazado por MobileMovements.tsx; estas 3 clases
+     de desglose de saldo por cuenta siguen vivas porque MobileMovements las
+     reutiliza (ver mobile-shell.css:.mobile-balance-breakdown-inline y
+     mobile-components.css:.mhome-alert* para el resto de lo que comparte). */
   .mhome-balance-breakdown {
     background: var(--m-surface);
     border: 1px solid var(--m-border);
@@ -158,105 +22,6 @@
   .mhome-balance-acct-name { color: var(--m-muted); flex: 1; font-weight: 700; }
   .mhome-balance-row strong { font-size: 13px; font-weight: 850; font-variant-numeric: tabular-nums; }
   .mhome-balance-row strong.expense { color: #ff6b8a; }
-  .mhome-prev-month {
-    margin-top: 8px;
-  }
-  .mhome-prev-month-header {
-    align-items: center;
-    color: var(--m-muted);
-    display: flex;
-    font-size: 12px;
-    font-weight: 800;
-    gap: 6px;
-    letter-spacing: .04em;
-    padding: 4px 16px 8px;
-    text-transform: uppercase;
-  }
-  .mhome-prev-empty {
-    color: var(--m-muted);
-    font-size: 13px;
-    padding: 12px 16px;
-    text-align: center;
-  }
-  .mhome-load-prev {
-    align-items: center;
-    background: var(--m-surface);
-    border: 1px dashed var(--m-border);
-    border-radius: 16px;
-    color: var(--m-muted);
-    display: flex;
-    font-size: 13px;
-    font-weight: 800;
-    gap: 8px;
-    justify-content: center;
-    margin: 12px 0 0;
-    min-height: 48px;
-    padding: 0 20px;
-    width: 100%;
-  }
-  .mhome-load-prev:active { background: color-mix(in oklab, var(--m-primary) 8%, var(--m-surface)); }
-  .mhome-section-head {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-  }
-  .mhome-section-head h3 {
-    font-size: 18px;
-    margin: 0;
-  }
-  .mhome-section-head p {
-    color: var(--m-muted);
-    font-size: 12px;
-    font-weight: 750;
-    margin: 4px 0 0;
-  }
-  .mhome-inline-link {
-    background: transparent;
-    border: 0;
-    color: var(--m-primary);
-    font-size: 13px;
-    font-weight: 850;
-    padding: 0;
-  }
-  .mhome-movements {
-    display: grid;
-    flex: 1;
-    min-height: 0;
-    padding: 0 0 8px;
-  }
-  .mhome-empty {
-    align-items: center;
-    background: var(--m-surface);
-    border: 1px solid var(--m-border);
-    border-radius: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 32px 16px;
-    text-align: center;
-  }
-  .mhome-empty-ico {
-    align-items: center;
-    background: color-mix(in oklab, var(--m-primary) 14%, transparent);
-    border-radius: 16px;
-    color: var(--m-primary);
-    display: grid;
-    height: 52px;
-    place-items: center;
-    width: 52px;
-  }
-  .mhome-empty p { color: var(--m-muted); font-size: 14px; font-weight: 700; margin: 4px 0 0; }
-  .mhome-empty button {
-    background: color-mix(in oklab, var(--m-primary) 10%, transparent);
-    border: 1px solid color-mix(in oklab, var(--m-primary) 18%, transparent);
-    border-radius: 999px;
-    color: var(--m-primary);
-    font-size: 13px;
-    font-weight: 800;
-    margin-top: 6px;
-    min-height: 44px;
-    padding: 0 16px;
-  }
   .neg { color: #ff6b8a; }
   .mobile-movements-screen {
     display: grid;
@@ -352,10 +117,6 @@
     padding: 0 16px;
   }
   @media (max-width: 420px) {
-    .mhome-hero-actions,
-    .mhome-pulse-grid {
-      grid-template-columns: 1fr;
-    }
     .mobile-movements-hero {
       align-items: stretch;
       flex-direction: column;
@@ -1274,7 +1035,7 @@
   }
   .mobile-welcome-feat {
     align-items: center;
-    background: rgba(255,255,255,.03);
+    background: color-mix(in oklab, var(--m-text) 4%, transparent);
     border: 1px solid var(--m-border);
     border-radius: 20px;
     display: flex;
@@ -1290,13 +1051,13 @@
     width: 48px;
   }
   .mobile-welcome-feat strong {
-    color: #f0f0f0;
+    color: var(--m-text);
     display: block;
     font-size: 14px;
     font-weight: 850;
   }
   .mobile-welcome-feat small {
-    color: #6a6a6a;
+    color: var(--m-muted);
     display: block;
     font-size: 12px;
     line-height: 1.45;
@@ -1324,8 +1085,8 @@
   .mobile-welcome-primary:active { opacity: .85; transform: scale(.98); }
   .mobile-welcome-ghost {
     align-items: center;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.1);
+    background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    border: 1px solid var(--m-border);
     border-radius: 18px;
     color: var(--m-text);
     display: flex;
@@ -1338,17 +1099,21 @@
   }
   .mobile-welcome-ghost:active { opacity: .7; }
   .mobile-welcome-fine {
-    color: #484848;
+    color: var(--m-muted);
     font-size: 11px;
     font-weight: 600;
     margin: 2px 0 0;
     text-align: center;
   }
 
-  /* Tutorial progress dots */
+  /* Tutorial progress dots — theme-aware en la intro; el carrusel de slides
+     (fondo oscuro fijo, ver .mwh-slide-body más abajo) mantiene su versión
+     en blanco porque ahí sí el fondo es siempre oscuro por diseño. */
   .mwh-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0 4px; }
-  .mwh-dot { background: rgba(255,255,255,.2); border-radius: 99px; height: 6px; transition: width .2s ease, background .2s ease; width: 6px; }
+  .mwh-dot { background: color-mix(in oklab, var(--m-text) 20%, transparent); border-radius: 99px; height: 6px; transition: width .2s ease, background .2s ease; width: 6px; }
   .mwh-dot.on { background: var(--m-primary, #ffdd3d); width: 20px; }
+  .mwh-slide-body .mwh-dot { background: rgba(255,255,255,.2); }
+  .mwh-slide-body .mwh-dot.on { background: var(--m-primary, #ffdd3d); }
 
   /* Slide screens */
   .mwh-slide-screen { display: flex; flex-direction: column; gap: 0; height: 100%; justify-content: stretch; padding: 0; }

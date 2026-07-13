@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { SheetPortal } from './SheetPortal'
 import { CURRENCIES } from '@/data/seed'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
 import { useT } from '@/i18n'
@@ -116,9 +117,10 @@ export function MobileAmountSheet({
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   return (
+    <SheetPortal>
     <div
       ref={dialogRef}
-      className="mobile-detail-sheet"
+      className="mobile-detail-sheet mamt-overlay"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
@@ -186,5 +188,6 @@ export function MobileAmountSheet({
         </div>
       </section>
     </div>
+    </SheetPortal>
   )
 }

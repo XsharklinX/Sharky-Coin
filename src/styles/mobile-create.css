@@ -492,6 +492,159 @@
   }
   .mobile-receipt-scan-btn:active { background: var(--m-surface-2); }
 
+  /* -- Recibos por lotes (MobileReceiptBatch) -- */
+  .mrb-sheet {
+    background: var(--m-surface);
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 10px);
+    min-height: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+  .mrb-sheet header {
+    align-items: center;
+    border-bottom: 1px solid var(--m-border);
+    display: flex;
+    flex-shrink: 0;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+  }
+  .mrb-sheet header span { font-size: 17px; font-weight: 750; letter-spacing: -.02em; }
+  .mrb-sheet header button {
+    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    border: 0;
+    border-radius: 50%;
+    color: var(--m-text);
+    display: grid;
+    height: 44px;
+    place-items: center;
+    width: 44px;
+  }
+  .mrb-progress {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-primary) 10%, transparent);
+    display: flex;
+    flex-shrink: 0;
+    gap: 10px;
+    padding: 10px 20px;
+  }
+  .mrb-progress span { color: var(--m-text); font-size: 13px; font-weight: 700; }
+  .mrb-progress-spinner {
+    animation: mobile-spin .8s linear infinite;
+    border: 2px solid color-mix(in oklab, var(--m-primary) 30%, transparent);
+    border-radius: 50%;
+    border-top-color: var(--m-primary);
+    flex-shrink: 0;
+    height: 16px;
+    width: 16px;
+  }
+  .mrb-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    padding: 14px 16px;
+  }
+  .mrb-card {
+    background: color-mix(in oklab, var(--m-text) 3%, transparent);
+    border: 1px solid var(--m-border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+  .mrb-card-top { align-items: center; display: flex; gap: 10px; }
+  .mrb-thumb {
+    border-radius: 10px;
+    flex-shrink: 0;
+    height: 48px;
+    object-fit: cover;
+    width: 48px;
+  }
+  .mrb-card-info { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+  .mrb-note-input {
+    background: transparent;
+    border: 0;
+    color: var(--m-text);
+    font-size: 14px;
+    font-weight: 750;
+    padding: 0;
+    width: 100%;
+  }
+  .mrb-status { color: var(--m-muted); font-size: 11.5px; font-weight: 700; }
+  .mrb-status.warn { color: #f59e0b; }
+  .mrb-remove {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    border: 0;
+    border-radius: 50%;
+    color: var(--m-muted);
+    display: grid;
+    flex-shrink: 0;
+    height: 44px;
+    place-items: center;
+    position: relative;
+    width: 44px;
+  }
+  .mrb-card-fields { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+  .mrb-field {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .mrb-field-label {
+    color: var(--m-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .mrb-field strong {
+    color: var(--m-text);
+    font-size: 13.5px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mrb-field strong.mrb-field-empty { color: var(--m-muted); font-weight: 600; }
+  .mrb-actions {
+    border-top: 1px solid var(--m-border);
+    display: flex;
+    flex-shrink: 0;
+    gap: 10px;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  .mrb-btn-cancel {
+    background: color-mix(in oklab, var(--m-text) 7%, transparent);
+    border: 0;
+    border-radius: 14px;
+    color: var(--m-text);
+    flex: 1;
+    font-size: 15px;
+    font-weight: 700;
+    min-height: 50px;
+  }
+  .mrb-btn-save {
+    background: var(--accent, #ffdd3d);
+    border: 0;
+    border-radius: 14px;
+    color: #151515;
+    flex: 1.6;
+    font-size: 15px;
+    font-weight: 800;
+    min-height: 50px;
+  }
+  .mrb-btn-save:disabled { opacity: .45; }
+
   .mobile-segment {
     background: var(--m-surface);
     border: 1px solid var(--m-border);
@@ -703,7 +856,6 @@
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .mobile-home,
   .man-root,
   .mobile-create-flow,
   .mrep-root,
@@ -803,6 +955,11 @@
   }
 
   /* ── MobileAmountSheet ── */
+  /* El sheet de monto siempre se invoca DESDE otro sheet (editor de presupuesto,
+     recurrentes, metas…). Debe quedar por encima de cualquiera de ellos —el
+     editor de presupuestos usa z-index 260— o su numpad aparece atenuado detrás
+     del backdrop del editor y los toques cierran el editor en vez de escribir. */
+  .mamt-overlay { z-index: 420; }
   .mamt-sheet {
     background: var(--m-bg, #0f0f10);
     border-radius: 28px 28px 0 0;

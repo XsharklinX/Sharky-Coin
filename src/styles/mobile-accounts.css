@@ -58,7 +58,7 @@
   .macc-sheet-icon { align-items: center; border-radius: 16px; display: flex; flex-shrink: 0; height: 52px; justify-content: center; width: 52px; }
   .macc-sheet-head-info { display: flex; flex-direction: column; gap: 4px; }
   .macc-sheet-head-info small { color: var(--m-muted); font-size: 12px; font-weight: 600; }
-  .macc-sheet-balance { color: var(--m-text); font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+  .macc-sheet-balance { color: var(--m-text); font-size: clamp(20px, 6.8vw, 28px); min-width: 0; overflow-wrap: anywhere; font-weight: 800; letter-spacing: -.02em; }
 
   /* Trend chart */
   .macc-trend-chart { display: flex; gap: 6px; height: 120px; justify-content: space-between; padding-top: 8px; }

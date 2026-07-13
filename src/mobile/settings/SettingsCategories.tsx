@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import { CAT_COLORS } from '@/constants'
-import { useCategoryName, useT } from '@/i18n'
+import { clearCategoryRules, deleteCategoryRule, listCategoryRules, type CategoryRule } from '@/data/bankCsv'
+import { translateCategoryName, useCategoryName, useT } from '@/i18n'
 import { playConfirmSound, playDeleteSound } from '@/lib/sound'
 import type { Category, IconName } from '@/types'
 import { useMobileBackDismiss } from '../useMobileBackDismiss'
 import { useDialogA11y } from '../useDialogA11y'
+import { SheetPortal } from '../SheetPortal'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
 const CAT_ICONS: IconName[] = [
@@ -21,8 +24,22 @@ const CAT_ICONS: IconName[] = [
 export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps) {
   const finance = useFinance()
   const t = useT()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const [catTab,    setCatTab]    = useState<'expense' | 'income'>('expense')
   const [editingCat, setEditingCat] = useState<Category | 'new-expense' | 'new-income' | null>(null)
+  const [rules, setRules] = useState<CategoryRule[]>(() => listCategoryRules())
+
+  const removeRule = (pattern: string) => {
+    deleteCategoryRule(pattern)
+    setRules(listCategoryRules())
+    toast(t('categoryRuleDeletedToast'), { icon: 'trash' })
+  }
+
+  const removeAllRules = () => {
+    clearCategoryRules()
+    setRules([])
+    toast(t('categoryRulesCleared'), { icon: 'trash' })
+  }
 
   useMobileBackDismiss(!!editingCat, () => setEditingCat(null))
 
@@ -60,6 +77,9 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
       <div className="mset-card">
         <SettingsRow icon="tag" iconColor="#c084fc" label={t('categorySettings')}
           onClick={() => onOpen('categories')} />
+        <SettingsRow icon="sliders" iconColor="#5bc0ff" label={t('categoryRulesLabel')}
+          value={rules.length ? t('categoryRulesCountLabel').replace('{n}', String(rules.length)) : undefined}
+          onClick={() => { setRules(listCategoryRules()); onOpen('categoryRules') }} />
       </div>
 
       {activeSheet === 'categories' && (
@@ -88,6 +108,45 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
               onAdd={() => setEditingCat(catTab === 'expense' ? 'new-expense' : 'new-income')}
               onEdit={c => setEditingCat(c)}
             />
+          </div>
+        </SettingsSheet>
+      )}
+
+      {activeSheet === 'categoryRules' && (
+        <SettingsSheet title={t('categoryRulesLabel')} onClose={onClose}>
+          <div className="mset-sheet-body">
+            <p className="mset-legal-intro">{t('categoryRulesIntro')}</p>
+            {rules.length === 0 ? (
+              <p className="mset-cat-empty">{t('noCategoryRulesYet')}</p>
+            ) : (
+              <div className="mset-card" style={{ margin: 0 }}>
+                {rules.map(rule => {
+                  const category = finance.categories.find(c => c.id === rule.categoryId)
+                  return (
+                    <div key={rule.pattern} className="mset-row">
+                      <span className="mset-row-icon" style={{
+                        background: `color-mix(in oklab, ${category?.color ?? '#888'} 16%, transparent)`,
+                        color: category?.color ?? '#888',
+                      }}>
+                        <Icon name={category?.icon ?? 'tag'} size={16} />
+                      </span>
+                      <div className="mset-row-text">
+                        <b>{rule.pattern}</b>
+                        <small>{category ? translateCategoryName(category, lang) : rule.categoryId}</small>
+                      </div>
+                      <button className="mset-suggestion-dismiss" aria-label={t('delete')} onClick={() => removeRule(rule.pattern)}>
+                        <Icon name="close" size={16} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {rules.length > 0 && (
+              <button className="mset-sheet-danger" onClick={removeAllRules}>
+                <Icon name="trash" size={16} /> {t('clearAllRulesLabel')}
+              </button>
+            )}
           </div>
         </SettingsSheet>
       )}
@@ -164,7 +223,9 @@ function CategoryEditor({ category, type, onClose, onSave, onDelete }: {
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true"
+      style={{ zIndex: 320 }}
       aria-label={category ? t('editCategory') : (type === 'expense' ? t('newExpenseCategory') : t('newIncomeCategory'))} onClick={onClose}>
       <section className="mbud-editor-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -194,7 +255,7 @@ function CategoryEditor({ category, type, onClose, onSave, onDelete }: {
               {(CAT_COLORS as readonly string[]).map(c => (
                 <button key={c} className={`mbud-color-dot${color === c ? ' on' : ''}`}
                   aria-label={`${t('color')} ${c}`} aria-pressed={color === c}
-                  style={{ background: c }} onClick={() => setColor(c)} />
+                  style={{ background: c, color: c }} onClick={() => setColor(c)} />
               ))}
             </div>
           </div>
@@ -241,5 +302,6 @@ function CategoryEditor({ category, type, onClose, onSave, onDelete }: {
         </div>
       </section>
     </div>
+    </SheetPortal>
   )
 }

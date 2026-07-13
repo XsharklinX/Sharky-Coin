@@ -5,6 +5,7 @@ import { useFinance } from '@/store/finance'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 import type { CurrencyCode } from '@/types'
 
 export function MobileCurrencySheet({ onClose }: { onClose: () => void }) {
@@ -23,6 +24,7 @@ export function MobileCurrencySheet({ onClose }: { onClose: () => void }) {
   const current = getCurrencyMeta(currency)
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mcur-sheet" onClick={e => e.stopPropagation()}>
         <header>
@@ -73,5 +75,6 @@ export function MobileCurrencySheet({ onClose }: { onClose: () => void }) {
         </p>
       </section>
     </div>
+    </SheetPortal>
   )
 }

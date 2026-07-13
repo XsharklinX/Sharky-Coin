@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { recordAuditEvent } from '@/data/audit'
 import { getAuthRedirectUrl } from '@/lib/authRedirect'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { deriveNumericId } from '@/lib/publicId'
+import { CLOUD_AUTH_ENABLED } from '@/lib/authConfig'
 import { isTauri } from '@/hooks/useTauri'
 import { toast } from '@/components/ui/Toast'
 import { tt } from '@/i18n'
@@ -23,6 +25,9 @@ export interface AuthUser {
   name: string
   email: string
   mode: 'cloud' | 'local'
+  avatarUrl?: string
+  /** ID público de 9 dígitos, estable y propio de cada cuenta cloud. */
+  publicId?: string
 }
 
 interface AuthState {
@@ -45,7 +50,24 @@ interface AuthState {
 const encoder = new TextEncoder()
 let authListenerAttached = false
 let deepLinkListenerAttached = false
+let resumeListenerAttached = false
 let desktopDeepLinkConsumed = false
+// El usuario tocó "Continuar con Google" en ESTA sesión. Solo entonces tiene
+// sentido molestarlo con un toast de error: en Android (launchMode singleTask)
+// `getCurrent()` devuelve el último intent de callback en CADA arranque, así
+// que sin esta guarda salía "no se pudo conectar" cada vez que abrías la app.
+let googleLoginPending = false
+// Códigos OAuth ya intentados: un código caduca tras un solo uso, no hay que
+// reintentar el mismo (viejo) en cada arranque —eso solo genera errores ruido.
+const attemptedAuthCodes = new Set<string>()
+
+function surfaceAuthError(error: unknown): void {
+  log.error('No se pudo completar el enlace de autenticación', error)
+  // Con Google oculto no molestamos con toasts de error de su callback.
+  if (!CLOUD_AUTH_ENABLED || !googleLoginPending) return
+  googleLoginPending = false
+  toast(error instanceof Error ? error.message : tt('couldNotConnectGoogle'), { icon: 'alert', type: 'warn', duration: 6000 })
+}
 
 function bytesToBase64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -82,14 +104,26 @@ function readLocalSession(): AuthUser | null {
     : null
 }
 
+function pickString(meta: Record<string, unknown> | undefined, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = meta?.[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return undefined
+}
+
 function mapCloudUser(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): AuthUser {
   const email = user.email ?? ''
-  const displayName = user.user_metadata?.display_name
+  const meta = user.user_metadata
+  const name = pickString(meta, 'full_name', 'name', 'display_name') ?? email.split('@')[0]
+  const avatarUrl = pickString(meta, 'avatar_url', 'picture')
   return {
     id: user.id,
-    name: typeof displayName === 'string' && displayName.trim() ? displayName.trim() : email.split('@')[0],
+    name,
     email,
     mode: 'cloud',
+    avatarUrl,
+    publicId: deriveNumericId(user.id),
   }
 }
 
@@ -98,22 +132,42 @@ function requireSupabase() {
   return supabase
 }
 
-async function handleAuthCallbackUrls(urls: string[] | null | undefined): Promise<boolean> {
-  if (!supabase || !urls?.length) return false
+/**
+ * Procesa un posible callback OAuth (`sharky://auth/callback?...`).
+ * Devuelve el usuario si el intercambio de código creó sesión, o `null` si el
+ * URL no era un callback o no traía código. Lanza si Google/Supabase
+ * devolvieron un error explícito o si el intercambio falla.
+ */
+async function handleAuthCallbackUrls(urls: string[] | null | undefined): Promise<AuthUser | null> {
+  if (!supabase || !urls?.length) return null
   const callback = urls.find(url => url.startsWith('sharky://auth/callback'))
-  if (!callback) return false
-  const code = new URL(callback).searchParams.get('code')
-  if (!code) return false
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  if (!callback) return null
+
+  const url = new URL(callback)
+  // El código o el error pueden venir en query (?) o en fragment (#).
+  const params = new URLSearchParams(url.search || url.hash.replace(/^#/, ''))
+  const errorDescription = params.get('error_description') ?? params.get('error')
+  if (errorDescription) throw new Error(errorDescription)
+
+  const code = params.get('code')
+  if (!code) return null
+  // Ya intentamos este código (p.ej. el mismo intent viejo que Android reenvía
+  // en cada arranque): no reintentar — el código es de un solo uso.
+  if (attemptedAuthCodes.has(code)) return null
+  attemptedAuthCodes.add(code)
+
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) throw new Error(error.message)
-  return true
+  if (data.session?.user) googleLoginPending = false
+  return data.session?.user ? mapCloudUser(data.session.user) : null
 }
 
-async function consumeInitialAuthDeepLink(): Promise<void> {
+async function consumeInitialAuthDeepLink(setUser: (user: AuthUser) => void): Promise<void> {
   if (!supabase || !isTauri() || desktopDeepLinkConsumed) return
   desktopDeepLinkConsumed = true
   const { getCurrent } = await import('@tauri-apps/plugin-deep-link')
-  await handleAuthCallbackUrls(await getCurrent())
+  const user = await handleAuthCallbackUrls(await getCurrent())
+  if (user) setUser(user)
 }
 
 async function attachRuntimeDeepLinkListener(setUser: (user: AuthUser) => void): Promise<void> {
@@ -122,14 +176,14 @@ async function attachRuntimeDeepLinkListener(setUser: (user: AuthUser) => void):
   const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
   await onOpenUrl(async urls => {
     try {
-      const handled = await handleAuthCallbackUrls(urls)
-      if (!handled) return
-      const { data, error } = await supabase!.auth.getSession()
-      if (error) throw new Error(error.message)
-      if (data.session?.user) setUser(mapCloudUser(data.session.user))
+      const user = await handleAuthCallbackUrls(urls)
+      if (user) setUser(user)
     } catch (error) {
-      log.error('No se pudo completar el enlace de autenticación', error)
-      toast('No se pudo iniciar sesión. Intenta de nuevo.', { icon: 'alert', type: 'warn', duration: 5000 })
+      // El código pudo haberse canjeado ya por otra vía (red de seguridad al
+      // reanudar): si la sesión ya existe, no es un error real.
+      const { data } = await supabase!.auth.getSession()
+      if (data.session?.user) { googleLoginPending = false; setUser(mapCloudUser(data.session.user)); return }
+      surfaceAuthError(error)
     }
   })
 }
@@ -143,13 +197,18 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     if (get().initialized) return
-    if (!supabase) {
+    // Cloud desactivado por producto: no tocar Supabase para nada al
+    // arrancar (ni getSession, ni listeners). La app queda 100% local.
+    if (!CLOUD_AUTH_ENABLED || !supabase) {
       set({ initialized: true })
       return
     }
 
     if (!authListenerAttached) {
       authListenerAttached = true
+      // Un intercambio de código exitoso dispara este listener con SIGNED_IN,
+      // así que la sesión queda reflejada aunque el deep link se procese por
+      // cualquiera de las vías (inicial, runtime o red de seguridad).
       supabase.auth.onAuthStateChange((event, session) => {
         if (session?.user) set({
           user: mapCloudUser(session.user),
@@ -160,11 +219,48 @@ export const useAuth = create<AuthState>((set, get) => ({
       })
     }
 
+    // Red de seguridad (Android): al volver del navegador externo, algunos
+    // dispositivos no entregan el deep link por `onOpenUrl`. Al recuperar el
+    // foco revisamos si ya hay sesión y, si no, reintentamos consumir el deep
+    // link pendiente. Idempotente: si ya hay sesión cloud, no hace nada.
+    // Activo SIEMPRE (no solo con Google): los enlaces de confirmar correo y
+    // de recuperar contraseña llegan por el mismo sharky://auth/callback.
+    if (isTauri() && !resumeListenerAttached) {
+      resumeListenerAttached = true
+      const recheckOnResume = async () => {
+        if (document.visibilityState !== 'visible' || !supabase) return
+        if (get().user?.mode === 'cloud') return
+        try {
+          const { data } = await supabase.auth.getSession()
+          if (data.session?.user) { googleLoginPending = false; set({ user: mapCloudUser(data.session.user), initialized: true }); return }
+          const { getCurrent } = await import('@tauri-apps/plugin-deep-link')
+          const user = await handleAuthCallbackUrls(await getCurrent())
+          // recoveryMode se preserva: PASSWORD_RECOVERY pudo haberlo activado.
+          if (user) set({ user, initialized: true })
+        } catch (error) {
+          // Solo se muestra si el usuario inició login en esta sesión
+          // (surfaceAuthError lo verifica), para no molestar en cada arranque.
+          surfaceAuthError(error)
+        }
+      }
+      document.addEventListener('visibilitychange', () => void recheckOnResume())
+    }
+
+    // Procesar el deep link de auth SIEMPRE: además del OAuth de Google, por
+    // aquí entran la confirmación de correo y la recuperación de contraseña.
+    // Los códigos ya intentados se dedupen y los toasts siguen condicionados,
+    // así que esto no reintroduce el aviso fantasma en cada arranque.
     try {
-      await attachRuntimeDeepLinkListener(user => set({ user, initialized: true, recoveryMode: false }))
-      await consumeInitialAuthDeepLink()
+      // No tocar recoveryMode aquí: si el código canjeado era de recuperación
+      // de contraseña, onAuthStateChange (PASSWORD_RECOVERY) ya lo puso en
+      // true y este set NO debe pisarlo.
+      await attachRuntimeDeepLinkListener(user => set({ user, initialized: true }))
+      await consumeInitialAuthDeepLink(user => set({ user, initialized: true }))
     } catch (error) {
-      log.error('No se pudo completar el enlace de autenticación', error)
+      // Arranque en frío desde el deep link: solo se avisa si el usuario inició
+      // el login en esta sesión y no acabó habiendo sesión de todos modos.
+      const { data } = await supabase.auth.getSession()
+      if (!data.session?.user) surfaceAuthError(error)
     }
 
     const { data, error } = await supabase.auth.getSession()
@@ -208,6 +304,9 @@ export const useAuth = create<AuthState>((set, get) => ({
       options: { redirectTo, skipBrowserRedirect: isTauri() },
     })
     if (error) throw new Error(error.message)
+    // A partir de aquí sí queremos avisar si el callback falla: el usuario
+    // inició el login activamente en esta sesión.
+    googleLoginPending = true
     if (isTauri() && data.url) {
       const { openUrl } = await import('@tauri-apps/plugin-opener')
       await openUrl(data.url)

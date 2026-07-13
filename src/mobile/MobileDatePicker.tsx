@@ -4,6 +4,7 @@ import { localToday } from '@/data/helpers'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 
 function parseDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -64,6 +65,7 @@ export function MobileDatePicker({
   while (cells.length % 7 !== 0) cells.push(null)
 
   return (
+    <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={onClose}>
       <section className="mdp-sheet" onClick={e => e.stopPropagation()}>
 
@@ -114,5 +116,6 @@ export function MobileDatePicker({
 
       </section>
     </div>
+    </SheetPortal>
   )
 }

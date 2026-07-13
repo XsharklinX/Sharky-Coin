@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -31,33 +32,47 @@ class MainActivity : TauriActivity() {
   }
 
   /**
-   * Si el usuario abrió $harky desde "Compartir" con una foto o un PDF (recibo),
-   * copia el archivo a la carpeta de caché de la app y deja un marcador
-   * (`shared/pending.json`) que el lado Rust/JS consume una sola vez vía
-   * el comando `take_pending_shared_file`.
+   * Si el usuario abrió $harky desde "Compartir" con una o varias fotos/PDFs
+   * (recibos), copia los archivos a la carpeta de caché de la app y deja un
+   * marcador (`shared/pending.json`, siempre un ARRAY aunque sea un solo
+   * archivo) que el lado Rust/JS consume una sola vez vía el comando
+   * `take_pending_shared_files`.
    */
   private fun handleShareIntent(intent: Intent?) {
-    if (intent == null || intent.action != Intent.ACTION_SEND) return
+    if (intent == null) return
     val mimeType = intent.type ?: return
     if (!(mimeType.startsWith("image/") || mimeType == "application/pdf")) return
-    val uri = sharedStreamUri(intent) ?: return
+
+    val uris: List<Uri> = when (intent.action) {
+      Intent.ACTION_SEND -> listOfNotNull(sharedStreamUri(intent))
+      Intent.ACTION_SEND_MULTIPLE -> sharedStreamUris(intent)
+      else -> return
+    }
+    if (uris.isEmpty()) return
 
     try {
       val sharedDir = File(cacheDir, "shared").apply { mkdirs() }
-      val name = displayNameFor(uri) ?: "recibo-${System.currentTimeMillis()}"
-      val destFile = File(sharedDir, "${System.currentTimeMillis()}_$name")
-      contentResolver.openInputStream(uri)?.use { input ->
-        FileOutputStream(destFile).use { output -> input.copyTo(output) }
-      } ?: return
+      val markers = JSONArray()
+      uris.forEachIndexed { index, uri ->
+        val name = displayNameFor(uri) ?: "recibo-${System.currentTimeMillis()}-$index"
+        val destFile = File(sharedDir, "${System.currentTimeMillis()}_${index}_$name")
+        val copied = contentResolver.openInputStream(uri)?.use { input ->
+          FileOutputStream(destFile).use { output -> input.copyTo(output) }
+          true
+        } ?: false
+        if (!copied) return@forEachIndexed
 
-      val marker = JSONObject().apply {
-        put("path", destFile.absolutePath)
-        put("mimeType", mimeType)
-        put("name", name)
+        markers.put(JSONObject().apply {
+          put("path", destFile.absolutePath)
+          put("mimeType", mimeType)
+          put("name", name)
+        })
       }
-      File(sharedDir, "pending.json").writeText(marker.toString())
+      if (markers.length() > 0) {
+        File(sharedDir, "pending.json").writeText(markers.toString())
+      }
     } catch (_: Exception) {
-      // Si algo falla al copiar el archivo compartido, lo ignoramos silenciosamente
+      // Si algo falla al copiar los archivos compartidos, lo ignoramos silenciosamente
     }
   }
 
@@ -67,6 +82,14 @@ class MainActivity : TauriActivity() {
     } else {
       @Suppress("DEPRECATION")
       intent.getParcelableExtra(Intent.EXTRA_STREAM)
+    }
+
+  private fun sharedStreamUris(intent: Intent): List<Uri> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java) ?: emptyList()
+    } else {
+      @Suppress("DEPRECATION")
+      intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM) ?: emptyList()
     }
 
   private fun displayNameFor(uri: Uri): String? =

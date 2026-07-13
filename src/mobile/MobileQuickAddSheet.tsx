@@ -10,6 +10,7 @@ import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } fr
 import type { IconName } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 
 type QuickAddMode = 'expense' | 'income'
 
@@ -175,6 +176,7 @@ export function MobileQuickAddSheet({
   const accountPickerRef = useDialogA11y<HTMLDivElement>(() => setAccountPicker(false), accountPicker)
 
   return (
+    <SheetPortal>
     <div
       ref={dialogRef}
       className="mobile-detail-sheet"
@@ -327,5 +329,6 @@ export function MobileQuickAddSheet({
         </div>
       )}
     </div>
+    </SheetPortal>
   )
 }

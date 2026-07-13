@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 import { toast } from '@/components/ui/Toast'
 import { currentMonthKey, dateLocale, fmt, localToday } from '@/data/helpers'
 import { detectSubscriptions, type SubscriptionInsight } from '@/data/financeIntelligence'
 import { CURRENCIES } from '@/data/seed'
 import { SUBSCRIPTION_CATALOG, suggestedCategoryId, type SubscriptionCatalogItem } from '@/data/subscriptionCatalog'
+import { initialRecurringDates } from '@/data/subscriptionSchedule'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -14,12 +16,37 @@ import { MobileAmountSheet } from './MobileAmountSheet'
 import { MobileTextSheet } from './MobileTextSheet'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 import type { Account, Category, CurrencyCode, IconName, RecurrenceFrequency, Transaction } from '@/types'
 
 const today = localToday
 
 const ACCT_ICONS: Record<string, IconName> = {
   cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
+}
+
+// Días de la semana empezando en lunes, con su índice JS (0=Dom … 6=Sáb).
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+function weekdayShortLabels(locale: string): string[] {
+  // 2024-01-01 fue lunes: generamos etiquetas cortas localizadas lunes→domingo.
+  return Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: 'short' }).replace('.', '').slice(0, 3))
+}
+
+type SubscriptionFormFields = {
+  note: string
+  amount: number
+  categoryId: string
+  accountId: string
+  recurring: RecurrenceFrequency
+  chargeWeekday: number | null
+  chargeMonthDay: number | null
+  serviceId?: string
+}
+
+function lacksFunds(account: Account, amount: number): boolean {
+  if (account.type === 'credit') return false
+  return account.balance < amount
 }
 
 function nextLabel(tx: Transaction, locale: string): string {
@@ -66,6 +93,7 @@ export function MobileSubscriptions() {
   const weekly    = recurring.filter(tx => tx.recurring === 'weekly')
 
   const totalMonthly = recurring.reduce((s, tx) => s + monthlyEquivalent(tx), 0)
+  const totalAnnual = totalMonthly * 12
   const nextRecurring = [...recurring].sort((a, b) => (a.recurringNext ?? a.date).localeCompare(b.recurringNext ?? b.date))[0]
 
   const dismissed = useSubscriptionDismissals(state => state.dismissed)
@@ -99,8 +127,8 @@ export function MobileSubscriptions() {
     setSheet(null)
   }
 
-  const handleConvert = (fields: { note: string; amount: number; categoryId: string; accountId: string; recurring: RecurrenceFrequency }) => {
-    const start = today()
+  const handleConvert = (fields: SubscriptionFormFields) => {
+    const { start, next } = initialRecurringDates(fields.recurring, fields.chargeWeekday, fields.chargeMonthDay)
     try {
       addTx({
         type: 'expense',
@@ -111,7 +139,7 @@ export function MobileSubscriptions() {
         accountId: fields.accountId,
         recurring: fields.recurring,
         recurringStart: start,
-        recurringNext: advanceRecurrenceDate(start, fields.recurring),
+        recurringNext: next,
       })
       toast(t('scheduledAsRecurringToast').replace('{name}', fields.note), { icon: 'check', type: 'ok' })
       setConverting(null)
@@ -120,8 +148,8 @@ export function MobileSubscriptions() {
     }
   }
 
-  const handleAddSubscription = (fields: { note: string; amount: number; categoryId: string; accountId: string; recurring: RecurrenceFrequency }) => {
-    const start = today()
+  const handleAddSubscription = (fields: SubscriptionFormFields) => {
+    const { start, next } = initialRecurringDates(fields.recurring, fields.chargeWeekday, fields.chargeMonthDay)
     try {
       addTx({
         type: 'expense',
@@ -132,7 +160,8 @@ export function MobileSubscriptions() {
         accountId: fields.accountId,
         recurring: fields.recurring,
         recurringStart: start,
-        recurringNext: advanceRecurrenceDate(start, fields.recurring),
+        recurringNext: next,
+        serviceId: fields.serviceId,
       })
       toast(t('subscriptionAddedToast').replace('{name}', fields.note), { icon: 'check', type: 'ok' })
       setAdding(false)
@@ -178,6 +207,7 @@ export function MobileSubscriptions() {
             <div className="msub-hero-amount">{fmt(totalMonthly, currency)}</div>
             <div className="msub-hero-count">
               {t(recurring.length === 1 ? 'recurringPaymentSingular' : 'recurringPaymentPlural').replace('{n}', String(recurring.length))}
+              {' · '}{t('annualEquivalentLabel').replace('{amount}', fmt(totalAnnual, currency))}
             </div>
           </div>
           <span className="msub-hero-icon">
@@ -226,6 +256,7 @@ export function MobileSubscriptions() {
 
       {/* Action sheet */}
       {sheet && (
+        <SheetPortal>
         <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={sheet.tx.note} onClick={() => setSheet(null)}>
           <section className="msub-sheet" onClick={e => e.stopPropagation()}>
             <header>
@@ -266,6 +297,7 @@ export function MobileSubscriptions() {
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {/* Convert detected subscription to recurrence */}
@@ -339,7 +371,7 @@ function ConvertSheet({ dialogRef, insight, categories, accounts, currency, lang
   lang: 'en' | 'es'
   t: ReturnType<typeof useT>
   onClose: () => void
-  onConfirm: (fields: { note: string; amount: number; categoryId: string; accountId: string; recurring: RecurrenceFrequency }) => void
+  onConfirm: (fields: SubscriptionFormFields) => void
 }) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
@@ -392,16 +424,26 @@ function Section({ title, txs, categories, accounts, currency, locale, lang, t, 
         const cat  = categories.find(c => c.id === tx.categoryId)
         const acct = accounts.find(a => a.id === tx.accountId)
         const isPast = (tx.recurringNext ?? tx.date) < today()
+        const service = tx.serviceId ? SUBSCRIPTION_CATALOG.find(c => c.id === tx.serviceId) : undefined
+        const chipColor = service?.color ?? cat?.color ?? '#888'
+        const lowFunds = tx.type === 'expense' && !!acct && lacksFunds(acct, tx.amount)
         return (
           <button key={tx.id} className="msub-row" onClick={() => onOpen(tx)}>
-            <span className="msub-cat-icon" style={{ background: (cat?.color ?? '#888') + '22', color: cat?.color ?? '#888' }}>
-              <Icon name={cat?.icon ?? 'repeat'} size={20} />
-            </span>
+            {service?.logoSlug ? (
+              <span className="msub-cat-icon brand">
+                <BrandLogo slug={service.logoSlug} size={24} />
+              </span>
+            ) : (
+              <span className="msub-cat-icon" style={{ background: chipColor + '22', color: chipColor }}>
+                <Icon name={service?.icon ?? cat?.icon ?? 'repeat'} size={20} />
+              </span>
+            )}
             <div className="msub-row-info">
               <b>{tx.note || (cat ? translateCategoryName(cat, lang) : '—')}</b>
               <small>
                 {t('nextAbbrev')} {nextLabel(tx, locale)}
                 {isPast && <span className="msub-overdue"> · {t('overdueLabel')}</span>}
+                {lowFunds && <span className="msub-lowfunds"> · {t('lowFundsWarningShort')}</span>}
                 {acct && <> · <span style={{ color: acct.color }}>●</span> {acct.short}</>}
               </small>
             </div>
@@ -409,6 +451,7 @@ function Section({ title, txs, categories, accounts, currency, locale, lang, t, 
               <strong className={tx.type === 'expense' ? 'text-expense' : 'text-income'}>
                 {tx.type === 'expense' ? '−' : '+'}{fmt(tx.amount, currency)}
               </strong>
+              <small>{t('annualEquivalentLabel').replace('{amount}', fmt(monthlyEquivalent(tx) * 12, currency))}</small>
             </div>
           </button>
         )
@@ -425,13 +468,14 @@ function AddSubscriptionSheet({ dialogRef, categories, accounts, currency, lang,
   lang: 'en' | 'es'
   t: ReturnType<typeof useT>
   onClose: () => void
-  onConfirm: (fields: { note: string; amount: number; categoryId: string; accountId: string; recurring: RecurrenceFrequency }) => void
+  onConfirm: (fields: SubscriptionFormFields) => void
 }) {
   const [picked, setPicked] = useState<{ item: SubscriptionCatalogItem | null } | null>(null)
 
   if (!picked) {
     return (
-      <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('addSubscriptionLabel')} onClick={onClose}>
+      <SheetPortal>
+      <div ref={dialogRef} className="mobile-detail-sheet centered" role="dialog" aria-modal="true" aria-label={t('addSubscriptionLabel')} onClick={onClose}>
         <section className="msub-picker-sheet" onClick={e => e.stopPropagation()}>
           <header>
             <span>{t('chooseServiceLabel')}</span>
@@ -444,9 +488,15 @@ function AddSubscriptionSheet({ dialogRef, categories, accounts, currency, lang,
           <div className="msub-catalog-grid">
             {SUBSCRIPTION_CATALOG.map(item => (
               <button key={item.id} className="msub-catalog-item" onClick={() => setPicked({ item })}>
-                <span className="msub-catalog-icon" style={{ background: item.color + '22', color: item.color }}>
-                  <Icon name={item.icon} size={22} />
-                </span>
+                {item.logoSlug ? (
+                  <span className="msub-catalog-icon brand">
+                    <BrandLogo slug={item.logoSlug} size={28} />
+                  </span>
+                ) : (
+                  <span className="msub-catalog-icon" style={{ background: item.color + '22', color: item.color }}>
+                    <Icon name={item.icon} size={22} />
+                  </span>
+                )}
                 <span>{item.name}</span>
               </button>
             ))}
@@ -459,6 +509,7 @@ function AddSubscriptionSheet({ dialogRef, categories, accounts, currency, lang,
           </div>
         </section>
       </div>
+      </SheetPortal>
     )
   }
 
@@ -478,7 +529,7 @@ function AddSubscriptionForm({ dialogRef, item, categories, accounts, currency, 
   t: ReturnType<typeof useT>
   onClose: () => void
   onBack: () => void
-  onConfirm: (fields: { note: string; amount: number; categoryId: string; accountId: string; recurring: RecurrenceFrequency }) => void
+  onConfirm: (fields: SubscriptionFormFields) => void
 }) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
@@ -487,9 +538,15 @@ function AddSubscriptionForm({ dialogRef, item, categories, accounts, currency, 
       dialogRef={dialogRef}
       title={item?.name ?? t('customServiceLabel')}
       preview={item && (
-        <div className="msub-catalog-preview" style={{ background: item.color + '22', color: item.color }}>
-          <Icon name={item.icon} size={22} />
-        </div>
+        item.logoSlug ? (
+          <div className="msub-catalog-preview brand">
+            <BrandLogo slug={item.logoSlug} size={24} />
+          </div>
+        ) : (
+          <div className="msub-catalog-preview" style={{ background: item.color + '22', color: item.color }}>
+            <Icon name={item.icon} size={22} />
+          </div>
+        )
       )}
       confirmLabel={t('createRecurrenceLabel')}
       categories={categories}
@@ -502,6 +559,7 @@ function AddSubscriptionForm({ dialogRef, item, categories, accounts, currency, 
       initialCategoryId={item ? suggestedCategoryId(item.categoryHint, categories) : (expenseCategories[0]?.id ?? '')}
       initialAccountId={accounts[0]?.id ?? ''}
       initialFrequency="monthly"
+      initialServiceId={item?.id}
       onClose={onClose}
       onBack={onBack}
       onConfirm={onConfirm}
@@ -513,7 +571,7 @@ type RecurringFormSub = 'amount' | 'name' | 'account' | 'category' | null
 
 function RecurringTxForm({
   dialogRef, title, preview, hint, confirmLabel, categories, accounts, currency, lang, t,
-  initialNote, initialAmount, initialCategoryId, initialAccountId, initialFrequency,
+  initialNote, initialAmount, initialCategoryId, initialAccountId, initialFrequency, initialServiceId,
   onClose, onBack, onConfirm,
 }: {
   dialogRef: React.RefObject<HTMLDivElement>
@@ -531,9 +589,10 @@ function RecurringTxForm({
   initialCategoryId: string
   initialAccountId: string
   initialFrequency: RecurrenceFrequency
+  initialServiceId?: string
   onClose: () => void
   onBack?: () => void
-  onConfirm: (fields: { note: string; amount: number; categoryId: string; accountId: string; recurring: RecurrenceFrequency }) => void
+  onConfirm: (fields: SubscriptionFormFields) => void
 }) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
   const [note, setNote] = useState(initialNote)
@@ -541,6 +600,8 @@ function RecurringTxForm({
   const [categoryId, setCategoryId] = useState(initialCategoryId)
   const [accountId, setAccountId] = useState(initialAccountId)
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(initialFrequency)
+  const [chargeWeekday, setChargeWeekday] = useState<number | null>(null)
+  const [chargeMonthDay, setChargeMonthDay] = useState<number | null>(null)
   const [sub, setSub] = useState<RecurringFormSub>(null)
 
   useMobileBackDismiss(sub !== null, () => setSub(null))
@@ -550,10 +611,13 @@ function RecurringTxForm({
   const canSave = note.trim().length > 0 && amount > 0 && !!categoryId && !!accountId
   const pfx = CURRENCIES[currency].symbol
   const arrow = <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+  const weekdayLabels = useMemo(() => weekdayShortLabels(dateLocale(lang)), [lang])
+  const annualEquivalent = amount > 0 ? amount * (frequency === 'weekly' ? 52 : 12) : 0
 
   return (
     <>
-      <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
+      <SheetPortal>
+      <div ref={dialogRef} className="mobile-detail-sheet centered" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
         <section className="msub-form-sheet" onClick={e => e.stopPropagation()}>
           <header>
             <span>{title}</span>
@@ -569,7 +633,9 @@ function RecurringTxForm({
                   ? `${pfx} ${amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[currency].decimals, maximumFractionDigits: CURRENCIES[currency].decimals })}`
                   : `${pfx} 0`}
               </span>
-              <span className="txf-amount-tap">{t('tapToEditLabel')}</span>
+              <span className="txf-amount-tap">
+                {amount > 0 ? t('annualEquivalentLabel').replace('{amount}', fmt(annualEquivalent, currency)) : t('tapToEditLabel')}
+              </span>
             </button>
 
             <div className="mpr-form-rows txf-rows">
@@ -624,17 +690,66 @@ function RecurringTxForm({
               </div>
             </div>
 
+            {frequency === 'weekly' && (
+              <div className="msub-chargeday">
+                <span className="mpr-form-row-label">{t('chargeDayLabel')}</span>
+                <div className="msub-weekday-row">
+                  {WEEKDAY_ORDER.map((wd, i) => {
+                    const on = chargeWeekday === wd
+                    return (
+                      <button
+                        key={wd}
+                        type="button"
+                        className={`msub-weekday${on ? ' on' : ''}`}
+                        onClick={() => setChargeWeekday(on ? null : wd)}
+                      >
+                        {weekdayLabels[i]}
+                      </button>
+                    )
+                  })}
+                </div>
+                <small className="msub-chargeday-hint">
+                  {chargeWeekday === null ? t('chargeDayAnyHint') : t('chargeDayPickedHint')}
+                </small>
+              </div>
+            )}
+
+            {frequency === 'monthly' && (
+              <div className="msub-chargeday">
+                <span className="mpr-form-row-label">{t('chargeDayLabel')}</span>
+                <div className="msub-monthday-grid">
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
+                    const on = chargeMonthDay === day
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`msub-monthday${on ? ' on' : ''}`}
+                        onClick={() => setChargeMonthDay(on ? null : day)}
+                      >
+                        {day}
+                      </button>
+                    )
+                  })}
+                </div>
+                <small className="msub-chargeday-hint">
+                  {chargeMonthDay === null ? t('chargeDayMonthlyAnyHint') : t('chargeDayMonthlyPickedHint')}
+                </small>
+              </div>
+            )}
+
             {hint}
           </div>
           <div className="msub-form-actions">
             <button className="msub-form-cancel" onClick={onBack ?? onClose}>{onBack ? t('back') : t('cancel')}</button>
             <button className="msub-form-save" disabled={!canSave}
-              onClick={() => onConfirm({ note: note.trim(), amount, categoryId, accountId, recurring: frequency })}>
+              onClick={() => onConfirm({ note: note.trim(), amount, categoryId, accountId, recurring: frequency, chargeWeekday, chargeMonthDay, serviceId: initialServiceId })}>
               {confirmLabel}
             </button>
           </div>
         </section>
       </div>
+      </SheetPortal>
 
       {sub === 'amount' && (
         <MobileAmountSheet
@@ -657,7 +772,8 @@ function RecurringTxForm({
       )}
 
       {sub === 'account' && (
-        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+        <SheetPortal>
+        <div className="mobile-detail-sheet" style={{ zIndex: 420 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('selectAccount')}</span>
@@ -681,10 +797,12 @@ function RecurringTxForm({
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {sub === 'category' && (
-        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+        <SheetPortal>
+        <div className="mobile-detail-sheet" style={{ zIndex: 420 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
           <section className="msub-picker-sheet" onClick={e => e.stopPropagation()}>
             <header>
               <span>{t('selectCategory')}</span>
@@ -710,6 +828,7 @@ function RecurringTxForm({
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
     </>
   )

@@ -24,6 +24,7 @@ export interface SyncConflict {
 interface SyncMetadata {
   baseline: Baseline
   lastSyncAt?: string
+  version?: number
 }
 
 interface CloudSyncState {
@@ -39,6 +40,14 @@ interface CloudSyncState {
 
 const META_KEY_PREFIX = 'sharky-cloud-sync-v1:'
 const TOMBSTONE = '__deleted__'
+/**
+ * Versión del formato de baseline. v2 = fingerprint estable + mappers con
+ * todos los campos del modelo. Los baselines anteriores (sin versión) se
+ * generaron con un formato que perdía campos y era sensible al orden de
+ * claves: al detectarlos, el sync entra en "modo semilla" (local gana) en
+ * lugar de producir una oleada de conflictos falsos o pisar datos locales.
+ */
+const BASELINE_VERSION = 2
 
 function metadataKey(userId: string): string {
   return `${META_KEY_PREFIX}${userId}`
@@ -69,8 +78,26 @@ function replaceEntity<T extends { id: string }>(arr: T[], id: string, entity: T
   return index >= 0 ? arr.map((item, i) => (i === index ? entity : item)) : [...arr, entity]
 }
 
+/**
+ * Serialización canónica para fingerprints: claves ordenadas recursivamente,
+ * y tratando como "ausentes" `undefined`, `null` y arrays vacíos. El
+ * `JSON.stringify` plano anterior dependía del orden de inserción de las
+ * claves y distinguía `tags: []`/`recurring: null` de la clave omitida, así
+ * que la misma entidad restaurada de un backup (o reconstruida por el mapper
+ * remoto) generaba conflictos falsos en cada sync.
+ */
+export function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`)
+  return `{${entries.join(',')}}`
+}
+
 function fingerprint(entity: SyncEntity | undefined): string {
-  return entity ? JSON.stringify(entity) : TOMBSTONE
+  return entity ? stableStringify(entity) : TOMBSTONE
 }
 
 function byId<T extends { id: string }>(entities: T[]): Map<string, T> {
@@ -92,8 +119,11 @@ function accountFromRow(row: Record<string, unknown>): Account {
     color: String(row.color),
     balance: Number(row.balance),
     last4: row.last_four ? String(row.last_four) : null,
-    ...(row.credit_limit === null ? {} : { limit: Number(row.credit_limit) }),
+    ...(row.credit_limit === null || row.credit_limit === undefined ? {} : { limit: Number(row.credit_limit) }),
     ...(row.overdraft_policy ? { overdraftPolicy: row.overdraft_policy as Account['overdraftPolicy'] } : {}),
+    ...(row.opening_balance === null || row.opening_balance === undefined ? {} : { openingBalance: Number(row.opening_balance) }),
+    ...(row.include_in_total === null || row.include_in_total === undefined ? {} : { includeInTotal: Boolean(row.include_in_total) }),
+    ...(row.currency ? { currency: row.currency as Account['currency'] } : {}),
   }
 }
 
@@ -105,8 +135,9 @@ function categoryFromRow(row: Record<string, unknown>): Category {
     color: String(row.color),
     budget: Number(row.budget),
     icon: row.icon as Category['icon'],
-    ...(row.weekly_budget === null ? {} : { weeklyBudget: Number(row.weekly_budget) }),
-    ...(row.annual_budget === null ? {} : { annualBudget: Number(row.annual_budget) }),
+    ...(row.weekly_budget === null || row.weekly_budget === undefined ? {} : { weeklyBudget: Number(row.weekly_budget) }),
+    ...(row.annual_budget === null || row.annual_budget === undefined ? {} : { annualBudget: Number(row.annual_budget) }),
+    ...(row.rollover_enabled === null || row.rollover_enabled === undefined ? {} : { rolloverEnabled: Boolean(row.rollover_enabled) }),
   }
 }
 
@@ -119,6 +150,9 @@ function goalFromRow(row: Record<string, unknown>): Goal {
     color: String(row.color),
     icon: row.icon as Goal['icon'],
     ...(row.deadline ? { deadline: String(row.deadline) } : {}),
+    ...(row.auto_contribute && typeof row.auto_contribute === 'object'
+      ? { autoContribute: row.auto_contribute as Goal['autoContribute'] }
+      : {}),
   }
 }
 
@@ -131,12 +165,15 @@ function transactionFromRow(row: Record<string, unknown>, remoteToLocal: Map<str
     note: String(row.note),
     ...(row.category_id ? { categoryId: remoteToLocal.get(String(row.category_id)) } : {}),
     ...(row.account_id ? { accountId: remoteToLocal.get(String(row.account_id)) } : {}),
+    ...(Array.isArray(row.splits) && row.splits.length ? { splits: row.splits as Transaction['splits'] } : {}),
     ...(row.from_account_id ? { fromAccount: remoteToLocal.get(String(row.from_account_id)) } : {}),
     ...(row.to_account_id ? { toAccount: remoteToLocal.get(String(row.to_account_id)) } : {}),
+    ...(row.to_amount === null || row.to_amount === undefined ? {} : { toAmount: Number(row.to_amount) }),
     ...(row.recurring ? { recurring: row.recurring as Transaction['recurring'] } : {}),
     ...(row.recurring_start ? { recurringStart: String(row.recurring_start) } : {}),
     ...(row.recurring_end ? { recurringEnd: String(row.recurring_end) } : {}),
     ...(row.recurring_next ? { recurringNext: String(row.recurring_next) } : {}),
+    ...(Array.isArray(row.skipped_dates) && row.skipped_dates.length ? { skippedDates: row.skipped_dates.map(String) } : {}),
     ...(Array.isArray(row.tags) && row.tags.length ? { tags: row.tags.map(String) } : {}),
   }
 }
@@ -209,6 +246,36 @@ export function mergeTable<T extends SyncEntity>(
   return { merged: [...merged.values()], push, removeRemote, conflicts, nextBaseline }
 }
 
+/**
+ * Plan "semilla": este dispositivo gana. Se usa cuando el baseline local fue
+ * generado por el motor v1 (que perdía campos al hacer round-trip): la copia
+ * en la nube es incompleta por definición, así que se sube todo lo local, se
+ * marca tombstone en lo que solo exista remoto, y NO se baja nada.
+ */
+function seedPlan<T extends SyncEntity>(
+  local: T[],
+  remoteRows: Record<string, unknown>[],
+): { merged: T[]; push: T[]; removeRemote: string[]; conflicts: SyncConflict[]; nextBaseline: Record<string, string> } {
+  const localIds = new Set(local.map(entity => entity.id))
+  const removeRemote = remoteRows
+    .filter(row => !row.deleted_at && row.local_id && !localIds.has(String(row.local_id)))
+    .map(row => String(row.local_id))
+  const nextBaseline: Record<string, string> = {}
+  local.forEach(entity => { nextBaseline[entity.id] = fingerprint(entity) })
+  return { merged: local, push: [...local], removeRemote, conflicts: [], nextBaseline }
+}
+
+function planTable<T extends SyncEntity>(
+  seedMode: boolean,
+  table: SyncTable,
+  local: T[],
+  remoteRows: Record<string, unknown>[],
+  fromRow: (row: Record<string, unknown>) => T,
+  baseline: Record<string, string>,
+): ReturnType<typeof mergeTable<T>> {
+  return seedMode ? seedPlan(local, remoteRows) : mergeTable(table, local, remoteRows, fromRow, baseline)
+}
+
 async function readRows(table: SyncTable): Promise<Record<string, unknown>[]> {
   if (!supabase) throw new Error(tt('errCloudNotConfigured'))
   const { data, error } = await supabase.from(table).select('*')
@@ -237,33 +304,45 @@ async function synchronize(): Promise<{ lastSyncAt: string; conflicts: SyncConfl
   const metadata = readMetadata(userId)
   const baseline = metadata.baseline ?? {}
   const conflicts: SyncConflict[] = []
+  // Baseline creado por el motor v1 (formato con pérdida de campos): la copia
+  // remota no es confiable — se resiembra desde este dispositivo.
+  const seedMode = !!metadata.lastSyncAt && metadata.version !== BASELINE_VERSION
 
   const accountRows = await readRows('accounts')
-  const accountPlan = mergeTable('accounts', state.accounts, accountRows, accountFromRow, baseline.accounts ?? {})
+  const accountPlan = planTable(seedMode, 'accounts', state.accounts, accountRows, accountFromRow, baseline.accounts ?? {})
   await upsert('accounts', accountPlan.push.map(account => ({
     user_id: userId, local_id: account.id, name: account.name, short_name: account.short,
     account_type: account.type, color: account.color, balance: account.balance,
     last_four: account.last4, credit_limit: account.limit ?? null,
-    overdraft_policy: account.overdraftPolicy ?? null, deleted_at: null,
+    overdraft_policy: account.overdraftPolicy ?? null,
+    opening_balance: account.openingBalance ?? null,
+    include_in_total: account.includeInTotal ?? null,
+    currency: account.currency ?? null,
+    deleted_at: null,
   })))
   await tombstone('accounts', accountPlan.removeRemote)
   conflicts.push(...accountPlan.conflicts)
 
   const categoryRows = await readRows('categories')
-  const categoryPlan = mergeTable('categories', state.categories, categoryRows, categoryFromRow, baseline.categories ?? {})
+  const categoryPlan = planTable(seedMode, 'categories', state.categories, categoryRows, categoryFromRow, baseline.categories ?? {})
   await upsert('categories', categoryPlan.push.map(category => ({
     user_id: userId, local_id: category.id, name: category.name, category_type: category.type,
     color: category.color, budget: category.budget, weekly_budget: category.weeklyBudget ?? null,
-    annual_budget: category.annualBudget ?? null, icon: category.icon, deleted_at: null,
+    annual_budget: category.annualBudget ?? null, icon: category.icon,
+    rollover_enabled: category.rolloverEnabled ?? null,
+    deleted_at: null,
   })))
   await tombstone('categories', categoryPlan.removeRemote)
   conflicts.push(...categoryPlan.conflicts)
 
   const goalRows = await readRows('goals')
-  const goalPlan = mergeTable('goals', state.goals, goalRows, goalFromRow, baseline.goals ?? {})
+  const goalPlan = planTable(seedMode, 'goals', state.goals, goalRows, goalFromRow, baseline.goals ?? {})
   await upsert('goals', goalPlan.push.map(goal => ({
     user_id: userId, local_id: goal.id, name: goal.name, target: goal.target, saved: goal.saved,
-    color: goal.color, icon: goal.icon, deadline: goal.deadline ?? null, deleted_at: null,
+    color: goal.color, icon: goal.icon, deadline: goal.deadline ?? null,
+    // jsonb con IDs locales (fromAccountId) — consistente en ambas direcciones
+    auto_contribute: goal.autoContribute ?? null,
+    deleted_at: null,
   })))
   await tombstone('goals', goalPlan.removeRemote)
   conflicts.push(...goalPlan.conflicts)
@@ -281,7 +360,8 @@ async function synchronize(): Promise<{ lastSyncAt: string; conflicts: SyncConfl
   })
 
   const transactionRows = await readRows('transactions')
-  const transactionPlan = mergeTable(
+  const transactionPlan = planTable(
+    seedMode,
     'transactions',
     state.transactions,
     transactionRows,
@@ -293,17 +373,22 @@ async function synchronize(): Promise<{ lastSyncAt: string; conflicts: SyncConfl
     amount: transaction.amount, transaction_date: transaction.date, note: transaction.note,
     category_id: transaction.categoryId ? localToRemote.get(transaction.categoryId) : null,
     account_id: transaction.accountId ? localToRemote.get(transaction.accountId) : null,
+    // jsonb con IDs locales de categoría — consistente en ambas direcciones
+    splits: transaction.splits ?? null,
     from_account_id: transaction.fromAccount ? localToRemote.get(transaction.fromAccount) : null,
     to_account_id: transaction.toAccount ? localToRemote.get(transaction.toAccount) : null,
+    to_amount: transaction.toAmount ?? null,
     recurring: transaction.recurring ?? null, recurring_start: transaction.recurringStart ?? null,
     recurring_end: transaction.recurringEnd ?? null, recurring_next: transaction.recurringNext ?? null,
+    skipped_dates: transaction.skippedDates ?? null,
     tags: transaction.tags ?? [], deleted_at: null,
   })))
   await tombstone('transactions', transactionPlan.removeRemote)
   conflicts.push(...transactionPlan.conflicts)
 
   const contributionRows = await readRows('goal_contributions')
-  const contributionPlan = mergeTable(
+  const contributionPlan = planTable(
+    seedMode,
     'goal_contributions',
     state.goalContributions,
     contributionRows,
@@ -332,6 +417,7 @@ async function synchronize(): Promise<{ lastSyncAt: string; conflicts: SyncConfl
   useFinance.getState().restoreBackup(nextState)
   writeMetadata(userId, {
     lastSyncAt,
+    version: BASELINE_VERSION,
     baseline: {
       accounts: accountPlan.nextBaseline,
       categories: categoryPlan.nextBaseline,

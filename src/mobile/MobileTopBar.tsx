@@ -45,13 +45,13 @@ export function MobileTopBar({
     home:     t('movementsLabel'),
     analysis: t('analysisTab'),
     add:      t('add'),
-    reports:  t('reports'),
+    reports:  t('accounts'),
     profile:  t('profile'),
   }
 
   const showMonth = route === 'home'
     || (route === 'analysis' && view === 'stats')
-    || (route === 'reports' && (view === 'reports' || view === 'annual' || view === 'calendar'))
+    || (route === 'reports' && (view === 'annual' || view === 'calendar'))
     || (route === 'profile' && view === 'budgets')
   const compactHeader = route === 'add'
 

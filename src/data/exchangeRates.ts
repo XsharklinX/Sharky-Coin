@@ -38,7 +38,10 @@ async function fetchLiveRates(): Promise<UsdRates | null> {
     const out: UsdRates = {}
     for (const code of CODES) {
       const rate = data.rates[code]
-      if (typeof rate === 'number') out[code] = rate
+      // Solo tasas positivas y finitas: una tasa 0/negativa/NaN/Infinity de un
+      // API defectuoso corrompería TODAS las conversiones (divisiones y saldos
+      // multi-moneda) — mejor ignorarla y conservar la anterior.
+      if (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) out[code] = rate
     }
     return out
   } catch {

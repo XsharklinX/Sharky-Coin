@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { makeEmpty } from '@/data/seed'
 import { useCloudSync } from '@/data/cloudSync'
 import { useAuth } from '@/store/auth'
 import { useFinance, type FinanceState } from '@/store/finance'
@@ -56,11 +55,26 @@ export function useCloudWorkspace(): void {
 
     activeCloudUser.current = nextCloudUser
     useCloudSync.getState().loadForUser(nextCloudUser ?? undefined)
-    const workspace = nextCloudUser
-      ? readWorkspace(cloudWorkspaceKey(nextCloudUser)) ?? { ...makeEmpty(), goalContributions: [], currency: 'DOP' as const }
-      : readWorkspace(LOCAL_WORKSPACE_KEY)
 
-    if (workspace) useFinance.getState().restoreBackup(workspace)
+    if (nextCloudUser) {
+      const cached = readWorkspace(cloudWorkspaceKey(nextCloudUser))
+      if (cached) {
+        // Usuario cloud conocido en este dispositivo: retomar su workspace.
+        useFinance.getState().restoreBackup(cached)
+      } else {
+        // Primer inicio de sesión en este dispositivo: adoptar los datos
+        // locales actuales como punto de partida del workspace cloud (lo que
+        // el usuario espera: "conecto Google y mis datos se suben"). El sync
+        // hará merge con lo que exista en la nube.
+        saveWorkspace(cloudWorkspaceKey(nextCloudUser))
+      }
+      // Sync inicial sin esperar a que el usuario edite algo. Los errores se
+      // toleran: el auto-sync reintenta con el debounce normal.
+      void useCloudSync.getState().syncNow().catch(() => {})
+    } else {
+      const workspace = readWorkspace(LOCAL_WORKSPACE_KEY)
+      if (workspace) useFinance.getState().restoreBackup(workspace)
+    }
   }, [user?.id, user?.mode])
 
   useEffect(() => useFinance.subscribe(state => {

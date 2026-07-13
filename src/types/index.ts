@@ -119,14 +119,18 @@ export interface Transaction {
   recurringNext?: string
   /** Fechas (YYYY-MM-DD) de ocurrencias saltadas por el usuario: no se generan. */
   skippedDates?: string[]
+  /** Solo suscripciones creadas desde el catálogo: id en SUBSCRIPTION_CATALOG, para mostrar el logo real de la marca. */
+  serviceId?:   string
   tags?:        string[]            // ej. ['trabajo', 'viaje']
 }
 
 export interface GoalAutoContribute {
-  amount:        number
+  amount:        number      // monto del PRÓXIMO aporte (crece con `increment`)
   frequency:     RecurrenceFrequency
   fromAccountId: string
   nextDate:      string      // YYYY-MM-DD
+  /** Reto tipo "52 semanas": si >0, cada aporte sube este monto respecto al anterior. */
+  increment?:    number
 }
 
 export interface Goal {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { isDuplicateTransaction } from '@/data/bankCsv'
@@ -16,6 +16,7 @@ import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { SheetPortal } from './SheetPortal'
 
 type MobileTxMode = Transaction['type']
 
@@ -26,6 +27,8 @@ const keypad = [
   '1', '2', '3', '−',
   '0', '.', '+',
 ] as const
+const MODE_ORDER: MobileTxMode[] = ['expense', 'income', 'transfer']
+const SWIPE_THRESHOLD = 48
 const OPERATORS = ['+', '−', '×', '÷'] as const
 type Operator = (typeof OPERATORS)[number]
 const CATEGORY_COLORS = ACCENT_COLORS
@@ -96,11 +99,13 @@ export function MobileCreateFlow({
   mkey,
   initialMode,
   receiptPreview,
+  onOpenBatch,
   onSaved,
 }: {
   mkey: string
   initialMode?: MobileTxMode
   receiptPreview?: { dataUrl: string; mimeType: string; name: string }
+  onOpenBatch?: (receipts: { dataUrl: string; name: string }[]) => void
   onSaved: () => void
 }) {
   const t = useT()
@@ -137,6 +142,7 @@ export function MobileCreateFlow({
   const [scanMenuOpen, setScanMenuOpen] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scannedImage, setScannedImage] = useState<{ dataUrl: string; name: string } | null>(null)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   const amount = evaluateExpression(amountText)
   const hasOperator = OPERATORS.some(op => amountText.includes(op))
@@ -187,6 +193,29 @@ export function MobileCreateFlow({
 
   const switchMode = useCallback((next: MobileTxMode) => { setMode(next); setCategoryId(null); setNote(''); setAccountId(null); setTriedSave(false); setFormError(null) }, [])
 
+  const cycleMode = useCallback((direction: 1 | -1) => {
+    const currentIndex = MODE_ORDER.indexOf(mode)
+    const nextIndex = (currentIndex + direction + MODE_ORDER.length) % MODE_ORDER.length
+    switchMode(MODE_ORDER[nextIndex])
+  }, [mode, switchMode])
+
+  const handleSwipeStart = useCallback((event: ReactTouchEvent) => {
+    const touch = event.touches[0]
+    swipeStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null
+  }, [])
+
+  const handleSwipeEnd = useCallback((event: ReactTouchEvent) => {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start) return
+    const touch = event.changedTouches[0]
+    if (!touch) return
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD || Math.abs(deltaX) < Math.abs(deltaY) * 1.5) return
+    cycleMode(deltaX < 0 ? 1 : -1)
+  }, [cycleMode])
+
   const pressKey = useCallback((key: (typeof keypad)[number] | 'back') => {
     setFormError(null)
     if (key === 'back') { playBackspaceSound(); setAmountText(v => v.slice(0, -1)); return }
@@ -219,6 +248,18 @@ export function MobileCreateFlow({
   const triggerShake = () => {
     setShaking(true)
     setTimeout(() => setShaking(false), 420)
+  }
+
+  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+
+  const openReceiptBatch = async (files: File[]) => {
+    const receipts = await Promise.all(files.map(async file => ({ dataUrl: await fileToDataUrl(file), name: file.name })))
+    onOpenBatch?.(receipts)
   }
 
   const scanReceiptFile = async (file: File) => {
@@ -327,7 +368,7 @@ export function MobileCreateFlow({
     <div className="mobile-create-flow" aria-label={t('addMovement')}>
 
       {/* ─── Scrollable top section ─── */}
-      <div className="mobile-create-scroll">
+      <div className="mobile-create-scroll" onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
 
         {/* Recibo compartido desde otra app — solo referencia visual, no se guarda */}
         {receiptPreview && (
@@ -363,9 +404,14 @@ export function MobileCreateFlow({
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
               style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) scanReceiptFile(f); e.target.value = '' }} />
-            <input ref={galleryInputRef} type="file" accept="image/*"
+            <input ref={galleryInputRef} type="file" accept="image/*" multiple
               style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) scanReceiptFile(f); e.target.value = '' }} />
+              onChange={e => {
+                const files = Array.from(e.target.files ?? [])
+                if (files.length > 1 && onOpenBatch) void openReceiptBatch(files)
+                else if (files[0]) scanReceiptFile(files[0])
+                e.target.value = ''
+              }} />
           </>
         )}
 
@@ -466,31 +512,44 @@ export function MobileCreateFlow({
               onClick={() => setRecurring(r => !r)}
             >
               <span className="mobile-recur-icon">
-                <Icon name="repeat" size={15} />
+                <Icon name="repeat" size={16} />
               </span>
-              <span className="mobile-recur-label">{t('repeatMovement')}</span>
+              <span className="mobile-recur-copy">
+                <span className="mobile-recur-label">{t('repeatMovement')}</span>
+                <small className="mobile-recur-desc">{t('repeatMovementDesc')}</small>
+              </span>
               <span className={`mobile-recur-switch${recurring ? ' on' : ''}`} />
             </button>
 
             {recurring && (
               <div className="mobile-create-recurring-opts">
-                <div className="mobile-segment mobile-recur-freq">
-                  <button className={recurFreq === 'weekly' ? 'on' : ''} onClick={() => setRecurFreq('weekly')}>
-                    {t('weekly')}
-                  </button>
-                  <button className={recurFreq === 'monthly' ? 'on' : ''} onClick={() => setRecurFreq('monthly')}>
-                    {t('monthly')}
+                <div className="mobile-recur-opt-row">
+                  <span className="mobile-recur-opt-label">{t('frequencyLabelShort')}</span>
+                  <div className="mobile-segment mobile-recur-freq">
+                    <button className={recurFreq === 'weekly' ? 'on' : ''} onClick={() => setRecurFreq('weekly')}>
+                      {t('weekly')}
+                    </button>
+                    <button className={recurFreq === 'monthly' ? 'on' : ''} onClick={() => setRecurFreq('monthly')}>
+                      {t('monthly')}
+                    </button>
+                  </div>
+                </div>
+                <div className="mobile-recur-opt-row">
+                  <span className="mobile-recur-opt-label">{t('endDateLabel')}</span>
+                  <button className="mobile-create-date-pill" onClick={() => setRecurEndPicker(true)}>
+                    <Icon name="calendar" size={13} />
+                    <span>{recurEnd ? `${t('until')} ${formatDateShort(recurEnd, locale)}` : t('noEndDate')}</span>
+                    {recurEnd && (
+                      <span style={{ marginLeft: 'auto' }} onClick={e => { e.stopPropagation(); setRecurEnd('') }}>
+                        <Icon name="close" size={12} />
+                      </span>
+                    )}
                   </button>
                 </div>
-                <button className="mobile-create-date-pill" onClick={() => setRecurEndPicker(true)}>
-                  <Icon name="calendar" size={13} />
-                  <span>{recurEnd ? `${t('until')} ${formatDateShort(recurEnd, locale)}` : t('noEndDate')}</span>
-                  {recurEnd && (
-                    <span style={{ marginLeft: 'auto' }} onClick={e => { e.stopPropagation(); setRecurEnd('') }}>
-                      <Icon name="close" size={12} />
-                    </span>
-                  )}
-                </button>
+                <p className="mobile-recur-hint">
+                  <Icon name="info" size={13} />
+                  {t('recurringVisibleHint')}
+                </p>
               </div>
             )}
           </>
@@ -642,6 +701,7 @@ export function MobileCreateFlow({
 
       {/* Single account picker */}
       {accountPicker && (
+        <SheetPortal>
         <div ref={accountPickerRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setAccountPicker(false)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
@@ -670,10 +730,12 @@ export function MobileCreateFlow({
             )}
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {/* Transfer account picker sheet */}
       {transferPicker && (
+        <SheetPortal>
         <div ref={transferPickerRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setTransferPicker(null)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
@@ -702,10 +764,12 @@ export function MobileCreateFlow({
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {/* Receipt scan source picker */}
       {scanMenuOpen && (
+        <SheetPortal>
         <div ref={scanMenuRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" onClick={() => setScanMenuOpen(false)}>
           <section onClick={e => e.stopPropagation()}>
             <header>
@@ -724,6 +788,7 @@ export function MobileCreateFlow({
             </div>
           </section>
         </div>
+        </SheetPortal>
       )}
 
       {/* Date picker */}

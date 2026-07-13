@@ -73,33 +73,40 @@ struct SharedFileMarker {
     name: String,
 }
 
-/// Lee y consume el recibo compartido pendiente (si hay alguno).
-/// Devuelve `None` si el usuario no compartió nada hacia la app.
+/// Lee y consume los recibos compartidos pendientes (si hay alguno). El
+/// marcador (`pending.json`) siempre es un array, aunque el usuario haya
+/// compartido un solo archivo — así el lado JS maneja un único caso (lote de
+/// tamaño N, N puede ser 1) en vez de dos formas distintas. Devuelve un
+/// vector vacío si el usuario no compartió nada hacia la app.
 #[tauri::command]
-fn take_pending_shared_file(app: tauri::AppHandle) -> Result<Option<SharedFile>, String> {
+fn take_pending_shared_files(app: tauri::AppHandle) -> Result<Vec<SharedFile>, String> {
     use base64::Engine;
 
     let cache_dir = app.path().app_cache_dir().map_err(|e: tauri::Error| e.to_string())?;
     let shared_dir = cache_dir.join("shared");
     let marker_path = shared_dir.join("pending.json");
     if !marker_path.exists() {
-        return Ok(None);
+        return Ok(Vec::new());
     }
 
     let marker_json = std::fs::read_to_string(&marker_path).map_err(|e| e.to_string())?;
-    let marker: SharedFileMarker = serde_json::from_str(&marker_json).map_err(|e| e.to_string())?;
-    let bytes = std::fs::read(&marker.path).map_err(|e| e.to_string())?;
-    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-    let data_url = format!("data:{};base64,{}", marker.mime_type, encoded);
+    let markers: Vec<SharedFileMarker> = serde_json::from_str(&marker_json).map_err(|e| e.to_string())?;
 
+    let mut files = Vec::with_capacity(markers.len());
+    for marker in &markers {
+        let bytes = std::fs::read(&marker.path).map_err(|e| e.to_string())?;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let data_url = format!("data:{};base64,{}", marker.mime_type, encoded);
+        files.push(SharedFile {
+            data_url,
+            mime_type: marker.mime_type.clone(),
+            name: marker.name.clone(),
+        });
+        let _ = std::fs::remove_file(&marker.path);
+    }
     let _ = std::fs::remove_file(&marker_path);
-    let _ = std::fs::remove_file(&marker.path);
 
-    Ok(Some(SharedFile {
-        data_url,
-        mime_type: marker.mime_type,
-        name: marker.name,
-    }))
+    Ok(files)
 }
 
 const SECURE_STORAGE_SERVICE: &str = "com.sharky.miapp";
@@ -222,7 +229,7 @@ pub fn run() {
             secure_storage_set,
             secure_storage_get,
             secure_storage_remove,
-            take_pending_shared_file,
+            take_pending_shared_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

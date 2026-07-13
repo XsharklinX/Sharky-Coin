@@ -3,12 +3,14 @@ import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
 import type { IconName } from '@/types'
 import { useDialogA11y } from '../useDialogA11y'
+import { SheetPortal } from '../SheetPortal'
 
 // ── Sheet type ────────────────────────────────────────────
 export type Sheet =
   | 'theme' | 'accent' | 'density' | 'currency' | 'overdraft' | 'name' | 'reset' | 'language'
   | 'comments' | 'about' | 'privacy' | 'terms' | 'export' | 'pin' | 'categories' | 'bankNotifications'
-  | 'syncConflicts' | 'widgetAccounts' | 'backupSchedule' | 'soundProfile'
+  | 'syncConflicts' | 'widgetAccounts' | 'backupSchedule' | 'soundProfile' | 'fxAlert' | 'anomalyAlert'
+  | 'backupPassword' | 'restorePassword' | 'categoryRules' | 'qrMigration'
 
 export interface SheetProps {
   activeSheet: Sheet | null
@@ -56,11 +58,14 @@ export function SettingsSheet({ title, onClose, children }: SettingsSheetContain
   const startY = useRef(0)
   const t = useT()
   return (
+    <SheetPortal>
     <div
       ref={dialogRef}
       className="mobile-detail-sheet"
       role="dialog"
       aria-modal="true"
+      // Portalado a <body>: debe pintar por encima del panel de Ajustes (z220)
+      style={{ zIndex: 320 }}
       onClick={onClose}
       onTouchStart={event => { startY.current = event.touches[0]?.clientY ?? 0 }}
       onTouchEnd={event => {
@@ -76,6 +81,7 @@ export function SettingsSheet({ title, onClose, children }: SettingsSheetContain
         {children}
       </section>
     </div>
+    </SheetPortal>
   )
 }
 

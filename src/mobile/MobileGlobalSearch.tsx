@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { CatBadge } from '@/views/shared'
 import { dateLocale, fmt, getAccount, getCategory } from '@/data/helpers'
+import { matchSynonymCategoryIds, normalizeSearchText, parseSearchQuery } from '@/data/searchQuery'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { translateCategoryName, useT } from '@/i18n'
@@ -70,26 +71,50 @@ export function MobileGlobalSearch({
     return goals.filter(g => g.name.toLowerCase().includes(q)).slice(0, MAX_RESULTS)
   }, [goals, q])
 
+  // "Búsqueda que entiende": intenta extraer un filtro de monto ("más de
+  // $1000") y/o de mes ("en mayo") de la consulta; lo que sobra sigue
+  // funcionando como el match por substring de siempre (incl. sinónimos de
+  // categoría tipo "comida" → Supermercado/Restaurantes).
+  const parsedQuery = useMemo(() => q ? parseSearchQuery(q) : null, [q])
+  const synonymCategoryIds = useMemo(
+    () => parsedQuery?.freeText ? matchSynonymCategoryIds(parsedQuery.freeText, categories) : [],
+    [parsedQuery, categories],
+  )
+
   const matchedTx = useMemo(() => {
-    if (!q) return []
+    if (!q || !parsedQuery) return []
+    const monthKeyFilter = parsedQuery.monthFilter
+      ? `${parsedQuery.monthFilter.year}-${String(parsedQuery.monthFilter.month).padStart(2, '0')}`
+      : null
+    const freeText = normalizeSearchText(parsedQuery.freeText)
+
     return transactions
       .filter(tx => {
+        if (monthKeyFilter && tx.date.slice(0, 7) !== monthKeyFilter) return false
+        if (parsedQuery.amountFilter) {
+          const { op, value } = parsedQuery.amountFilter
+          if (op === 'gt' && !(tx.amount > value)) return false
+          if (op === 'lt' && !(tx.amount < value)) return false
+        }
+        if (!freeText) return true
+
         const category = getCategory(tx.categoryId, categories)
+        if (synonymCategoryIds.length && category && synonymCategoryIds.includes(category.id)) return true
+
         const account = getAccount(tx.accountId, accounts)
         const from = getAccount(tx.fromAccount, accounts)
         const to = getAccount(tx.toAccount, accounts)
-        const haystack = [
+        const haystack = normalizeSearchText([
           tx.note, category?.name, category && translateCategoryName(category, lang), account?.name, from?.name, to?.name,
           String(tx.amount), tx.amount.toFixed(2), fmt(tx.amount, currency).replace(/,/g, ''),
         ]
           .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        return haystack.includes(q)
+          .join(' '))
+        return haystack.includes(freeText)
       })
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, MAX_TX_RESULTS)
-  }, [transactions, categories, accounts, q, lang, currency])
+  }, [transactions, categories, accounts, q, parsedQuery, synonymCategoryIds, lang, currency])
 
   const hasResults = matchedAccounts.length > 0 || matchedCategories.length > 0
     || matchedGoals.length > 0 || matchedTx.length > 0

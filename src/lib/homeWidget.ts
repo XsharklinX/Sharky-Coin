@@ -4,6 +4,14 @@ import { useSettings } from '@/store/settings'
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
 import { accountCurrency, amountForCategory, currentMonthKey, dateLocale, fmtCompact, localToday, totalBalanceInBase, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
+import { convertCurrency, getCurrencyMeta } from '@/data/currencies'
+import { getRatesFetchedAt } from '@/data/exchangeRates'
+import type { CurrencyCode } from '@/types'
+
+// Divisas que muestra el widget conversor, en orden de prioridad. Se toman las
+// primeras 3 distintas de la moneda base del usuario y se convierte 1 unidad de
+// cada una a su moneda, con la misma tasa en vivo que usa la app.
+const CONVERTER_SOURCES: CurrencyCode[] = ['USD', 'EUR', 'DOP', 'COP', 'MXN', 'GBP']
 
 function isAndroidTauri(): boolean {
   return isTauri() && /android/i.test(navigator.userAgent)
@@ -75,6 +83,20 @@ function buildWidgetSnapshot(): string {
       amountLabel: fmtCompact(tx.amount, currency),
     }))[0] ?? null
 
+  // Tasas para el widget conversor: 1 [otra divisa] = X [tu moneda], en vivo.
+  const rates = CONVERTER_SOURCES
+    .filter(code => code !== currency)
+    .slice(0, 3)
+    .map(from => ({
+      flag: getCurrencyMeta(from).flag,
+      label: `1 ${from}`,
+      valueLabel: fmtCompact(convertCurrency(1, from, currency), currency),
+    }))
+  const fetchedAt = getRatesFetchedAt()
+  const ratesUpdatedLabel = fetchedAt
+    ? new Date(fetchedAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+    : ''
+
   return JSON.stringify({
     totalBalanceLabel: fmtCompact(totalBalance, currency),
     currencySymbol: CURRENCIES[currency].symbol,
@@ -83,6 +105,9 @@ function buildWidgetSnapshot(): string {
     topBudget,
     topBudgets,
     nextPayment,
+    rates,
+    ratesBaseLabel: `${getCurrencyMeta(currency).flag} ${currency}`,
+    ratesUpdatedLabel,
   })
 }
 
@@ -103,7 +128,7 @@ export async function syncHomeWidgetSnapshot(): Promise<void> {
  * el diálogo nativo, 'unsupported' si el dispositivo no lo permite, o
  * 'unavailable' fuera de Android+Tauri.
  */
-export async function requestPinHomeWidget(widget: 'balance' | 'budgets' = 'balance'): Promise<'requested' | 'unsupported' | 'unavailable'> {
+export async function requestPinHomeWidget(widget: 'balance' | 'budgets' | 'converter' | 'quickadd' = 'balance'): Promise<'requested' | 'unsupported' | 'unavailable'> {
   if (!isAndroidTauri()) return 'unavailable'
   try {
     const { invoke } = await import('@tauri-apps/api/core')
