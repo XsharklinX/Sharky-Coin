@@ -21,6 +21,8 @@ export function MobileTopBar({
   onCurrency,
   onCalendar,
   onSearch,
+  onBell,
+  notifCount = 0,
 }: {
   route:        MobileRoute
   view:         ViewId
@@ -34,6 +36,8 @@ export function MobileTopBar({
   onCurrency:   () => void
   onCalendar?:  () => void
   onSearch:     () => void
+  onBell?:      () => void
+  notifCount?:  number
 }) {
   const { currency } = useFinance()
   const meta = getCurrencyMeta(currency)
@@ -51,8 +55,7 @@ export function MobileTopBar({
 
   const showMonth = route === 'home'
     || (route === 'analysis' && view === 'stats')
-    || (route === 'reports' && (view === 'annual' || view === 'calendar'))
-    || (route === 'profile' && view === 'budgets')
+    || (route === 'profile' && (view === 'budgets' || view === 'annual' || view === 'calendar'))
   const compactHeader = route === 'add'
 
   return (
@@ -83,6 +86,14 @@ export function MobileTopBar({
               {onCalendar && (
                 <button className="mobile-icon-btn" aria-label={t('calendarLabel')} onClick={onCalendar}>
                   <Icon name="calendar" size={21} />
+                </button>
+              )}
+              {onBell && (
+                <button className="mobile-icon-btn mobile-bell-btn" aria-label={t('notificationsLabel')} onClick={onBell}>
+                  <Icon name="bell" size={21} />
+                  {notifCount > 0 && (
+                    <span className="mobile-bell-badge">{notifCount > 9 ? '9+' : notifCount}</span>
+                  )}
                 </button>
               )}
               <button className="mobile-icon-btn" aria-label={t('search')} onClick={onSearch}>

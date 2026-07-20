@@ -1,5 +1,6 @@
 import { listRecoverySnapshots } from './recovery'
 import { accountMovementsTotal } from './helpers'
+import { isSessionStoredInPlaintext } from '@/lib/secureAuthStorage'
 import type { FinanceState } from '@/store/finance'
 
 export interface DataHealthStatus {
@@ -15,6 +16,8 @@ export interface DataHealthStatus {
   riskLevel: 'ok' | 'warning'
   warnings: string[]
   driftedAccounts: number
+  driftedGoals: number
+  sessionStoredInPlaintext: boolean
 }
 
 export function getDataHealthStatus(state: FinanceState, userId?: string): DataHealthStatus {
@@ -37,6 +40,23 @@ export function getDataHealthStatus(state: FinanceState, userId?: string): DataH
   }, 0)
   if (driftedAccounts > 0) warnings.push(`${driftedAccounts} cuenta(s) con saldo descuadrado.`)
 
+  // Deriva de metas: el ahorro guardado no coincide con apertura + aportes.
+  const driftedGoals = state.goals.reduce((n, goal) => {
+    if (goal.openingSaved === undefined) return n
+    const contributed = state.goalContributions
+      .filter(contribution => contribution.goalId === goal.id)
+      .reduce((sum, contribution) => sum + contribution.amount, 0)
+    const expected = goal.openingSaved + contributed
+    return Math.abs(expected - goal.saved) > 0.005 ? n + 1 : n
+  }, 0)
+  if (driftedGoals > 0) warnings.push(`${driftedGoals} meta(s) con ahorro descuadrado.`)
+
+  // Respaldo silencioso: el Keystore de Android falló y la sesión quedó sin
+  // cifrar en el sandbox privado de la app — antes esto no se mostraba en
+  // ningún lado.
+  const sessionStoredInPlaintext = isSessionStoredInPlaintext()
+  if (sessionStoredInPlaintext) warnings.push('La sesión se guardó sin cifrar (el Keystore del dispositivo no está disponible).')
+
   return {
     accounts: state.accounts.length,
     transactions: state.transactions.length,
@@ -50,6 +70,8 @@ export function getDataHealthStatus(state: FinanceState, userId?: string): DataH
     riskLevel: warnings.length ? 'warning' : 'ok',
     warnings,
     driftedAccounts,
+    driftedGoals,
+    sessionStoredInPlaintext,
   }
 }
 

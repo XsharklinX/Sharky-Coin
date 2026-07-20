@@ -131,3 +131,16 @@ export const secureAuthStorage: AuthStorage = isAndroidTauri()
   : usesNativeCredentialStorage
     ? tauriCredentialStorage
     : browserStorage
+
+/**
+ * true si la sesión de Supabase (no el verificador PKCE, que siempre vive en
+ * claro a propósito — ver comentario de `isVerifierKey`) está guardada sin
+ * cifrar porque el Android Keystore falló al cifrar/descifrar en este
+ * equipo. Antes este respaldo era completamente silencioso; esto permite
+ * mostrarlo como advertencia en vez de ocultarlo (roadmap P2 > Seguridad).
+ */
+export function isSessionStoredInPlaintext(): boolean {
+  if (!isAndroidTauri() || !hasBrowserStorage) return false
+  return Object.keys(localStorage).some(key =>
+    key.startsWith(PLAINTEXT_PREFIX) && !isVerifierKey(key.slice(PLAINTEXT_PREFIX.length)))
+}

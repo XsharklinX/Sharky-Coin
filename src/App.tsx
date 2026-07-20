@@ -15,12 +15,15 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { useUpcomingPaymentAlerts } from '@/hooks/useUpcomingPaymentAlerts'
 import { useNotificationActions } from '@/hooks/useNotificationActions'
 import { useLocalReminders } from '@/hooks/useLocalReminders'
+import { useBankNotifications } from '@/hooks/useBankNotifications'
 import { useHomeWidget } from '@/hooks/useHomeWidget'
 import { useSharedReceipt } from '@/hooks/useSharedReceipt'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { useAndroidChrome } from '@/hooks/useAndroidChrome'
 import { useAppShortcut } from '@/hooks/useAppShortcut'
+import { useNotificationTarget } from '@/hooks/useNotificationTarget'
 import { useAutoBackup } from '@/hooks/useAutoBackup'
+import { useScheduledBackup } from '@/hooks/useScheduledBackup'
 import { useWeeklyAutoBackup } from '@/hooks/useWeeklyAutoBackup'
 import { useUpdateCheck } from '@/hooks/useUpdateCheck'
 import { MobileUpdateDialog } from '@/mobile/MobileUpdateDialog'
@@ -41,6 +44,7 @@ import type { Sheet } from '@/mobile/settings/shared'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 
 const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default: m.Calendar })))
+const MobileNotesView = lazy(() => import('@/mobile/MobileNotes').then(m => ({ default: m.MobileNotes })))
 
 export default function App() {
   const s = useSettings()
@@ -91,9 +95,19 @@ export default function App() {
   useNotificationActions()
   useLocalReminders()
   useHomeWidget()
+  // Vive en la raíz (no solo dentro de Ajustes > Detección de transacciones):
+  // si el listener solo existiera mientras esa pantalla está montada, cualquier
+  // notificación bancaria que llegue en otro momento se pierde sin dejar rastro.
+  useBankNotifications()
   const [sharedReceipt, consumeSharedReceipt] = useSharedReceipt()
   const [appShortcut, consumeAppShortcut] = useAppShortcut()
+  const [notificationTarget, consumeNotificationTarget] = useNotificationTarget()
   useAutoBackup()
+  // Backup semanal: en Android lo ejecuta WorkManager aunque la app esté
+  // cerrada (useScheduledBackup mantiene el archivo al día y programa el
+  // worker). useWeeklyAutoBackup es el respaldo para desktop/PWA, donde no hay
+  // WorkManager: ahí sigue corriendo al abrir la app.
+  useScheduledBackup()
   useWeeklyAutoBackup()
   const availableUpdate = useUpdateCheck()
   useCloudWorkspace()
@@ -166,10 +180,6 @@ export default function App() {
   }
 
   const handleEditTx = (tx: Transaction) => {
-    if (tx.type === 'transfer') {
-      toast(t('errEditTransferAsMovement'), { icon: 'alert' })
-      return
-    }
     setTxForm(tx)
   }
 
@@ -186,6 +196,11 @@ export default function App() {
   const mobileViews = {
     budgets: (props: ViewProps) => <MobileBudgets {...props} />,
     goals: (props: ViewProps) => <MobileGoals {...props} />,
+    notes: (props: ViewProps) => (
+      <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>{t('loading')}</div>}>
+        <MobileNotesView {...props} />
+      </Suspense>
+    ),
     calendar: (props: ViewProps) => (
       <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>{t('loading')}</div>}>
         <CalendarView {...props} />
@@ -215,6 +230,8 @@ export default function App() {
           onConsumeSharedReceipt={consumeSharedReceipt}
           appShortcut={appShortcut}
           onConsumeAppShortcut={consumeAppShortcut}
+          notificationTarget={notificationTarget}
+          onConsumeNotificationTarget={consumeNotificationTarget}
         />
         <ToastHost />
         {availableUpdate && !s.dismissedAlerts.includes(`update-${availableUpdate.version}`) && (

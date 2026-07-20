@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accountActivity, accountBalanceInBase, accountMovementsTotal, accountSavingsRate, amountForCategory, byCategory, categoryParts, convertTxAmountsToBase, monthlyAccountSeries, savingsBalance, totalBalanceInBase, visibleAccounts, transactionsForTotals } from './helpers'
+import { accountActivity, accountBalanceInBase, accountMovementsTotal, accountSavingsRate, amountForCategory, byCategory, categoryParts, convertTxAmountsToBase, getAccount, getCategory, monthlyAccountSeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, totalBalanceInBase, visibleAccounts, transactionsForTotals } from './helpers'
 import type { Account, Category, Transaction } from '@/types'
 
 const TXNS: Transaction[] = [
@@ -155,5 +155,72 @@ describe('multi-moneda', () => {
     }
     expect(accountMovementsTotal('acc_dop', [transfer])).toBe(-5850)
     expect(accountMovementsTotal('acc_usd', [transfer])).toBe(100)
+  })
+})
+
+describe('netWorthSeries / rollingNetWorthSeries', () => {
+  const acc: Account = { id: 'acc1', name: 'Cuenta', short: 'C', type: 'debit', color: '#fff', balance: 1000, openingBalance: 500, last4: null }
+  const txns: Transaction[] = [
+    { id: 't1', type: 'income', amount: 500, date: '2026-06-05', note: 'Salario', accountId: 'acc1' },
+  ]
+
+  it('netWorthSeries devuelve 12 puntos con el valor acumulado al cierre de cada mes', () => {
+    const series = netWorthSeries([acc], txns, [], 2026)
+    expect(series).toHaveLength(12)
+    expect(series[4].key).toBe('2026-05')  // antes del ingreso: solo el opening
+    expect(series[4].value).toBe(500)
+    expect(series[5].key).toBe('2026-06')  // mes del ingreso: opening + 500
+    expect(series[5].value).toBe(1000)
+  })
+
+  it('netWorthSeries convierte cuentas de otra divisa a la base', () => {
+    const usdAcc: Account = { ...acc, id: 'acc_usd', currency: 'USD', openingBalance: 100 }
+    const series = netWorthSeries([usdAcc], [], [], 2026, 'es-DO', 'DOP')
+    // sin transacciones, opening=100 USD convertido a DOP en cada mes
+    expect(series[0].value).toBeGreaterThan(100)
+  })
+
+  it('rollingNetWorthSeries devuelve los ultimos N meses terminando en endKey, sin atarse al año calendario', () => {
+    const series = rollingNetWorthSeries([acc], txns, [], '2026-07', 3)
+    expect(series).toHaveLength(3)
+    expect(series.map(p => p.key)).toEqual(['2026-05', '2026-06', '2026-07'])
+    expect(series[2].value).toBe(1000)  // incluye el ingreso de junio
+  })
+})
+
+describe('netWorthBreakdown (activos vs pasivos)', () => {
+  it('separa saldos positivos (activos) de negativos (pasivos)', () => {
+    const checking: Account = { id: 'c', name: 'Cuenta', short: 'C', type: 'debit', color: '#fff', balance: 1000, last4: null }
+    const credit: Account = { id: 'cr', name: 'Tarjeta', short: 'Tarjeta', type: 'credit', color: '#fff', balance: -300, last4: '1234' }
+    expect(netWorthBreakdown([checking, credit], 'DOP')).toEqual({ assets: 1000, liabilities: 300 })
+  })
+
+  it('una tarjeta de credito sobrepagada (saldo positivo) cuenta como activo, no como pasivo', () => {
+    const overpaidCredit: Account = { id: 'cr', name: 'Tarjeta', short: 'Tarjeta', type: 'credit', color: '#fff', balance: 50, last4: '1234' }
+    expect(netWorthBreakdown([overpaidCredit], 'DOP')).toEqual({ assets: 50, liabilities: 0 })
+  })
+
+  it('respeta includeInTotal: false (cuentas ocultas no cuentan para ningun lado)', () => {
+    const hidden: Account = { id: 'h', name: 'Oculta', short: 'H', type: 'debit', color: '#fff', balance: -500, last4: null, includeInTotal: false }
+    expect(netWorthBreakdown([hidden], 'DOP')).toEqual({ assets: 0, liabilities: 0 })
+  })
+
+  it('convierte cuentas en otra divisa antes de sumar', () => {
+    const usdDebt: Account = { id: 'u', name: 'USD', short: 'U', type: 'credit', color: '#fff', balance: -100, last4: null, currency: 'USD' }
+    const result = netWorthBreakdown([usdDebt], 'DOP')
+    expect(result.liabilities).toBeGreaterThan(100) // 100 USD > 100 DOP
+  })
+})
+
+describe('getCategory / getAccount', () => {
+  const cats: Category[] = [{ id: 'c1', name: 'Comida', type: 'expense', color: '#fff', budget: 0, icon: 'food' }]
+  const accs: Account[] = [{ id: 'a1', name: 'Efectivo', short: 'Cash', type: 'cash', color: '#fff', balance: 0, last4: null }]
+
+  it('encuentran por id o devuelven undefined', () => {
+    expect(getCategory('c1', cats)?.name).toBe('Comida')
+    expect(getCategory('missing', cats)).toBeUndefined()
+    expect(getCategory(undefined, cats)).toBeUndefined()
+    expect(getAccount('a1', accs)?.name).toBe('Efectivo')
+    expect(getAccount('missing', accs)).toBeUndefined()
   })
 })

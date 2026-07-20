@@ -112,24 +112,38 @@ export async function saveFile(blob: Blob, filename: string, title: string, exte
 
 /**
  * Guarda un archivo en la carpeta "Sharky Finance" (Descargas en Android,
- * Documentos en desktop), sin diálogo y sobrescribiendo si ya existe.
- * Solo disponible en Tauri.
+ * Documentos en desktop) o, si se pasa `folder`, en esa carpeta exacta
+ * (ruta absoluta elegida por el usuario). Sin diálogo, sobrescribe si ya
+ * existe. Solo disponible en Tauri.
  */
-export async function saveToAppFolder(blob: Blob, filename: string): Promise<string> {
+export async function saveToAppFolder(blob: Blob, filename: string, folder?: string | null): Promise<string> {
   const buffer = await blob.arrayBuffer()
-  return tauriInvoke<string>('save_to_app_folder', { filename, contents: new Uint8Array(buffer) })
+  return tauriInvoke<string>('save_to_app_folder', { filename, contents: new Uint8Array(buffer), folder: folder ?? null })
+}
+
+/**
+ * Abre el selector nativo de carpetas (solo tiene sentido en desktop: en
+ * Android este mismo diálogo devuelve una URI SAF que no es una ruta de
+ * archivo real, así que no se usa para escoger destino ahí). Devuelve la
+ * ruta absoluta elegida, o `null` si el usuario canceló.
+ */
+export async function pickBackupFolder(): Promise<string | null> {
+  const { open } = await import('@tauri-apps/plugin-dialog')
+  const result = await open({ directory: true })
+  return Array.isArray(result) ? result[0] ?? null : result
 }
 
 /**
  * Guarda un backup JSON.
- * - Tauri: se guarda directo en la carpeta "Sharky Finance", sin diálogo.
+ * - Tauri: se guarda directo en la carpeta destino configurada (o
+ *   "Sharky Finance" por defecto), sin diálogo.
  * - Web/PWA: el usuario elige la ubicación (selector de archivos / share sheet).
  */
-export async function saveBackup(json: string): Promise<boolean> {
+export async function saveBackup(json: string, folder?: string | null): Promise<boolean> {
   const filename = `sharky-backup-${localToday()}.json`
   const blob = new Blob([json], { type: 'application/json' })
   if (isTauri()) {
-    await saveToAppFolder(blob, filename)
+    await saveToAppFolder(blob, filename, folder)
     return true
   }
   return saveFile(blob, filename, 'Backup de $harky', ['json'])
@@ -151,7 +165,14 @@ export async function sendNativeNotification(
   let granted = await isPermissionGranted()
   if (!granted) granted = (await requestPermission()) === 'granted'
   if (!granted) return
-  sendNotification({ title, body, actionTypeId: opts?.actionTypeId, extra: opts?.extra })
+  // icon/iconColor (Android): sin esto, cae al ícono de la app a todo color,
+  // que el sistema aplana y tiñe según el tema del usuario — mismo drawable
+  // monocromo y mismo azul que usa el plugin de recordatorios locales, para
+  // que todas las notificaciones de $harky se vean iguales.
+  sendNotification({
+    title, body, actionTypeId: opts?.actionTypeId, extra: opts?.extra,
+    icon: 'ic_stat_sharky', iconColor: '#4D82FF',
+  })
 }
 
 const NOTIFICATION_ACTION_TYPE_ID = 'budget-alert'

@@ -240,8 +240,8 @@ export function MobileAnnual({ mkey }: { mkey: string }) {
         </section>
       )}
 
-      {/* Exportar */}
-      <button className="mobile-annual-export" disabled={exporting} onClick={handleExport}>
+      {/* Exportar (se excluye de la propia captura con data-html2canvas-ignore) */}
+      <button className="mobile-annual-export" disabled={exporting} onClick={handleExport} data-html2canvas-ignore="true">
         <Icon name="download" size={19} />
         {exporting ? t('generatingImageEllipsis') : t('exportImageLabel')}
       </button>

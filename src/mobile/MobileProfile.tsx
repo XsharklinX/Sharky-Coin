@@ -1,12 +1,36 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { accountBalanceInBase, totalBalanceInBase, visibleAccounts } from '@/data/helpers'
+import { projectCashflow } from '@/data/cashflowProjection'
+import { accountBalanceInBase, localToday, totalBalanceInBase, visibleAccounts } from '@/data/helpers'
 import { useFmt } from '@/hooks/useFmt'
-import { useT } from '@/i18n'
+import { useT, type LangKey } from '@/i18n'
+import { processAvatarPhoto } from '@/lib/avatarPhoto'
+import { monthsLabel, simulatePayoff, useDebt } from '@/store/debt'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import type { Account, IconName, ViewId } from '@/types'
+
+// Mismo horizonte que la pestaña "Mes" de MobileCashflow — último día del mes
+// actual. Se duplica aquí (en vez de importar el componente, que arrastra
+// recharts) porque `projectCashflow` en sí es puro y liviano.
+function endOfMonth(today: string): string {
+  const d = new Date(`${today}T00:00:00`)
+  d.setMonth(d.getMonth() + 1, 0)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+// El complemento exacto del menú rápido de Movimientos (☰): ese se quedó con
+// las 4 acciones de uso diario (Presupuestos, Metas, Listas, Conversor). Esta
+// sección se llama "Explorar" (no "Herramientas" — tener el mismo nombre en
+// dos lugares con contenido distinto confundía) y usa mosaicos de color, no
+// filas de texto, para no verse como una copia de ese menú.
+const EXPLORE_CARDS: { view: ViewId; icon: IconName; color: string; labelKey: LangKey }[] = [
+  { view: 'subscriptions', icon: 'repeat',   color: '#5bc0ff', labelKey: 'subscriptions' },
+  { view: 'annual',       icon: 'chart',     color: '#a78bfa', labelKey: 'annualReport' },
+  { view: 'calendar',     icon: 'calendar',  color: '#f59e0b', labelKey: 'calendarLabel' },
+]
 
 export function MobileProfile({
   userName,
@@ -15,16 +39,40 @@ export function MobileProfile({
   userName?: string
   goto: (view: ViewId) => void
 }) {
-  const { displayName, setDisplayName } = useSettings()
-  const { accounts, currency } = useFinance()
+  const { displayName, setDisplayName, profilePhoto, setProfilePhoto } = useSettings()
+  const { accounts, transactions, goals, currency } = useFinance()
+  const debtStore = useDebt()
   const fmtVal = useFmt()
   const t = useT()
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState(displayName || userName || '')
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false)
 
   const effectiveName = displayName || userName || ''
   const initial = effectiveName ? effectiveName.slice(0, 1).toUpperCase() : '$'
+
+  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const dataUrl = await processAvatarPhoto(file)
+      setProfilePhoto(dataUrl)
+      toast(t('photoUpdatedToast'), { icon: 'check', type: 'ok' })
+    } catch {
+      toast(t('photoUpdateError'), { icon: 'alert' })
+    }
+  }
+
+  const handleAvatarClick = () => {
+    if (profilePhoto) {
+      setPhotoMenuOpen(v => !v)
+    } else {
+      photoInputRef.current?.click()
+    }
+  }
 
   const saveName = () => {
     const trimmed = nameInput.trim()
@@ -40,10 +88,71 @@ export function MobileProfile({
   const debtBalance = Math.abs(creditAccounts.reduce((sum, account) => sum + Math.min(0, accountBalanceInBase(account, currency)), 0))
   const topAccounts = [...activeAccounts].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 3)
 
+  // Deudas y Flujo de Caja eran herramientas huérfanas (solo alcanzables desde
+  // el menú de Movimientos, y encima aparecían dentro de "Cuentas" por un bug
+  // de ruteo). Ahora viven aquí como tarjetas con datos reales — se ve de un
+  // vistazo si hay algo que atender, no hay que entrar a averiguarlo.
+  const debtSummary = useMemo(() => {
+    if (debtStore.debts.length === 0) return null
+    const totalDebt = debtStore.debts.reduce((sum, d) => sum + d.balance, 0)
+    const payoff = simulatePayoff(debtStore.debts, debtStore.extraPayment, 'avalanche')
+    return { totalDebt, months: payoff.months }
+  }, [debtStore.debts, debtStore.extraPayment])
+
+  const today = localToday()
+  const cashflow = useMemo(
+    () => projectCashflow(transactions, accounts, goals, endOfMonth(today), today, currency),
+    [transactions, accounts, goals, today, currency],
+  )
+
   return (
     <div className="mpr-root">
       <div className="mpr-hero">
-        <div className="mpr-avatar">{initial}</div>
+        <div className="mpr-hero-glow" aria-hidden="true" />
+        <div className="mpr-avatar-wrap">
+          <button
+            className="mpr-avatar mpr-avatar-btn"
+            onClick={handleAvatarClick}
+            aria-label={profilePhoto ? t('changePhotoLabel') : t('addPhotoLabel')}
+          >
+            {profilePhoto ? <img src={profilePhoto} alt="" className="mpr-avatar-img" /> : initial}
+          </button>
+          {photoMenuOpen && (
+            <>
+              <button
+                className="mpr-photo-menu-backdrop"
+                aria-label={t('close')}
+                onClick={() => setPhotoMenuOpen(false)}
+              />
+              <div className="mpr-photo-menu" role="menu">
+                <button
+                  role="menuitem"
+                  onClick={() => { setPhotoMenuOpen(false); photoInputRef.current?.click() }}
+                >
+                  <Icon name="camera" size={14} /> {t('changePhotoLabel')}
+                </button>
+                <button
+                  role="menuitem"
+                  className="mpr-photo-menu-danger"
+                  onClick={() => {
+                    setPhotoMenuOpen(false)
+                    setProfilePhoto(null)
+                    toast(t('photoRemovedToast'), { icon: 'trash' })
+                  }}
+                >
+                  <Icon name="trash" size={14} /> {t('removePhotoLabel')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={e => void handlePhotoChange(e)}
+        />
 
         {editingName ? (
           <div className="mpr-name-editor">
@@ -62,7 +171,7 @@ export function MobileProfile({
             </div>
           </div>
         ) : (
-          <>
+          <div className="mpr-hero-identity">
             <h2>{effectiveName || t('myAccountLabel')}</h2>
             <button
               className="mpr-edit-name-btn"
@@ -70,15 +179,14 @@ export function MobileProfile({
                 setNameInput(effectiveName)
                 setEditingName(true)
               }}
+              aria-label={effectiveName ? t('editNameLabel') : t('addNameLabel')}
             >
-              <Icon name="edit" size={13} />
-              {effectiveName ? t('editNameLabel') : t('addNameLabel')}
+              <Icon name="edit" size={12} />
             </button>
-          </>
+          </div>
         )}
-
-        <div className="mpr-balance-badge">
-          <span>{t('totalBalance')}</span>
+        <div className="mpr-hero-balance">
+          <small>{t('totalBalance')}</small>
           <strong>{fmtVal(totalBalance, currency)}</strong>
         </div>
 
@@ -98,8 +206,25 @@ export function MobileProfile({
         </div>
       </div>
 
-      <div className="mpr-section">
-        <div className="mpr-section-header">
+      <div className="mpr-kpi-grid">
+        <button className="mpr-kpi-card" style={{ '--kpi-color': '#6366f1' } as React.CSSProperties} onClick={() => goto('debt')}>
+          <span className="mpr-kpi-icon"><Icon name="dollar" size={18} /></span>
+          <span className="mpr-kpi-label">{t('debtsLabel')}</span>
+          <strong className="mpr-kpi-value">{debtSummary ? fmtVal(debtSummary.totalDebt, currency) : '—'}</strong>
+          <small className="mpr-kpi-sub">{debtSummary ? monthsLabel(debtSummary.months, t) : t('debtQuickDesc')}</small>
+        </button>
+        <button className="mpr-kpi-card" style={{ '--kpi-color': '#38bdf8' } as React.CSSProperties} onClick={() => goto('cashflow')}>
+          <span className="mpr-kpi-icon"><Icon name="trend" size={18} /></span>
+          <span className="mpr-kpi-label">{t('cashflowTitle')}</span>
+          <strong className={`mpr-kpi-value${cashflow.endBalance < 0 ? ' text-expense' : ''}`}>
+            {fmtVal(cashflow.endBalance, currency)}
+          </strong>
+          <small className="mpr-kpi-sub">{t('cashflowEndOfMonth')}</small>
+        </button>
+      </div>
+
+      <div className="mpr-card">
+        <div className="mpr-card-header">
           <span>{t('accounts')}</span>
           <button className="mpr-inline-link" onClick={() => goto('accounts')}>
             {t('accounts')}
@@ -142,6 +267,19 @@ export function MobileProfile({
         )}
       </div>
 
+      <div className="mpr-card">
+        <div className="mpr-card-header">
+          <span>{t('exploreSection')}</span>
+        </div>
+        <div className="mpr-explore-grid">
+          {EXPLORE_CARDS.map(card => (
+            <button key={card.view} className="mpr-explore-tile" style={{ '--tile-color': card.color } as React.CSSProperties} onClick={() => goto(card.view)}>
+              <span className="mpr-explore-icon"><Icon name={card.icon} size={20} /></span>
+              <b>{t(card.labelKey)}</b>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -65,10 +65,30 @@ function Get-TauriVersionProps {
 }
 
 if ($Mode -eq 'build') {
+  # Los 3 archivos que version:bump toca — se guarda su contenido ANTES de
+  # bumpear para poder revertirlo si el build termina fallando. Un build
+  # fallido nunca debe dejar la version subida (rompe versionName/Cargo.toml
+  # desincronizados de lo que realmente se publico).
+  $versionedFiles = @(
+    (Join-Path $repoRoot 'package.json'),
+    (Join-Path $repoRoot 'src-tauri\tauri.conf.json'),
+    (Join-Path $repoRoot 'src-tauri\Cargo.toml')
+  )
+  $versionedFilesOriginal = @{}
+  foreach ($file in $versionedFiles) {
+    $versionedFilesOriginal[$file] = Get-Content -LiteralPath $file -Raw
+  }
+  function Restore-VersionedFiles {
+    foreach ($file in $versionedFiles) {
+      Set-Content -LiteralPath $file -Value $versionedFilesOriginal[$file] -NoNewline
+    }
+    Write-Host 'Build fallido: se revirtio la version (package.json/tauri.conf.json/Cargo.toml).'
+  }
+
   # Sube el patch (X.Y.Z -> X.Y.Z+1) en package.json/tauri.conf.json/Cargo.toml
   # antes de generar el paquete, para que la version visible en la app suba
   # sola con cada build. No toca el versionCode interno de Android (abajo).
-  node (Join-Path $repoRoot 'scripts\bump-version.mjs')
+  npm run version:bump
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo actualizar la version antes del build.' }
 
   # VersionCode: se sigue leyendo del archivo generado (gen/android/.../tauri.properties)
@@ -123,7 +143,10 @@ switch ($Mode) {
     if ($Debug) { $buildArgs += '--debug' }
     if ($Target -ne 'all') { $buildArgs += @('--target', $Target) }
     npm @buildArgs
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($LASTEXITCODE -ne 0) {
+      Restore-VersionedFiles
+      exit $LASTEXITCODE
+    }
 
     Set-Content -LiteralPath $androidVersionStateFile -Value $env:SHARKY_ANDROID_VERSION_CODE -NoNewline
   }

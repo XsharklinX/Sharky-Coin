@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import type { useT } from '@/i18n'
 
 export interface Debt {
   id: string
@@ -75,6 +76,19 @@ export function simulatePayoff(debts: Debt[], monthlyExtra: number, method: Payo
   }
 
   return { months, totalInterest, order }
+}
+
+// Compartido entre MobileDebt (calculadora completa) y MobileProfile (tarjeta
+// resumen) — vive aquí, no en MobileDebt.tsx, para que importarlo desde
+// Profile (que se monta eager) no arrastre el bundle de la calculadora
+// completa (lazy-loaded) al chunk principal.
+export function monthsLabel(m: number, t: ReturnType<typeof useT>): string {
+  if (m <= 0) return '—'
+  if (m >= 600) return t('over50Years')
+  const y = Math.floor(m / 12), mo = m % 12
+  if (y === 0) return `${mo} ${mo !== 1 ? t('monthsPlural') : t('monthsSingular')}`
+  if (mo === 0) return `${y} ${y !== 1 ? t('yearsPlural') : t('yearsSingular')}`
+  return t('yearsMonthsShort').replace('{y}', String(y)).replace('{mo}', String(mo))
 }
 
 interface DebtState {

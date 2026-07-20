@@ -9,7 +9,7 @@ import { useSettings } from '@/store/settings'
 import { dateLocale, fmt, localToday, savingsBalance } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
 import { playKeySound, playBackspaceSound, playDoneSound, playConfirmSound, playDeleteSound, playAchievementSound } from '@/lib/sound'
-import { useT } from '@/i18n'
+import { useT, type LangKey } from '@/i18n'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { nextWeekdayDate, rampPlan, requiredContribution } from '@/data/goalPlans'
 import { MobileDatePicker } from './MobileDatePicker'
@@ -17,6 +17,7 @@ import { MobileAmountSheet } from './MobileAmountSheet'
 import type { CurrencyCode, Goal, GoalAutoContribute, IconName, RecurrenceFrequency, ViewProps } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { useSubmitGuard } from './useSubmitGuard'
 
 const COLORS = [
   '#ffdd3d','#ff6b35','#e8445a','#c765ff','#5e5ce6',
@@ -30,27 +31,31 @@ const ICONS: IconName[] = [
   'banknote','coins','handCoins','landmark','receipt',
 ]
 
-interface GoalPurpose {
+interface GoalPreset {
   id: string
   icon: IconName
   color: string
-  titleKey: 'goalPurposeSavingsTitle' | 'goalPurposeExpensesTitle' | 'goalPurposeDebtTitle' | 'goalPurposeTravelTitle' | 'goalPurposeSimpleTitle' | 'goalPurposeCustomTitle'
-  descKey: 'goalPurposeSavingsDesc' | 'goalPurposeExpensesDesc' | 'goalPurposeDebtDesc' | 'goalPurposeTravelDesc' | 'goalPurposeSimpleDesc' | 'goalPurposeCustomDesc'
-  placeholderKey?: 'egGoalNameSavings' | 'egGoalNameExpenses' | 'egGoalNameDebt' | 'egGoalNameTravel'
+  /** Nombre pre-cargado (undefined = "Personalizado", abre el formulario en blanco). */
+  nameKey?: LangKey
 }
 
-const GOAL_PURPOSES: GoalPurpose[] = [
-  { id: 'savings', icon: 'piggy', color: '#ffd60a', titleKey: 'goalPurposeSavingsTitle', descKey: 'goalPurposeSavingsDesc', placeholderKey: 'egGoalNameSavings' },
-  { id: 'expenses', icon: 'wallet', color: '#64d2ff', titleKey: 'goalPurposeExpensesTitle', descKey: 'goalPurposeExpensesDesc', placeholderKey: 'egGoalNameExpenses' },
-  { id: 'debt', icon: 'handCoins', color: '#e8445a', titleKey: 'goalPurposeDebtTitle', descKey: 'goalPurposeDebtDesc', placeholderKey: 'egGoalNameDebt' },
-  { id: 'travel', icon: 'plane', color: '#0a84ff', titleKey: 'goalPurposeTravelTitle', descKey: 'goalPurposeTravelDesc', placeholderKey: 'egGoalNameTravel' },
-  { id: 'simple', icon: 'target', color: '#c765ff', titleKey: 'goalPurposeSimpleTitle', descKey: 'goalPurposeSimpleDesc' },
-  { id: 'custom', icon: 'star', color: COLORS[0], titleKey: 'goalPurposeCustomTitle', descKey: 'goalPurposeCustomDesc' },
+// Objetivos concretos: cada uno pre-llena nombre + icono + color, así elegir
+// uno u otro sí cambia el resultado (a diferencia de un simple "propósito").
+const GOAL_PRESETS: GoalPreset[] = [
+  { id: 'emergency', icon: 'shield',    color: '#ffd60a', nameKey: 'goalPresetEmergency' },
+  { id: 'vacation',  icon: 'plane',     color: '#0a84ff', nameKey: 'goalPresetVacation' },
+  { id: 'car',       icon: 'car',       color: '#30d158', nameKey: 'goalPresetCar' },
+  { id: 'home',      icon: 'home',      color: '#5e5ce6', nameKey: 'goalPresetHome' },
+  { id: 'debt',      icon: 'handCoins', color: '#e8445a', nameKey: 'goalPresetDebt' },
+  { id: 'education', icon: 'graduation', color: '#c765ff', nameKey: 'goalPresetEducation' },
+  { id: 'tech',      icon: 'phone',     color: '#64d2ff', nameKey: 'goalPresetTech' },
+  { id: 'gift',      icon: 'gift',      color: '#ff6b8a', nameKey: 'goalPresetGift' },
 ]
+const CUSTOM_PRESET: GoalPreset = { id: 'custom', icon: 'star', color: COLORS[0] }
 
 type Sheet =
   | { type: 'purpose' }
-  | { type: 'add' | 'edit'; goal?: Goal; presetIcon?: IconName; presetColor?: string; presetPlaceholder?: string }
+  | { type: 'add' | 'edit'; goal?: Goal; presetIcon?: IconName; presetColor?: string; presetName?: string }
   | { type: 'detail'; goal: Goal }
   | null
 
@@ -207,7 +212,7 @@ function GoalPurposeSheet({
   onPick,
   onClose,
 }: {
-  onPick: (purpose: GoalPurpose) => void
+  onPick: (preset: GoalPreset) => void
   onClose: () => void
 }) {
   const t = useT()
@@ -225,23 +230,27 @@ function GoalPurposeSheet({
         <div className="mgl-purpose-body">
           <h2>{t('goalPurposeTitle')}</h2>
           <p>{t('goalPurposeSubtitle')}</p>
-          <div className="mgl-purpose-list">
-            {GOAL_PURPOSES.map(purpose => (
-              <button key={purpose.id} className="mgl-purpose-card" onClick={() => onPick(purpose)}>
-                <span className="mgl-purpose-icon" style={{
-                  color: purpose.color,
-                  background: `color-mix(in oklab, ${purpose.color} 18%, transparent)`,
+          <div className="mgl-preset-grid">
+            {GOAL_PRESETS.map(preset => (
+              <button key={preset.id} className="mgl-preset-card" onClick={() => onPick(preset)}>
+                <span className="mgl-preset-icon" style={{
+                  color: preset.color,
+                  background: `color-mix(in oklab, ${preset.color} 18%, transparent)`,
                 }}>
-                  <Icon name={purpose.icon} size={22} />
+                  <Icon name={preset.icon} size={22} />
                 </span>
-                <span className="mgl-purpose-text">
-                  <strong>{t(purpose.titleKey)}</strong>
-                  <small>{t(purpose.descKey)}</small>
-                </span>
-                <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+                <span className="mgl-preset-name">{preset.nameKey ? t(preset.nameKey) : ''}</span>
               </button>
             ))}
           </div>
+          <button className="mgl-preset-custom" onClick={() => onPick(CUSTOM_PRESET)}>
+            <span className="mgl-preset-custom-icon"><Icon name="plus" size={18} /></span>
+            <span>
+              <strong>{t('goalPresetCustom')}</strong>
+              <small>{t('goalPresetCustomDesc')}</small>
+            </span>
+            <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+          </button>
         </div>
       </section>
     </div>,
@@ -254,7 +263,7 @@ function GoalForm({
   currency,
   presetIcon,
   presetColor,
-  presetPlaceholder,
+  presetName,
   onSave,
   onClose,
 }: {
@@ -262,13 +271,13 @@ function GoalForm({
   currency: string
   presetIcon?: IconName
   presetColor?: string
-  presetPlaceholder?: string
+  presetName?: string
   onSave: (data: Omit<Goal,'id'|'saved'>) => void
   onClose: () => void
 }) {
   const t = useT()
   const { accounts } = useFinance()
-  const [name, setName]             = useState(initial?.name ?? '')
+  const [name, setName]             = useState(initial?.name ?? presetName ?? '')
   const [amountText, setAmountText] = useState(initial?.target?.toString() ?? '')
   const [color, setColor]           = useState(initial?.color ?? presetColor ?? COLORS[0])
   const [icon, setIcon]             = useState<IconName>(initial?.icon ?? presetIcon ?? 'target')
@@ -383,10 +392,31 @@ function GoalForm({
                 <span>{t('name')}</span>
                 <input
                   className="mgl-input"
-                  placeholder={presetPlaceholder ?? t('egGoalName')}
+                  placeholder={t('egGoalName')}
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />
+                {/* Objetivos preestablecidos: un toque rellena el nombre (y el
+                    icono/color si aún están por defecto); escribir sigue libre. */}
+                <div className="mgl-preset-chips">
+                  {GOAL_PRESETS.map(preset => {
+                    const presetLabel = preset.nameKey ? t(preset.nameKey) : ''
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`mgl-preset-chip${name.trim() === presetLabel ? ' on' : ''}`}
+                        onClick={() => {
+                          setName(presetLabel)
+                          if (!initial) { setIcon(preset.icon); setColor(preset.color) }
+                        }}
+                      >
+                        <Icon name={preset.icon} size={13} style={{ color: preset.color }} />
+                        {presetLabel}
+                      </button>
+                    )
+                  })}
+                </div>
               </label>
 
               <div className="mgl-field">
@@ -764,104 +794,85 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
   const t = useT()
   const { accounts, contribute } = useFinance()
   const validAccounts = accounts.filter(a => a.type !== 'credit')
-  const [amountText, setAmountText] = useState('')
+  const [amount, setAmount] = useState(0)
   const [accountId, setAccountId] = useState(validAccounts.find(a => a.type === 'savings')?.id ?? validAccounts[0]?.id ?? '')
   const [showNumpad, setShowNumpad] = useState(true)
   const cur = currency as Parameters<typeof fmt>[1]
-  const prefix = currencyPrefix(currency as CurrencyCode)
+  const { submitting, beginSubmit, endSubmit } = useSubmitGuard()
 
-  useMobileBackDismiss(true, showNumpad ? () => setShowNumpad(false) : onClose)
+  useMobileBackDismiss(!showNumpad, onClose)
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !showNumpad)
 
-  const pressAmt = (key: string) => {
-    if (key === 'back') {
-      playBackspaceSound()
-      setAmountText(v => v.slice(0, -1))
-      return
-    }
-    playKeySound()
-    setAmountText(v => {
-      if (key === '.') {
-        if (v.includes('.')) return v
-        return (v || '0') + '.'
-      }
-      if (v === '0' && key !== '.') return key
-      const next = v + key
-      const [, dec] = next.split('.')
-      if (dec && dec.length > 2) return v
-      return next
-    })
-  }
-
-  const handleDone = () => {
-    playDoneSound()
-    setShowNumpad(false)
-  }
-
   const submit = () => {
-    const amt = parseFloat(amountText)
-    if (!amt || amt <= 0 || !accountId) return
+    if (!amount || amount <= 0 || !accountId) return
+    if (!beginSubmit()) return
     try {
-      contribute(goal.id, amt, accountId)
-      if (goal.saved < goal.target && goal.saved + amt >= goal.target) playAchievementSound()
+      contribute(goal.id, amount, accountId)
+      if (goal.saved < goal.target && goal.saved + amount >= goal.target) playAchievementSound()
       else playConfirmSound()
       onClose()
     } catch (e: unknown) {
+      endSubmit()
       toast(e instanceof Error ? e.message : t('errorContributing'), { icon: 'alert' })
     }
   }
 
   return createPortal(
+    <>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('contributeToGoal').replace('{name}', goal.name)} onClick={onClose}>
-      <section className={`mgl-form${showNumpad ? ' mgl-form-numpad' : ''}`} onClick={e => e.stopPropagation()}>
+      <section className="mgl-form" onClick={e => e.stopPropagation()}>
         <header>
           <span>{t('contributeToGoal').replace('{name}', goal.name)}</span>
           <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
         </header>
 
-        {showNumpad ? (
-          <GoalNumpad amountText={amountText} onPress={pressAmt} prefix={prefix} onDone={handleDone} />
-        ) : (
-          <>
-            <div className="mgl-form-body">
-              <div className="mgl-contrib-display">
-                <div className="mgl-contrib-ring" style={{ borderColor: goal.color }}>
-                  <Icon name={goal.icon} size={28} style={{ color: goal.color }} />
-                </div>
-                <div>
-                  <strong>{fmt(goal.saved, cur)}</strong>
-                  <small> / {fmt(goal.target, cur)}</small>
-                </div>
-              </div>
-
-              <div className="mgl-field">
-                <span>{t('amountToContribute')}</span>
-                <button className="mgl-amount-tap" onClick={() => setShowNumpad(true)}>
-                  <span>{fmtAmountText(amountText, prefix)}</span>
-                  <Icon name="edit" size={14} style={{ opacity: .4 }} />
-                </button>
-              </div>
-
-              <label className="mgl-field">
-                <span>{t('sourceAccount')}</span>
-                <select className="mgl-input" value={accountId} onChange={e => setAccountId(e.target.value)}>
-                  {validAccounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name} — {fmt(a.balance, cur)}</option>
-                  ))}
-                </select>
-              </label>
+        <div className="mgl-form-body">
+          <div className="mgl-contrib-display">
+            <div className="mgl-contrib-ring" style={{ borderColor: goal.color }}>
+              <Icon name={goal.icon} size={28} style={{ color: goal.color }} />
             </div>
-
-            <div className="mgl-form-actions">
-              <button className="mgl-btn-cancel" onClick={onClose}>{t('cancel')}</button>
-              <button className="mgl-btn-save" style={{ background: goal.color }} onClick={submit}>
-                {t('contribute')}
-              </button>
+            <div>
+              <strong>{fmt(goal.saved, cur)}</strong>
+              <small> / {fmt(goal.target, cur)}</small>
             </div>
-          </>
-        )}
+          </div>
+
+          <div className="mgl-field">
+            <span>{t('amountToContribute')}</span>
+            <button className="mgl-amount-tap" onClick={() => setShowNumpad(true)}>
+              <span>{fmt(amount, cur)}</span>
+              <Icon name="edit" size={14} style={{ opacity: .4 }} />
+            </button>
+          </div>
+
+          <label className="mgl-field">
+            <span>{t('sourceAccount')}</span>
+            <select className="mgl-input" value={accountId} onChange={e => setAccountId(e.target.value)}>
+              {validAccounts.map(a => (
+                <option key={a.id} value={a.id}>{a.name} — {fmt(a.balance, cur)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mgl-form-actions">
+          <button className="mgl-btn-cancel" onClick={onClose}>{t('cancel')}</button>
+          <button className="mgl-btn-save" disabled={submitting} style={{ background: goal.color }} onClick={submit}>
+            {t('contribute')}
+          </button>
+        </div>
       </section>
-    </div>,
+    </div>
+    {showNumpad && (
+      <MobileAmountSheet
+        title={t('amountToContribute')}
+        value={amount}
+        currency={currency}
+        onDone={v => { setAmount(v); setShowNumpad(false) }}
+        onClose={() => setShowNumpad(false)}
+      />
+    )}
+    </>,
     sheetRoot(),  )
 }
 
@@ -942,11 +953,11 @@ export function MobileGoals(_props: ViewProps) {
 
       {sheet?.type === 'purpose' && (
         <GoalPurposeSheet
-          onPick={purpose => setSheet({
+          onPick={preset => setSheet({
             type: 'add',
-            presetIcon: purpose.icon,
-            presetColor: purpose.color,
-            presetPlaceholder: purpose.placeholderKey ? t(purpose.placeholderKey) : undefined,
+            presetIcon: preset.icon,
+            presetColor: preset.color,
+            presetName: preset.nameKey ? t(preset.nameKey) : undefined,
           })}
           onClose={() => setSheet(null)}
         />
@@ -958,7 +969,7 @@ export function MobileGoals(_props: ViewProps) {
           currency={currency}
           presetIcon={sheet.presetIcon}
           presetColor={sheet.presetColor}
-          presetPlaceholder={sheet.presetPlaceholder}
+          presetName={sheet.presetName}
           onSave={data => {
             if (sheet.type === 'edit' && sheet.goal) {
               updateGoal(sheet.goal.id, data)

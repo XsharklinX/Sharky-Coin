@@ -1,23 +1,19 @@
-import { useMemo, useState } from 'react'
-import { BrandMark } from '@/components/ui/BrandMark'
+import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { ACCENT_COLORS } from '@/constants'
 import { CURRENCIES } from '@/data/currencies'
 import { currentRate } from '@/data/fxAlerts'
-import { byCategory, currentMonthKey, fmt, fmtCompact, totalBalanceInBase, txForMonth } from '@/data/helpers'
+import { fmt } from '@/data/helpers'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
-import { isTauri } from '@/hooks/useTauri'
 import { useT } from '@/i18n'
-import { requestPinHomeWidget } from '@/lib/homeWidget'
 import { playSoundPreview } from '@/lib/sound'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import type { CurrencyCode, DensityName, OverdraftPolicy, ThemeName } from '@/types'
 import { MobileAmountSheet } from '../MobileAmountSheet'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
-
-const isAndroidTauri = isTauri() && /android/i.test(navigator.userAgent)
 
 function getAccents(t: ReturnType<typeof useT>) {
   return [
@@ -67,11 +63,45 @@ const themePreviewFg: Record<'dark' | 'light' | 'amoled', string> = {
   amoled: '#e9eef7',
 }
 
-export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps) {
+export function SettingsAppearance({ activeSheet, onOpen, onClose, only }: SheetProps & { only?: 'finance' | 'appearance' }) {
   const settings = useSettings()
   const finance = useFinance()
   const resolvedTheme = useResolvedTheme()
+  const { confirm } = useDialogs()
   const t = useT()
+
+  const handleRoundAmounts = async () => {
+    const ok = await confirm({
+      title: t('roundAmountsTitle'),
+      description: t('roundAmountsWarning'),
+      confirmLabel: t('roundAmountsConfirm'),
+      icon: 'coins',
+    })
+    if (!ok) return
+    const changed = finance.roundAllAmounts()
+    toast(
+      changed > 0 ? t('roundAmountsDone').replace('{n}', String(changed)) : t('roundAmountsNothing'),
+      { icon: 'check', type: 'ok' },
+    )
+  }
+
+  // Cambiar la moneda re-expresa TODOS los montos en la nueva divisa según la
+  // tasa actual. Es un cambio grande y global, así que se confirma primero.
+  const changeCurrency = (code: CurrencyCode) => {
+    if (code === finance.currency) { onClose(); return }
+    void confirm({
+      title: t('changeCurrencyConfirmTitle'),
+      description: t('changeCurrencyConfirmBody').replace('{currency}', code),
+      confirmLabel: t('changeCurrencyConfirmBtn'),
+      icon: 'refresh',
+    }).then(ok => {
+      if (ok) {
+        finance.setCurrency(code)
+        toast(t('currencyChangedToast').replace('{currency}', code), { icon: 'check', type: 'ok' })
+      }
+      onClose()
+    })
+  }
 
   const accents = getAccents(t)
   const themeLabels = getThemeLabels(t)
@@ -101,31 +131,14 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
     ? sensitivityLabels[settings.anomalySensitivity]
     : t('anomalyAlertOffLabel')
 
-  // Datos reales para que las vistas previas de widgets se vean como el
-  // widget final en lugar de texto instructivo (bug visual anterior).
-  const widgetPreviewBalance = useMemo(
-    () => totalBalanceInBase(finance.accounts, finance.currency),
-    [finance.accounts, finance.currency],
-  )
-  const widgetPreviewBudget = useMemo(() => {
-    const mkey = currentMonthKey()
-    const monthTx = txForMonth(finance.transactions, mkey)
-    const rows = byCategory(monthTx, 'expense', finance.categories)
-      .map(row => {
-        const category = finance.categories.find(c => c.id === row.category.id)
-        return category && category.budget > 0
-          ? { name: category.name, pct: Math.min(100, Math.round((row.amount / category.budget) * 100)) }
-          : null
-      })
-      .filter((row): row is { name: string; pct: number } => !!row)
-      .sort((a, b) => b.pct - a.pct)
-    return rows[0] ?? null
-  }, [finance.transactions, finance.categories])
+  const showFinance = !only || only === 'finance'
+  const showAppearance = !only || only === 'appearance'
 
   return (
     <>
+      {showFinance && (
       <div className="mset-section">
-        <span className="mset-section-title">{t('financeSection')}</span>
+        {!only && <span className="mset-section-title">{t('financeSection')}</span>}
         <div className="mset-card">
           <SettingsRow
             icon="dollar"
@@ -155,11 +168,16 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
             value={anomalyAlertSummary}
             onClick={() => onOpen('anomalyAlert')}
           />
+          <SettingsRow icon="coins" iconColor="#ffdd3d" label={t('roundAmountsLabel')}
+            sublabel={t('roundAmountsSub')}
+            onClick={() => void handleRoundAmounts()} />
         </div>
       </div>
+      )}
 
+      {showAppearance && (
       <div className="mset-section">
-        <span className="mset-section-title">{t('appearanceSection')}</span>
+        {!only && <span className="mset-section-title">{t('appearanceSection')}</span>}
         <div className="mset-card">
           <SettingsRow
             icon="palette"
@@ -214,30 +232,11 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
             </label>
           </div>
 
-          {isAndroidTauri && (
-            <div className="mset-row">
-              <span className="mset-row-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
-                <Icon name="bell" size={18} />
-              </span>
-              <div className="mset-row-text">
-                <b>{t('backgroundReminders')}</b>
-                <small>{t('backgroundRemindersDesc')}</small>
-              </div>
-              <label className="mset-toggle-wrap">
-                <input
-                  type="checkbox"
-                  className="mset-toggle-input"
-                  checked={settings.remindersEnabled}
-                  onChange={e => settings.setRemindersEnabled(e.target.checked)}
-                />
-                <span className="mset-toggle" />
-              </label>
-            </div>
-          )}
-
         </div>
       </div>
+      )}
 
+      {showAppearance && (
       <div className="mset-section">
         <span className="mset-section-title">{t('soundHapticsSection')}</span>
         <div className="mset-card">
@@ -273,108 +272,6 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
           )}
         </div>
       </div>
-
-      {isAndroidTauri && (
-        <div className="mset-section">
-          <span className="mset-section-title">{t('widgetsSection')}</span>
-          <div className="mset-card">
-            <div className="mset-widget-panel">
-              <div className="mset-widget-panel-head">
-                <span>{t('widgetsPreviewTitle')}</span>
-                <small>2x2 / 4x2 / 4x3</small>
-              </div>
-              <div className="mset-widget-preview-row">
-                <div className="mset-widget-preview size-2x2">
-                  <div className="mset-widget-preview-head">
-                    <BrandMark size={15} />
-                    <span>$harky</span>
-                  </div>
-                  <div>
-                    <strong>{fmtCompact(widgetPreviewBalance, finance.currency)}</strong>
-                    <span>{t('totalBalance')}</span>
-                  </div>
-                </div>
-                <div className="mset-widget-preview size-4x2">
-                  <div className="mset-widget-preview-head">
-                    <BrandMark size={15} />
-                    <span>{t('budgetStatus')}</span>
-                  </div>
-                  {widgetPreviewBudget ? (
-                    <div className="mset-widget-preview-budget">
-                      <div className="mset-widget-preview-budget-row">
-                        <b>{widgetPreviewBudget.name}</b>
-                        <strong>{widgetPreviewBudget.pct}%</strong>
-                      </div>
-                      <div className="mset-widget-preview-track">
-                        <div style={{ width: `${widgetPreviewBudget.pct}%` }} />
-                      </div>
-                    </div>
-                  ) : (
-                    <span>{t('addBudgetsHomeWidget')}</span>
-                  )}
-                </div>
-              </div>
-              <div className="mset-widget-grid">
-                <button
-                  className="mset-widget-card balance"
-                  onClick={async () => {
-                    const result = await requestPinHomeWidget('balance')
-                    if (result === 'requested') toast(t('homeWidgetRequested'), { icon: 'grid', type: 'ok' })
-                    else if (result === 'unsupported') toast(t('homeWidgetUnsupported'), { icon: 'alert', type: 'warn' })
-                  }}
-                >
-                  <span><Icon name="wallet" size={22} /></span>
-                  <b>{t('widgetBalanceTitle')}</b>
-                  <small>{t('widgetBalanceSizes')}</small>
-                </button>
-                <button
-                  className="mset-widget-card budgets"
-                  onClick={async () => {
-                    const result = await requestPinHomeWidget('budgets')
-                    if (result === 'requested') toast(t('homeWidgetRequested'), { icon: 'grid', type: 'ok' })
-                    else if (result === 'unsupported') toast(t('homeWidgetUnsupported'), { icon: 'alert', type: 'warn' })
-                  }}
-                >
-                  <span><Icon name="chart" size={22} /></span>
-                  <b>{t('widgetBudgetsTitle')}</b>
-                  <small>{t('widgetBudgetsSizes')}</small>
-                </button>
-                <button
-                  className="mset-widget-card converter"
-                  onClick={async () => {
-                    const result = await requestPinHomeWidget('converter')
-                    if (result === 'requested') toast(t('homeWidgetRequested'), { icon: 'grid', type: 'ok' })
-                    else if (result === 'unsupported') toast(t('homeWidgetUnsupported'), { icon: 'alert', type: 'warn' })
-                  }}
-                >
-                  <span><Icon name="refresh" size={22} /></span>
-                  <b>{t('widgetConverterTitle')}</b>
-                  <small>{t('widgetConverterSizes')}</small>
-                </button>
-                <button
-                  className="mset-widget-card quickadd"
-                  onClick={async () => {
-                    const result = await requestPinHomeWidget('quickadd')
-                    if (result === 'requested') toast(t('homeWidgetRequested'), { icon: 'grid', type: 'ok' })
-                    else if (result === 'unsupported') toast(t('homeWidgetUnsupported'), { icon: 'alert', type: 'warn' })
-                  }}
-                >
-                  <span><Icon name="plus" size={22} /></span>
-                  <b>{t('widgetQuickAddTitle')}</b>
-                  <small>{t('widgetQuickAddSizes')}</small>
-                </button>
-              </div>
-              <button className="mset-widget-accounts" onClick={() => onOpen('widgetAccounts')}>
-                <span><Icon name="cards" size={18} /></span>
-                <div>
-                  <b>{t('widgetAccountsLabel')}</b>
-                  <small>{t('widgetAccountsDesc')}</small>
-                </div>
-                <Icon name="arrowUp" size={13} className="mset-chevron" />
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {activeSheet === 'theme' && (
@@ -481,10 +378,7 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
               <button
                 key={code}
                 className={`mset-option-row${finance.currency === code ? ' on' : ''}`}
-                onClick={() => {
-                  finance.setCurrency(code)
-                  onClose()
-                }}
+                onClick={() => changeCurrency(code)}
               >
                 <strong>{code}</strong>
                 {finance.currency === code && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 'auto', flexShrink: 0 }} />}
@@ -660,31 +554,6 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose }: SheetProps)
         </SettingsSheet>
       )}
 
-      {activeSheet === 'widgetAccounts' && (
-        <SettingsSheet title={t('widgetAccountsSheetTitle')} onClose={onClose}>
-          <div className="mset-sheet-options">
-            {finance.accounts.map(account => {
-              const selected = settings.widgetAccountIds.includes(account.id)
-              const atCap = settings.widgetAccountIds.length >= 3
-              return (
-                <button
-                  key={account.id}
-                  className={`mset-option-row${selected ? ' on' : ''}`}
-                  disabled={!selected && atCap}
-                  onClick={() => settings.setWidgetAccountIds(
-                    selected
-                      ? settings.widgetAccountIds.filter(id => id !== account.id)
-                      : [...settings.widgetAccountIds, account.id],
-                  )}
-                >
-                  <strong>{account.short || account.name}</strong>
-                  {selected && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 'auto', flexShrink: 0 }} />}
-                </button>
-              )
-            })}
-          </div>
-        </SettingsSheet>
-      )}
     </>
   )
 }

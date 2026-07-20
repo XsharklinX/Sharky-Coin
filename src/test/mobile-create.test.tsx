@@ -13,6 +13,7 @@ vi.mock('@/mobile/MobileDatePicker', () => ({
 }))
 vi.mock('@/mobile/useMobileBackDismiss', () => ({ useMobileBackDismiss: vi.fn() }))
 vi.mock('@/components/ui/Toast', () => ({ toast: vi.fn() }))
+vi.mock('@/components/ui/DialogProvider', () => ({ useDialogs: () => ({ confirm: vi.fn() }) }))
 
 function seedStore() {
   useSettings.setState({ language: 'en' })

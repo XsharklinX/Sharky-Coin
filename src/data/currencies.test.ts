@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { convertCurrency, getCurrencyMeta, CURRENCIES } from './currencies'
+import { convertCurrency, fmtConversion, getCurrencyMeta, CURRENCIES } from './currencies'
 
 // Nota: usa las tasas semilla de currencies.ts (en tests no corre
 // syncExchangeRates, así que son estables).
@@ -39,5 +39,24 @@ describe('convertCurrency (conversión multi-moneda)', () => {
       expect(Number.isFinite(meta.rateToUSD)).toBe(true)
       expect(meta.rateToUSD).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('fmtConversion (formato compacto)', () => {
+  it('formatea montos pequeños con dos decimales', () => {
+    expect(fmtConversion(1, 'USD', 'USD')).toBe('$1.00')
+  })
+
+  it('formatea miles con sufijo k', () => {
+    expect(fmtConversion(1500, 'USD', 'USD')).toBe('$1.5k')
+  })
+
+  it('formatea millones con sufijo M', () => {
+    expect(fmtConversion(2_500_000, 'USD', 'USD')).toBe('$2.5M')
+  })
+
+  it('convierte antes de formatear (no formatea en la divisa de origen)', () => {
+    const dopRate = getCurrencyMeta('DOP').rateToUSD
+    expect(fmtConversion(1000, 'USD', 'DOP')).toBe(`RD$${((1000 * dopRate) / 1000).toFixed(1)}k`)
   })
 })

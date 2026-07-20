@@ -4,7 +4,7 @@ import { toast } from '@/components/ui/Toast'
 import { fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
-import { useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
+import { monthsLabel, useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
 import { playConfirmSound, playDeleteSound } from '@/lib/sound'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -14,15 +14,6 @@ import { SheetPortal } from './SheetPortal'
 
 const COLORS = ['#ff6b8a', '#5bc0ff', '#35d0a2', '#a78bfa', '#f59e0b', '#ffdd3d']
 const EMPTY: Omit<Debt, 'id'> = { name: '', balance: 0, rate: 0, minPayment: 0, color: COLORS[0] }
-
-function monthsLabel(m: number, t: ReturnType<typeof useT>) {
-  if (m <= 0) return '—'
-  if (m >= 600) return t('over50Years')
-  const y = Math.floor(m / 12), mo = m % 12
-  if (y === 0) return `${mo} ${mo !== 1 ? t('monthsPlural') : t('monthsSingular')}`
-  if (mo === 0) return `${y} ${y !== 1 ? t('yearsPlural') : t('yearsSingular')}`
-  return t('yearsMonthsShort').replace('{y}', String(y)).replace('{mo}', String(mo))
-}
 
 export function MobileDebt() {
   const { currency } = useFinance()

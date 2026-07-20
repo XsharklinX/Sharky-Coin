@@ -7,15 +7,17 @@ import { getDataHealthStatus } from '@/data/dataHealth'
 import { exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { dateLocale, monthLabel } from '@/data/helpers'
 import { decryptWithPassphrase, encryptWithPassphrase, looksEncrypted } from '@/lib/backupCrypto'
+import { getScheduledBackupStatus, pickBackupFolder as pickSafBackupFolder, runBackupNow, type ScheduledBackupStatus } from '@/lib/scheduledBackup'
 import { useFinance } from '@/store/finance'
+import { useNotes } from '@/store/notes'
 import { useAuth } from '@/store/auth'
 import { clearCloudWorkspaceCache } from '@/hooks/useCloudWorkspace'
-import { isTauri, openBackup, saveBackup } from '@/hooks/useTauri'
+import { isTauri, openBackup, pickBackupFolder, saveBackup } from '@/hooks/useTauri'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
-export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps & { mkey: string }) {
+export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: SheetProps & { mkey: string; grouped?: boolean }) {
   const finance = useFinance()
   const auth    = useAuth()
   const t       = useT()
@@ -28,6 +30,34 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
   const setWeeklyAutoBackupEnabled = useSettings(s => s.setWeeklyAutoBackupEnabled)
   const setWeeklyAutoBackupDay = useSettings(s => s.setWeeklyAutoBackupDay)
   const setWeeklyAutoBackupHour = useSettings(s => s.setWeeklyAutoBackupHour)
+  const weeklyBackupFolder = useSettings(s => s.weeklyBackupFolder)
+  const setWeeklyBackupFolder = useSettings(s => s.setWeeklyBackupFolder)
+  const isAndroid = /android/i.test(navigator.userAgent)
+  const [pickingFolder, setPickingFolder] = useState(false)
+  // Estado real del backup nativo de Android (carpeta SAF, última ejecución).
+  const [backupStatus, setBackupStatus] = useState<ScheduledBackupStatus | null>(null)
+  const [testingBackup, setTestingBackup] = useState(false)
+
+  useEffect(() => {
+    if (activeSheet !== 'backupSchedule') return
+    let cancelled = false
+    void getScheduledBackupStatus().then(s => { if (!cancelled) setBackupStatus(s) })
+    return () => { cancelled = true }
+  }, [activeSheet])
+
+  const handleTestBackup = async () => {
+    setTestingBackup(true)
+    try {
+      const result = await runBackupNow()
+      toast(
+        result.ok ? t('backupTestOk') : t('backupTestFailed').replace('{error}', result.error ?? '?'),
+        { icon: result.ok ? 'check' : 'alert', type: result.ok ? 'ok' : 'error' },
+      )
+      setBackupStatus(await getScheduledBackupStatus())
+    } finally {
+      setTestingBackup(false)
+    }
+  }
 
   const [exportingPdf,    setExportingPdf]    = useState(false)
   const [exportingExcel,  setExportingExcel]  = useState(false)
@@ -66,7 +96,7 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
     try {
       const json = JSON.stringify(createBackup(finance), null, 2)
       const payload = passphrase ? await encryptWithPassphrase(json, passphrase) : json
-      const saved = await saveBackup(payload)
+      const saved = await saveBackup(payload, weeklyBackupFolder)
       if (saved && isTauri()) toast(t('backupSavedToFolder'), { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
@@ -86,7 +116,9 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
         onOpen('restorePassword')
         return
       }
-      finance.restoreBackup(parseBackup(text))
+      const data = parseBackup(text)
+      finance.restoreBackup(data)
+      useNotes.getState().importNotes(data.notes ?? [])
       toast(t('backupRestored'), { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
@@ -99,13 +131,32 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
     setRestoring(true)
     try {
       const decrypted = await decryptWithPassphrase(restorePendingText, restorePassword)
-      finance.restoreBackup(parseBackup(decrypted))
+      const data = parseBackup(decrypted)
+      finance.restoreBackup(data)
+      useNotes.getState().importNotes(data.notes ?? [])
       toast(t('backupRestored'), { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
       toast(error instanceof Error ? error.message : t('invalidFile'), { icon: 'alert' })
     } finally {
       setRestoring(false)
+    }
+  }
+
+  const handleChooseFolder = async () => {
+    setPickingFolder(true)
+    try {
+      if (isAndroid) {
+        // Selector real de Android (SAF): el permiso queda persistido para que
+        // el worker de fondo pueda escribir ahí aunque la app esté cerrada.
+        const result = await pickSafBackupFolder()
+        if (!result.cancelled) setBackupStatus(await getScheduledBackupStatus())
+        return
+      }
+      const path = await pickBackupFolder()
+      if (path) setWeeklyBackupFolder(path)
+    } finally {
+      setPickingFolder(false)
     }
   }
 
@@ -148,55 +199,65 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
       setResetting(false)
     }
     finance.startEmpty()
+    useNotes.getState().importNotes([])
     toast(t('allDataDeleted'), { icon: 'trash' })
     onClose()
   }
 
+  const cards = (
+    <>
+      <div className="mset-card">
+        <div className="mset-stats">
+          <div><strong>{health.transactions}</strong><small>{t('transactionsLabel')}</small></div>
+          <div><strong>{health.categories}</strong><small>{t('categoriesTitle')}</small></div>
+          <div><strong>{health.goals}</strong><small>{t('goals')}</small></div>
+        </div>
+        {health.warnings.map(w => (
+          <p className="mset-warning" key={w}><Icon name="alert" size={13} />{w}</p>
+        ))}
+      </div>
+      <div className="mset-card">
+        <SettingsRow icon="refresh" iconColor="#f59e0b" label={t('recalcBalancesLabel')}
+          sublabel={t('recalcBalancesSub')}
+          value={(health.driftedAccounts + health.driftedGoals) > 0 ? String(health.driftedAccounts + health.driftedGoals) : undefined}
+          onClick={() => {
+            const fixed = finance.recomputeBalances()
+            toast(fixed > 0 ? t('balancesFixed').replace('{n}', String(fixed)) : t('balancesOk'),
+              { icon: 'check', type: 'ok' })
+          }} />
+        <SettingsRow icon="download" iconColor="#35d0a2" label={t('exportData')}
+          sublabel={t('exportDataSub')}
+          onClick={() => onOpen('export')} />
+        <SettingsRow icon="upload" iconColor="#5bc0ff" label={t('restoreBackup')}
+          onClick={() => void importBackup()} />
+        {isTauri() && (
+          <SettingsRow icon="fileJson" iconColor="#a78bfa" label={t('weeklyBackupLastLabel')}
+            sublabel={backupScheduleLabel}
+            onClick={() => onOpen('backupSchedule')}
+            right={(
+              <span className="mset-value">
+                {lastWeeklyBackupAt
+                  ? new Date(lastWeeklyBackupAt).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
+                  : t('weeklyBackupNever')}
+              </span>
+            )} />
+        )}
+      </div>
+      <div className="mset-card">
+        <SettingsRow icon="trash" iconColor="#ff6b8a" label={t('deleteAllData')}
+          danger onClick={() => onOpen('reset')} />
+      </div>
+    </>
+  )
+
   return (
     <>
-      {/* ── Sección Datos ── */}
-      <div className="mset-section">
-        <span className="mset-section-title">{t('dataSection')}</span>
-        <div className="mset-card">
-          <div className="mset-stats">
-            <div><strong>{health.transactions}</strong><small>{t('transactionsLabel')}</small></div>
-            <div><strong>{health.categories}</strong><small>{t('categoriesTitle')}</small></div>
-            <div><strong>{health.goals}</strong><small>{t('goals')}</small></div>
-          </div>
-          {health.warnings.map(w => (
-            <p className="mset-warning" key={w}><Icon name="alert" size={13} />{w}</p>
-          ))}
+      {grouped ? cards : (
+        <div className="mset-section">
+          <span className="mset-section-title">{t('dataSection')}</span>
+          {cards}
         </div>
-        <div className="mset-card">
-          <SettingsRow icon="refresh" iconColor="#f59e0b" label={t('recalcBalancesLabel')}
-            value={health.driftedAccounts > 0 ? String(health.driftedAccounts) : undefined}
-            onClick={() => {
-              const fixed = finance.recomputeBalances()
-              toast(fixed > 0 ? t('balancesFixed').replace('{n}', String(fixed)) : t('balancesOk'),
-                { icon: 'check', type: 'ok' })
-            }} />
-          <SettingsRow icon="download" iconColor="#35d0a2" label={t('exportData')}
-            onClick={() => onOpen('export')} />
-          <SettingsRow icon="upload" iconColor="#5bc0ff" label={t('restoreBackup')}
-            onClick={() => void importBackup()} />
-          {isTauri() && (
-            <SettingsRow icon="fileJson" iconColor="#a78bfa" label={t('weeklyBackupLastLabel')}
-              value={backupScheduleLabel}
-              onClick={() => onOpen('backupSchedule')}
-              right={(
-                <span className="mset-value">
-                  {lastWeeklyBackupAt
-                    ? new Date(lastWeeklyBackupAt).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
-                    : t('weeklyBackupNever')}
-                </span>
-              )} />
-          )}
-        </div>
-        <div className="mset-card">
-          <SettingsRow icon="trash" iconColor="#ff6b8a" label={t('deleteAllData')}
-            danger onClick={() => onOpen('reset')} />
-        </div>
-      </div>
+      )}
 
       {/* ── Sheets ── */}
       {activeSheet === 'export' && (
@@ -354,11 +415,68 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose }: SheetProps 
             </div>
 
             <div className="mset-card" style={{ margin: 0 }}>
-              <div className="mset-note-block">
-                <strong>{t('backupDestinationTitle')}</strong>
-                <small>{t('backupDestinationAppFolder')}</small>
+              <div className="mset-field-stack">
+                <span className="mset-field-label">{t('backupDestinationTitle')}</span>
+                {isAndroid ? (
+                  <div className="mset-row" style={{ padding: '10px 0' }}>
+                    <div className="mset-row-text">
+                      <small>{backupStatus?.folderLabel ?? t('backupNoFolderChosen')}</small>
+                    </div>
+                    <button className="mset-sheet-cancel" style={{ margin: 0, width: 'auto' }} disabled={pickingFolder} onClick={() => void handleChooseFolder()}>
+                      {t('chooseFolderLabel')}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mset-row" style={{ padding: '10px 0' }}>
+                    <div className="mset-row-text">
+                      <small>{weeklyBackupFolder ?? t('backupDestinationAppFolder')}</small>
+                    </div>
+                    <button className="mset-sheet-cancel" style={{ margin: 0, width: 'auto' }} disabled={pickingFolder} onClick={() => void handleChooseFolder()}>
+                      {t('chooseFolderLabel')}
+                    </button>
+                  </div>
+                )}
+                {!isAndroid && weeklyBackupFolder && (
+                  <button className="mset-sheet-cancel" onClick={() => setWeeklyBackupFolder(null)}>
+                    {t('restoreDefaultFolderLabel')}
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Estado real del backup automático de Android: sin esto no había
+                forma de saber si de verdad se está ejecutando. */}
+            {isAndroid && backupStatus && (
+              <div className="mset-card" style={{ margin: 0 }}>
+                <div className="mset-widget-diag">
+                  <p>
+                    <Icon name={backupStatus.folderWritable ? 'check' : 'alert'} size={13} />
+                    {backupStatus.hasFolder
+                      ? (backupStatus.folderWritable ? t('backupFolderOk') : t('backupFolderLostAccess'))
+                      : t('backupNoFolderChosen')}
+                  </p>
+                  <p>
+                    <Icon name={backupStatus.lastSuccessAt ? 'check' : 'alert'} size={13} />
+                    {backupStatus.lastSuccessAt
+                      ? t('backupLastSuccess').replace('{when}', backupStatus.lastSuccessAt.toLocaleString(dateLocale(lang)))
+                      : t('backupNeverRan')}
+                  </p>
+                  {backupStatus.lastError && (
+                    <p>
+                      <Icon name="alert" size={13} />
+                      {t('backupLastError').replace('{error}', backupStatus.lastError)}
+                    </p>
+                  )}
+                  <button
+                    className="mset-widget-refresh"
+                    disabled={testingBackup || !backupStatus.hasFolder}
+                    onClick={() => void handleTestBackup()}
+                  >
+                    <Icon name="refresh" size={14} /> {testingBackup ? t('backupTesting') : t('backupTestNow')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </SettingsSheet>
       )}

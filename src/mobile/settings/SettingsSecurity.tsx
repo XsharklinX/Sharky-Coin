@@ -16,7 +16,7 @@ type LockStep =
   | 'pin-enter' | 'pin-confirm'
   | 'pattern-enter' | 'pattern-confirm'
 
-export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
+export function SettingsSecurity({ activeSheet, onOpen, onClose, grouped }: SheetProps & { grouped?: boolean }) {
   const settings = useSettings()
   const t = useT()
   const [bioAvailable, setBioAvailable] = useState(false)
@@ -169,38 +169,44 @@ export function SettingsSecurity({ activeSheet, onOpen, onClose }: SheetProps) {
     </>
   )
 
+  const card = (
+    <div className="mset-card">
+      {isTauri() && (
+        <div className="mset-row">
+          <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+            <Icon name="lock" size={18} />
+          </span>
+          <div className="mset-row-text">
+            <b>{t('requireBiometricLabel')}</b>
+            <small>
+              {!bioAvailable ? t('bioNotAvailable')
+                : !hasLock ? t('bioConfigurePinFirst')
+                : t('bioFingerprintDesc')}
+            </small>
+          </div>
+          <label className="mset-toggle-wrap">
+            <input type="checkbox" className="mset-toggle-input"
+              checked={settings.requireBiometric}
+              disabled={!bioAvailable || !hasLock}
+              onChange={e => settings.setRequireBiometric(e.target.checked)} />
+            <span className="mset-toggle" />
+          </label>
+        </div>
+      )}
+      <SettingsRow icon="key" iconColor="#ffdd3d" label={t('appLock')}
+        value={lockValue}
+        onClick={openLockSheet} />
+    </div>
+  )
+
   return (
     <>
-      <div className="mset-section">
-        <div className="mset-section-label">{t('securitySection')}</div>
-        <div className="mset-card">
-          {isTauri() && (
-            <div className="mset-row">
-              <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
-                <Icon name="lock" size={18} />
-              </span>
-              <div className="mset-row-text">
-                <b>{t('requireBiometricLabel')}</b>
-                <small>
-                  {!bioAvailable ? t('bioNotAvailable')
-                    : !hasLock ? t('bioConfigurePinFirst')
-                    : t('bioFingerprintDesc')}
-                </small>
-              </div>
-              <label className="mset-toggle-wrap">
-                <input type="checkbox" className="mset-toggle-input"
-                  checked={settings.requireBiometric}
-                  disabled={!bioAvailable || !hasLock}
-                  onChange={e => settings.setRequireBiometric(e.target.checked)} />
-                <span className="mset-toggle" />
-              </label>
-            </div>
-          )}
-          <SettingsRow icon="key" iconColor="#ffdd3d" label={t('appLock')}
-            value={lockValue}
-            onClick={openLockSheet} />
+      {grouped ? card : (
+        <div className="mset-section">
+          <div className="mset-section-label">{t('securitySection')}</div>
+          {card}
         </div>
-      </div>
+      )}
 
       {activeSheet === 'pin' && (
         <SettingsSheet title={t('appLock')} onClose={onClose}>

@@ -24,11 +24,61 @@ class MainActivity : TauriActivity() {
       window.isNavigationBarContrastEnforced = false
     }
     handleShareIntent(intent)
+    handleShortcutIntent(intent)
+    handleNotificationIntent(intent)
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     handleShareIntent(intent)
+    handleShortcutIntent(intent)
+    handleNotificationIntent(intent)
+  }
+
+  /**
+   * Red de seguridad para los atajos (widgets y menu de mantener presionado el
+   * icono). El plugin `deep-link` deberia entregar `sharky://shortcut/...` por
+   * `onOpenUrl`/`getCurrent`, pero en warm-start hay dispositivos donde no
+   * llega y la app se queda en Inicio. Aqui capturamos el atajo desde el propio
+   * MainActivity — igual que `handleShareIntent`, que ya funciona de forma
+   * fiable — y dejamos un marcador (`{cacheDir}/shortcut.txt`) que el lado
+   * Rust/JS consume una sola vez vía `take_pending_shortcut`.
+   *
+   * NO consume las URLs de `auth` (login): esas solo las maneja el flujo de
+   * Supabase; aqui solo interesan los atajos.
+   */
+  private fun handleShortcutIntent(intent: Intent?) {
+    if (intent == null || intent.action != Intent.ACTION_VIEW) return
+    val data = intent.data ?: return
+    if (data.scheme != "sharky" || data.host != "shortcut") return
+    val id = data.lastPathSegment ?: return
+    try {
+      File(cacheDir, "shortcut.txt").writeText(id)
+    } catch (_: Exception) {
+      // Si no se puede escribir el marcador, el deep link normal sigue siendo el
+      // camino principal — esto es solo el respaldo.
+    }
+  }
+
+  /**
+   * Red de seguridad para los avisos nativos (ReminderWorker): igual que
+   * `handleShortcutIntent`, captura `sharky://notification/<tipo>` desde
+   * MainActivity y deja un marcador (`{cacheDir}/notification.txt`) que
+   * Rust/JS consume una sola vez vía `take_pending_notification`. Así, al
+   * tocar un aviso nativo (presupuesto, semanal, etc.) la app abre la
+   * pantalla correspondiente en vez de quedarse en Inicio.
+   */
+  private fun handleNotificationIntent(intent: Intent?) {
+    if (intent == null || intent.action != Intent.ACTION_VIEW) return
+    val data = intent.data ?: return
+    if (data.scheme != "sharky" || data.host != "notification") return
+    val type = data.lastPathSegment ?: return
+    try {
+      File(cacheDir, "notification.txt").writeText(type)
+    } catch (_: Exception) {
+      // Si no se puede escribir el marcador, el deep link normal sigue siendo el
+      // camino principal — esto es solo el respaldo.
+    }
   }
 
   /**

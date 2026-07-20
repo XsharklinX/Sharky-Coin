@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createBackup, parseBackup } from './backup'
+import { useNotes } from '@/store/notes'
 import type { FinanceState } from '@/store/finance'
+import type { Note } from '@/data/notes'
 
 const cashAccount = {
   id: 'cash',
@@ -30,7 +32,15 @@ const goal = {
   icon: 'wallet',
 } as const
 
+const shoppingNote: Note = {
+  id: 'note1', title: 'Compra del súper', type: 'shopping', color: '#35d0a2', icon: 'cart',
+  categoryId: 'food', accountId: 'cash', createdAt: 1, updatedAt: 1,
+  items: [{ id: 'it1', text: 'Arroz', done: true, price: 380, qty: 2 }],
+}
+
 describe('backup JSON', () => {
+  afterEach(() => { useNotes.setState({ notes: [] }) })
+
   it('serializa y restaura los datos financieros', () => {
     const state = { accounts: [], categories: [], goals: [], transactions: [], currency: 'DOP' } as unknown as FinanceState
     expect(parseBackup(JSON.stringify(createBackup(state)))).toEqual({
@@ -170,5 +180,90 @@ describe('backup JSON', () => {
 
   it('rechaza backups JSON corruptos sin cambiar datos', () => {
     expect(() => parseBackup('{"version":1,"data":')).toThrow('JSON')
+  })
+
+  it('round-trip: conserva todos los campos v2 sin pérdida (moneda de cuenta, splits, toAmount, serviceId, incremento)', () => {
+    const usdAccount = { ...cashAccount, id: 'usd', currency: 'USD' as const }
+    const savingsAccount = { id: 'sav', name: 'Ahorros', short: 'Ahorros', type: 'savings', color: '#0f0', balance: 300, last4: null, currency: 'DOP' as const }
+    const goalWithAuto = {
+      ...goal,
+      autoContribute: { amount: 50, frequency: 'weekly' as const, fromAccountId: 'cash', nextDate: '2026-07-20', increment: 5 },
+    }
+    const splitTx = {
+      id: 'tx_split', type: 'expense' as const, amount: 100, accountId: 'cash', categoryId: 'food',
+      date: '2026-07-01', note: 'Super', splits: [{ categoryId: 'food', amount: 60 }, { categoryId: 'food', amount: 40 }],
+    }
+    const transferTx = {
+      id: 'tx_transfer', type: 'transfer' as const, amount: 100, fromAccount: 'cash', toAccount: 'usd',
+      date: '2026-07-02', note: 'Transferencia', toAmount: 1.7,
+    }
+    const subscriptionTx = {
+      id: 'tx_sub', type: 'expense' as const, amount: 15, accountId: 'cash', categoryId: 'food',
+      date: '2026-07-03', note: 'Netflix', serviceId: 'netflix',
+    }
+
+    const state = {
+      accounts: [cashAccount, usdAccount, savingsAccount],
+      categories: [foodCategory],
+      goals: [goalWithAuto],
+      goalContributions: [],
+      transactions: [splitTx, transferTx, subscriptionTx],
+      currency: 'DOP',
+    } as unknown as FinanceState
+
+    const restored = parseBackup(JSON.stringify(createBackup(state)))
+    expect(restored).toEqual({
+      accounts: state.accounts,
+      categories: state.categories,
+      goals: state.goals,
+      goalContributions: [],
+      transactions: state.transactions,
+      currency: 'DOP',
+    })
+  })
+
+  it('rechaza splits cuya suma no coincide con el monto de la transacción', () => {
+    const state = {
+      accounts: [cashAccount],
+      categories: [foodCategory],
+      goals: [],
+      transactions: [{
+        id: 'tx', type: 'expense', amount: 100, accountId: 'cash', categoryId: 'food',
+        date: '2026-07-01', note: 'Super', splits: [{ categoryId: 'food', amount: 60 }, { categoryId: 'food', amount: 30 }],
+      }],
+      currency: 'DOP',
+    } as unknown as FinanceState
+    expect(() => parseBackup(JSON.stringify(createBackup(state)))).toThrow('divisiones')
+  })
+
+  it('las listas viajan en el backup (v3) cuando hay alguna', () => {
+    useNotes.setState({ notes: [shoppingNote] })
+    const state = { accounts: [cashAccount], categories: [foodCategory], goals: [], transactions: [], currency: 'DOP' } as unknown as FinanceState
+    const backup = createBackup(state)
+    expect(backup.version).toBe(3)
+    expect(backup.data.notes).toEqual([shoppingNote])
+    expect(parseBackup(JSON.stringify(backup)).notes).toEqual([shoppingNote])
+  })
+
+  it('sin listas, el backup omite el campo notes (compatibilidad con v1/v2 sin cambios)', () => {
+    useNotes.setState({ notes: [] })
+    const state = { accounts: [], categories: [], goals: [], transactions: [], currency: 'DOP' } as unknown as FinanceState
+    const backup = createBackup(state)
+    expect(backup.data).not.toHaveProperty('notes')
+  })
+
+  it('un backup v2 sin notes se restaura igual, notes queda undefined', () => {
+    const legacyV2 = {
+      version: 2,
+      data: { accounts: [], categories: [], goals: [], goalContributions: [], transactions: [], currency: 'DOP' },
+    }
+    const restored = parseBackup(JSON.stringify(legacyV2))
+    expect(restored.notes).toBeUndefined()
+  })
+
+  it('rechaza una lista con ítem malformado (precio negativo)', () => {
+    const badNote = { ...shoppingNote, items: [{ id: 'it1', text: 'x', done: false, price: -5 }] }
+    const backup = { version: 3, data: { accounts: [], categories: [], goals: [], goalContributions: [], transactions: [], currency: 'DOP', notes: [badNote] } }
+    expect(() => parseBackup(JSON.stringify(backup))).toThrow()
   })
 })

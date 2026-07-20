@@ -49,6 +49,38 @@ function lacksFunds(account: Account, amount: number): boolean {
   return account.balance < amount
 }
 
+/**
+ * Baldosa de servicio consistente en toda la pantalla: cuadro redondeado del
+ * color de la marca con el glifo en blanco (logo real si existe, si no el
+ * icono genérico). Así todos los iconos se ven parejos y "profesionales", en
+ * vez de mezclar chips blancos con chips de color tenue.
+ */
+function ServiceTile({ item, size = 46, glyph = 24 }: { item: SubscriptionCatalogItem; size?: number; glyph?: number }) {
+  return (
+    <span className="msub-service-tile" style={{ width: size, height: size, background: item.color }}>
+      {item.logoSlug
+        ? <BrandLogo slug={item.logoSlug} size={glyph} color="#fff" />
+        : <Icon name={item.icon} size={glyph} />}
+    </span>
+  )
+}
+
+/** Baldosa para una fila de suscripción real: usa la marca si se conoce, si no la categoría. */
+function RowTile({ item, fallbackColor, fallbackIcon, size = 46, glyph = 22 }: {
+  item?: SubscriptionCatalogItem
+  fallbackColor: string
+  fallbackIcon: IconName
+  size?: number
+  glyph?: number
+}) {
+  if (item) return <ServiceTile item={item} size={size} glyph={glyph} />
+  return (
+    <span className="msub-service-tile" style={{ width: size, height: size, background: fallbackColor }}>
+      <Icon name={fallbackIcon} size={glyph} />
+    </span>
+  )
+}
+
 function nextLabel(tx: Transaction, locale: string): string {
   const next = tx.recurringNext ?? tx.date
   return new Date(`${next}T00:00:00`).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
@@ -334,9 +366,7 @@ function DetectedSection({ items, categories, accounts, currency, t, onConvert, 
         const acct = accounts.find(a => a.id === item.accountId)
         return (
           <div key={insightKey(item)} className="msub-row msub-detected-row">
-            <span className="msub-cat-icon" style={{ background: (cat?.color ?? '#888') + '22', color: cat?.color ?? '#888' }}>
-              <Icon name={cat?.icon ?? 'repeat'} size={20} />
-            </span>
+            <RowTile fallbackColor={cat?.color ?? '#888'} fallbackIcon={cat?.icon ?? 'repeat'} />
             <div className="msub-row-info">
               <b>{titleCase(item.merchant)}</b>
               <small>
@@ -429,15 +459,7 @@ function Section({ title, txs, categories, accounts, currency, locale, lang, t, 
         const lowFunds = tx.type === 'expense' && !!acct && lacksFunds(acct, tx.amount)
         return (
           <button key={tx.id} className="msub-row" onClick={() => onOpen(tx)}>
-            {service?.logoSlug ? (
-              <span className="msub-cat-icon brand">
-                <BrandLogo slug={service.logoSlug} size={24} />
-              </span>
-            ) : (
-              <span className="msub-cat-icon" style={{ background: chipColor + '22', color: chipColor }}>
-                <Icon name={service?.icon ?? cat?.icon ?? 'repeat'} size={20} />
-              </span>
-            )}
+            <RowTile item={service} fallbackColor={chipColor} fallbackIcon={cat?.icon ?? 'repeat'} />
             <div className="msub-row-info">
               <b>{tx.note || (cat ? translateCategoryName(cat, lang) : '—')}</b>
               <small>
@@ -488,21 +510,13 @@ function AddSubscriptionSheet({ dialogRef, categories, accounts, currency, lang,
           <div className="msub-catalog-grid">
             {SUBSCRIPTION_CATALOG.map(item => (
               <button key={item.id} className="msub-catalog-item" onClick={() => setPicked({ item })}>
-                {item.logoSlug ? (
-                  <span className="msub-catalog-icon brand">
-                    <BrandLogo slug={item.logoSlug} size={28} />
-                  </span>
-                ) : (
-                  <span className="msub-catalog-icon" style={{ background: item.color + '22', color: item.color }}>
-                    <Icon name={item.icon} size={22} />
-                  </span>
-                )}
+                <ServiceTile item={item} size={52} glyph={28} />
                 <span>{item.name}</span>
               </button>
             ))}
             <button className="msub-catalog-item" onClick={() => setPicked({ item: null })}>
-              <span className="msub-catalog-icon">
-                <Icon name="plus" size={22} />
+              <span className="msub-service-tile msub-service-tile-custom">
+                <Icon name="plus" size={26} />
               </span>
               <span>{t('customServiceLabel')}</span>
             </button>
@@ -538,15 +552,9 @@ function AddSubscriptionForm({ dialogRef, item, categories, accounts, currency, 
       dialogRef={dialogRef}
       title={item?.name ?? t('customServiceLabel')}
       preview={item && (
-        item.logoSlug ? (
-          <div className="msub-catalog-preview brand">
-            <BrandLogo slug={item.logoSlug} size={24} />
-          </div>
-        ) : (
-          <div className="msub-catalog-preview" style={{ background: item.color + '22', color: item.color }}>
-            <Icon name={item.icon} size={22} />
-          </div>
-        )
+        <div className="msub-catalog-preview">
+          <ServiceTile item={item} size={60} glyph={32} />
+        </div>
       )}
       confirmLabel={t('createRecurrenceLabel')}
       categories={categories}
@@ -692,7 +700,7 @@ function RecurringTxForm({
 
             {frequency === 'weekly' && (
               <div className="msub-chargeday">
-                <span className="mpr-form-row-label">{t('chargeDayLabel')}</span>
+                <span className="msub-chargeday-title">{t('chargeDayLabel')}</span>
                 <div className="msub-weekday-row">
                   {WEEKDAY_ORDER.map((wd, i) => {
                     const on = chargeWeekday === wd
@@ -716,7 +724,7 @@ function RecurringTxForm({
 
             {frequency === 'monthly' && (
               <div className="msub-chargeday">
-                <span className="mpr-form-row-label">{t('chargeDayLabel')}</span>
+                <span className="msub-chargeday-title">{t('chargeDayLabel')}</span>
                 <div className="msub-monthday-grid">
                   {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
                     const on = chargeMonthDay === day

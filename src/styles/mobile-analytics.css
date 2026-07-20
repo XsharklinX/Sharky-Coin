@@ -253,12 +253,17 @@ button.man-quick-card {
 }
 
 .man-donut {
+  border: 0;
   border-radius: 50%;
+  cursor: pointer;
   display: grid;
   height: 128px;
+  padding: 0;
   place-items: center;
+  transition: transform var(--m-duration-fast, 160ms) var(--m-ease, ease);
   width: 128px;
 }
+.man-donut:active { transform: scale(.97); }
 
 .man-donut > span {
   align-items: center;
@@ -296,10 +301,24 @@ button.man-quick-card {
 
 .man-legend-row {
   align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
   display: grid;
+  font: inherit;
   gap: 10px;
   grid-template-columns: 10px minmax(0, 1fr) auto;
+  margin: -6px -8px;
+  padding: 6px 8px;
+  text-align: left;
+  transition: background var(--m-duration-fast, 160ms) var(--m-ease, ease), opacity var(--m-duration-fast, 160ms) var(--m-ease, ease);
+  width: calc(100% + 16px);
 }
+.man-legend-row:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
+.man-legend-row.on { background: color-mix(in oklab, var(--m-text) 8%, transparent); }
+.man-legend-row.dim { opacity: .42; }
 
 .man-legend-row i {
   border-radius: 999px;

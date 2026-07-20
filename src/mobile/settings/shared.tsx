@@ -23,19 +23,24 @@ interface SettingsRowProps {
   icon: IconName
   iconColor: string
   label: string
+  /** Línea descriptiva bajo el título — da contexto sin abrir el sheet. */
+  sublabel?: string
   value?: string
   danger?: boolean
   onClick: () => void
   right?: React.ReactNode
 }
 
-export function SettingsRow({ icon, iconColor, label, value, danger, onClick, right }: SettingsRowProps) {
+export function SettingsRow({ icon, iconColor, label, sublabel, value, danger, onClick, right }: SettingsRowProps) {
   return (
     <button className={`mset-row${danger ? ' danger' : ''}`} onClick={onClick}>
-      <span className="mset-icon" style={{ color: iconColor, background: `color-mix(in oklab, ${iconColor} 14%, transparent)` }}>
+      <span className="mset-icon" style={{ color: iconColor, background: `color-mix(in oklab, ${iconColor} 15%, transparent)` }}>
         <Icon name={icon} size={18} />
       </span>
-      <span className="mset-label">{label}</span>
+      <span className="mset-label-wrap">
+        <span className="mset-label">{label}</span>
+        {sublabel && <span className="mset-sublabel">{sublabel}</span>}
+      </span>
       {right ?? (
         <>
           {value && <span className="mset-value">{value}</span>}
@@ -56,6 +61,10 @@ interface SettingsSheetContainerProps {
 export function SettingsSheet({ title, onClose, children }: SettingsSheetContainerProps) {
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
   const startY = useRef(0)
+  // Si el gesto empezó con el cuerpo ya scrolleado, era un scroll — no un swipe
+  // para cerrar. Guardar la posición evita que arrastrar el contenido largo
+  // (Términos/Privacidad) cierre la hoja sin querer.
+  const startScrollable = useRef(false)
   const t = useT()
   return (
     <SheetPortal>
@@ -67,10 +76,14 @@ export function SettingsSheet({ title, onClose, children }: SettingsSheetContain
       // Portalado a <body>: debe pintar por encima del panel de Ajustes (z220)
       style={{ zIndex: 320 }}
       onClick={onClose}
-      onTouchStart={event => { startY.current = event.touches[0]?.clientY ?? 0 }}
+      onTouchStart={event => {
+        startY.current = event.touches[0]?.clientY ?? 0
+        const scroller = (event.target as HTMLElement).closest<HTMLElement>('.mset-sheet-body')
+        startScrollable.current = !!scroller && scroller.scrollTop > 4
+      }}
       onTouchEnd={event => {
         const delta = (event.changedTouches[0]?.clientY ?? 0) - startY.current
-        if (delta > 88) onClose()
+        if (delta > 88 && !startScrollable.current) onClose()
       }}
     >
       <section className="mset-sheet" onClick={e => e.stopPropagation()}>

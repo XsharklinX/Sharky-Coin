@@ -57,6 +57,18 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const globalPct   = totalBudget > 0 ? Math.min(100, totalSpent / totalBudget * 100) : 0
   const overCount   = cats.filter(c => (spent[c.id] ?? 0) > effectiveBudget[c.id] && c.budget > 0).length
 
+  // Orden por "más ajustado primero": las categorías con presupuesto se ordenan
+  // por porcentaje gastado descendente (los riesgos arriba), y las sin límite
+  // quedan al final. Así el usuario ve de un vistazo dónde está apretado sin
+  // scrollear. El orden se recalcula por mes, así que es estable dentro de la vista.
+  const orderedCats = [...cats].sort((a, b) => {
+    const ab = effectiveBudget[a.id]; const bb = effectiveBudget[b.id]
+    const aHas = ab > 0; const bHas = bb > 0
+    if (aHas !== bHas) return aHas ? -1 : 1
+    if (!aHas) return 0
+    return (spent[b.id] ?? 0) / bb - (spent[a.id] ?? 0) / ab
+  })
+
   const envelopes = cats.filter(c => c.budget > 0)
   const envelopeSummary = computeEnvelopeSummary(cats, monthTx)
   const assignedPct = envelopeSummary.income > 0
@@ -217,13 +229,18 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
             </button>
           </div>
         ) : (
-          cats.map(cat => {
+          orderedCats.map(cat => {
             const s = spent[cat.id] ?? 0
             const budget = effectiveBudget[cat.id]
             const roll = rollover[cat.id]
             const pct = budget > 0 ? Math.min(100, s / budget * 100) : 0
+            const rawPct = budget > 0 ? Math.round(s / budget * 100) : 0
             const over = budget > 0 && s > budget
             const left = budget - s
+            // El color de la barra ES el estado: verde va bien, ámbar cerca del
+            // límite (≥80%), rojo excedido. La categoría ya la identifica el chip
+            // de icono a color, así que la barra queda libre para comunicar salud.
+            const statusColor = over ? '#ff6b8a' : pct >= 80 ? '#f59e0b' : '#35d0a2'
             const reachedThreshold = budget > 0
               ? [...budgetAlertThresholds].sort((a, b) => a - b).filter(threshold => pct >= threshold).pop()
               : undefined
@@ -238,27 +255,27 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                 <div className="mbud-row-body">
                   <div className="mbud-row-top">
                     <span className="mbud-row-name">{translateCategoryName(cat, lang)}</span>
-                    <span className={`mbud-row-pct${over ? ' over' : pct >= 80 ? ' warn' : ''}`}>
-                      {budget > 0 ? `${Math.round(pct)}%` : t('noLimitLabel')}
-                    </span>
+                    {budget > 0 ? (
+                      <span className={`mbud-row-status${over ? ' over' : pct >= 80 ? ' warn' : ' ok'}`}>
+                        {over
+                          ? t('budgetOverShort')
+                          : t('budgetLeftShort').replace('{amount}', fmtCompact(left, currency))}
+                      </span>
+                    ) : (
+                      <span className="mbud-row-status muted">{t('noLimitLabel')}</span>
+                    )}
                   </div>
                   {budget > 0 && (
                     <div className="mbud-row-bar">
-                      <div className="mbud-row-fill" style={{
-                        width: `${pct}%`,
-                        background: over ? '#ff6b8a' : pct >= 80 ? '#f59e0b' : cat.color,
-                      }} />
+                      <div className="mbud-row-fill" style={{ width: `${pct}%`, background: statusColor }} />
                     </div>
                   )}
                   <div className="mbud-row-meta">
-                    <span>{t('spentAmount').replace('{amount}', fmtCompact(s, currency))}</span>
-                    {budget > 0 && (
-                      <span className={over ? 'over' : ''}>
-                        {over
-                          ? t('overAmount').replace('{amount}', fmtCompact(Math.abs(left), currency))
-                          : t('freeAmount').replace('{amount}', fmtCompact(left, currency))}
-                      </span>
-                    )}
+                    <span>
+                      {budget > 0
+                        ? `${fmtCompact(s, currency)} / ${fmtCompact(budget, currency)} · ${rawPct}%`
+                        : t('spentAmount').replace('{amount}', fmtCompact(s, currency))}
+                    </span>
                   </div>
                   {cat.rolloverEnabled && roll !== 0 && (
                     <div className="mbud-row-rollover">

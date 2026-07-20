@@ -1,17 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { fmtCompact } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { CAT_COLORS } from '@/constants'
 import { clearCategoryRules, deleteCategoryRule, listCategoryRules, type CategoryRule } from '@/data/bankCsv'
 import { translateCategoryName, useCategoryName, useT } from '@/i18n'
 import { playConfirmSound, playDeleteSound } from '@/lib/sound'
-import type { Category, IconName } from '@/types'
+import type { Category, CurrencyCode, IconName } from '@/types'
 import { useMobileBackDismiss } from '../useMobileBackDismiss'
 import { useDialogA11y } from '../useDialogA11y'
 import { SheetPortal } from '../SheetPortal'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
+
+type CatTab = 'expense' | 'income' | 'rules'
 
 const CAT_ICONS: IconName[] = [
   'cart','food','car','bolt','heart','home','bag','book','wallet','laptop','trend','play',
@@ -25,9 +28,21 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
   const finance = useFinance()
   const t = useT()
   const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
-  const [catTab,    setCatTab]    = useState<'expense' | 'income'>('expense')
+  const currency = finance.currency
+  const [tab, setTab] = useState<CatTab>('expense')
   const [editingCat, setEditingCat] = useState<Category | 'new-expense' | 'new-income' | null>(null)
   const [rules, setRules] = useState<CategoryRule[]>(() => listCategoryRules())
+
+  const sheetOpen = activeSheet === 'categories' || activeSheet === 'categoryRules'
+  // Al abrir, sitúa la pestaña correcta (Reglas si se entró por "reglas") y
+  // refresca la lista de reglas aprendidas.
+  useEffect(() => {
+    if (activeSheet === 'categoryRules') { setTab('rules'); setRules(listCategoryRules()) }
+    else if (activeSheet === 'categories') { setTab('expense'); setRules(listCategoryRules()) }
+  }, [activeSheet])
+
+  const expenseCats = finance.categories.filter(c => c.type === 'expense')
+  const incomeCats = finance.categories.filter(c => c.type === 'income')
 
   const removeRule = (pattern: string) => {
     deleteCategoryRule(pattern)
@@ -72,80 +87,90 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
     }
   }
 
+  const activeCats = tab === 'income' ? incomeCats : expenseCats
+
   return (
     <>
       <div className="mset-card">
         <SettingsRow icon="tag" iconColor="#c084fc" label={t('categorySettings')}
+          value={String(finance.categories.length)}
           onClick={() => onOpen('categories')} />
-        <SettingsRow icon="sliders" iconColor="#5bc0ff" label={t('categoryRulesLabel')}
-          value={rules.length ? t('categoryRulesCountLabel').replace('{n}', String(rules.length)) : undefined}
-          onClick={() => { setRules(listCategoryRules()); onOpen('categoryRules') }} />
       </div>
 
-      {activeSheet === 'categories' && (
+      {sheetOpen && (
         <SettingsSheet title={t('categoriesTitle')} onClose={onClose}>
-          <div className="mset-sheet-body">
-            <div className="mset-cat-tabs">
-              <button className={catTab === 'expense' ? 'on' : ''} onClick={() => setCatTab('expense')}>
-                <span style={{ background: '#ff6b8a22', color: '#ff6b8a', borderRadius: 8, width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon name="cart" size={14} />
-                </span>
-                {t('expenses')}
-                <span className="mset-cat-tab-count">{finance.categories.filter(c => c.type === 'expense').length}</span>
+          <div className="mset-sheet-body mset-cat-sheet">
+            <div className="mobile-segment mset-cat-seg" role="tablist">
+              <button role="tab" aria-selected={tab === 'expense'} className={tab === 'expense' ? 'on' : ''} onClick={() => setTab('expense')}>
+                {t('expenses')} <span className="mset-cat-seg-count">{expenseCats.length}</span>
               </button>
-              <button className={catTab === 'income' ? 'on' : ''} onClick={() => setCatTab('income')}>
-                <span style={{ background: '#35d0a222', color: '#35d0a2', borderRadius: 8, width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon name="wallet" size={14} />
-                </span>
-                {t('incomes')}
-                <span className="mset-cat-tab-count">{finance.categories.filter(c => c.type === 'income').length}</span>
+              <button role="tab" aria-selected={tab === 'income'} className={tab === 'income' ? 'on' : ''} onClick={() => setTab('income')}>
+                {t('incomes')} <span className="mset-cat-seg-count">{incomeCats.length}</span>
+              </button>
+              <button role="tab" aria-selected={tab === 'rules'} className={tab === 'rules' ? 'on' : ''} onClick={() => setTab('rules')}>
+                {t('rulesTabLabel')} <span className="mset-cat-seg-count">{rules.length}</span>
               </button>
             </div>
-            <CategoryGroup
-              title={catTab === 'expense' ? t('expenses') : t('incomes')}
-              type={catTab}
-              categories={finance.categories.filter(c => c.type === catTab)}
-              onAdd={() => setEditingCat(catTab === 'expense' ? 'new-expense' : 'new-income')}
-              onEdit={c => setEditingCat(c)}
-            />
-          </div>
-        </SettingsSheet>
-      )}
 
-      {activeSheet === 'categoryRules' && (
-        <SettingsSheet title={t('categoryRulesLabel')} onClose={onClose}>
-          <div className="mset-sheet-body">
-            <p className="mset-legal-intro">{t('categoryRulesIntro')}</p>
-            {rules.length === 0 ? (
-              <p className="mset-cat-empty">{t('noCategoryRulesYet')}</p>
-            ) : (
-              <div className="mset-card" style={{ margin: 0 }}>
-                {rules.map(rule => {
-                  const category = finance.categories.find(c => c.id === rule.categoryId)
-                  return (
-                    <div key={rule.pattern} className="mset-row">
-                      <span className="mset-row-icon" style={{
-                        background: `color-mix(in oklab, ${category?.color ?? '#888'} 16%, transparent)`,
-                        color: category?.color ?? '#888',
-                      }}>
-                        <Icon name={category?.icon ?? 'tag'} size={16} />
-                      </span>
-                      <div className="mset-row-text">
-                        <b>{rule.pattern}</b>
-                        <small>{category ? translateCategoryName(category, lang) : rule.categoryId}</small>
-                      </div>
-                      <button className="mset-suggestion-dismiss" aria-label={t('delete')} onClick={() => removeRule(rule.pattern)}>
-                        <Icon name="close" size={16} />
-                      </button>
+            {tab === 'rules' ? (
+              <div className="mset-cat-panel">
+                <p className="mset-cat-intro">{t('categoryRulesIntro')}</p>
+                {rules.length === 0 ? (
+                  <div className="mset-cat-empty-state">
+                    <span><Icon name="sliders" size={26} /></span>
+                    <strong>{t('noCategoryRulesYet')}</strong>
+                    <p>{t('categoryRulesEmptyHint')}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mset-cat-items">
+                      {rules.map(rule => {
+                        const category = finance.categories.find(c => c.id === rule.categoryId)
+                        return (
+                          <div key={rule.pattern} className="mset-cat-item">
+                            <span className="mset-cat-item-icon" style={{
+                              background: `color-mix(in oklab, ${category?.color ?? '#7a8296'} 16%, transparent)`,
+                              color: category?.color ?? '#7a8296',
+                            }}>
+                              <Icon name={category?.icon ?? 'tag'} size={18} />
+                            </span>
+                            <span className="mset-cat-item-body">
+                              <b>{rule.pattern}</b>
+                              <small>{t('rulePointsTo').replace('{category}', category ? translateCategoryName(category, lang) : rule.categoryId)}</small>
+                            </span>
+                            <button className="mset-cat-item-del" aria-label={t('delete')} onClick={() => removeRule(rule.pattern)}>
+                              <Icon name="close" size={16} />
+                            </button>
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
+                    <button className="mset-cat-clear" onClick={removeAllRules}>
+                      <Icon name="trash" size={15} /> {t('clearAllRulesLabel')}
+                    </button>
+                  </>
+                )}
               </div>
-            )}
-            {rules.length > 0 && (
-              <button className="mset-sheet-danger" onClick={removeAllRules}>
-                <Icon name="trash" size={16} /> {t('clearAllRulesLabel')}
-              </button>
+            ) : (
+              <div className="mset-cat-panel">
+                {activeCats.length === 0 ? (
+                  <div className="mset-cat-empty-state">
+                    <span style={{ color: tab === 'income' ? '#35d0a2' : '#ff6b8a' }}>
+                      <Icon name={tab === 'income' ? 'wallet' : 'cart'} size={26} />
+                    </span>
+                    <strong>{tab === 'income' ? t('noIncomeCategories') : t('noExpenseCategories')}</strong>
+                  </div>
+                ) : (
+                  <div className="mset-cat-items">
+                    {activeCats.map(cat => (
+                      <CategoryListRow key={cat.id} cat={cat} currency={currency} onEdit={c => setEditingCat(c)} />
+                    ))}
+                  </div>
+                )}
+                <button className="mset-cat-add" onClick={() => setEditingCat(tab === 'income' ? 'new-income' : 'new-expense')}>
+                  <Icon name="plus" size={16} /> {tab === 'income' ? t('newIncomeCategory') : t('newExpenseCategory')}
+                </button>
+              </div>
             )}
           </div>
         </SettingsSheet>
@@ -164,41 +189,21 @@ export function SettingsCategories({ activeSheet, onOpen, onClose }: SheetProps)
   )
 }
 
-function CategoryGroup({ title, type, categories, onAdd, onEdit }: {
-  title: string
-  type: 'expense' | 'income'
-  categories: Category[]
-  onAdd: () => void
-  onEdit: (c: Category) => void
-}) {
+function CategoryListRow({ cat, currency, onEdit }: { cat: Category; currency: CurrencyCode; onEdit: (c: Category) => void }) {
   const t = useT()
-  return (
-    <div className="mset-cat-group">
-      <div className="mset-cat-group-head">
-        <span>{title}</span>
-        <button onClick={onAdd}><Icon name="plus" size={14} /> {t('add')}</button>
-      </div>
-      {categories.length === 0 ? (
-        <p className="mset-cat-empty">{type === 'expense' ? t('noExpenseCategories') : t('noIncomeCategories')}</p>
-      ) : (
-        <div className="mset-cat-list">
-          {categories.map(cat => (
-            <CategoryListRow key={cat.id} cat={cat} onEdit={onEdit} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CategoryListRow({ cat, onEdit }: { cat: Category; onEdit: (c: Category) => void }) {
   const name = useCategoryName(cat)
+  const hasBudget = cat.type === 'expense' && cat.budget > 0
   return (
-    <button className="mset-cat-row" onClick={() => onEdit(cat)}>
-      <span className="mset-cat-icon" style={{ color: cat.color, background: `color-mix(in oklab, ${cat.color} 16%, transparent)` }}>
+    <button className="mset-cat-item" onClick={() => onEdit(cat)}>
+      <span className="mset-cat-item-icon" style={{ color: cat.color, background: `color-mix(in oklab, ${cat.color} 16%, transparent)` }}>
         <Icon name={cat.icon} size={18} />
       </span>
-      <span className="mset-cat-name">{name}</span>
+      <span className="mset-cat-item-body">
+        <b>{name}</b>
+        {cat.type === 'expense' && (
+          <small>{hasBudget ? t('budgetPerMonth').replace('{amount}', fmtCompact(cat.budget, currency)) : t('noLimitLabel')}</small>
+        )}
+      </span>
       <Icon name="arrowUp" size={13} className="mset-chevron" />
     </button>
   )

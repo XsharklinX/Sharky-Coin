@@ -2,10 +2,12 @@ import { z } from 'zod'
 import { CURRENCY_CODES } from '@/constants'
 import { tt } from '@/i18n'
 import type { FinanceState } from '@/store/finance'
+import { useNotes } from '@/store/notes'
+import type { Note } from '@/data/notes'
 import type { Account, Category, CurrencyCode, Goal, GoalContribution, IconName, Transaction } from '@/types'
 
 export interface FinanceBackup {
-  version: 1
+  version: 1 | 2 | 3
   exportedAt: string
   data: {
     accounts: Account[]
@@ -14,12 +16,15 @@ export interface FinanceBackup {
     goalContributions: GoalContribution[]
     transactions: Transaction[]
     currency: CurrencyCode
+    /** Listas / notas del usuario. Ausente en backups v1/v2. */
+    notes?: Note[]
   }
 }
 
 export function createBackup(state: FinanceState): FinanceBackup {
+  const notes = useNotes.getState().notes
   return {
-    version: 1,
+    version: 3,
     exportedAt: new Date().toISOString(),
     data: {
       accounts: state.accounts,
@@ -28,6 +33,9 @@ export function createBackup(state: FinanceState): FinanceBackup {
       goalContributions: state.goalContributions ?? [],
       transactions: state.transactions,
       currency: state.currency,
+      // Solo se incluye si hay listas: mantiene los backups v1/v2 idénticos
+      // cuando el usuario no usa la función.
+      ...(notes.length > 0 ? { notes } : {}),
     },
   }
 }
@@ -53,6 +61,7 @@ const AccountSchema = z.object({
   limit: z.number().finite().nonnegative().optional(),
   overdraftPolicy: z.enum(['block', 'warn', 'allow']).optional(),
   includeInTotal: z.boolean().optional(),
+  currency: z.enum(CURRENCY_CODES).optional(),
 })
 
 const CategorySchema = z.object({
@@ -72,6 +81,7 @@ const GoalAutoContributeSchema = z.object({
   frequency: z.enum(['weekly', 'monthly']),
   fromAccountId: nonEmptyText,
   nextDate: dateSchema,
+  increment: z.number().finite().positive().optional(),
 })
 
 const GoalSchema = z.object({
@@ -82,7 +92,13 @@ const GoalSchema = z.object({
   color: nonEmptyText,
   icon: iconSchema,
   deadline: dateSchema.optional(),
+  openingSaved: z.number().finite().optional(),
   autoContribute: GoalAutoContributeSchema.optional(),
+})
+
+const TxSplitSchema = z.object({
+  categoryId: nonEmptyText,
+  amount: z.number().finite(),
 })
 
 const TransactionSchema = z.object({
@@ -93,13 +109,17 @@ const TransactionSchema = z.object({
   note: nonEmptyText,
   categoryId: nonEmptyText.optional(),
   accountId: nonEmptyText.optional(),
+  splits: z.array(TxSplitSchema).optional(),
   fromAccount: nonEmptyText.optional(),
   toAccount: nonEmptyText.optional(),
+  toAmount: z.number().finite().positive().optional(),
   recurring: z.enum(['weekly', 'monthly']).nullable().optional(),
   recurringStart: dateSchema.optional(),
   recurringEnd: dateSchema.optional(),
   recurringNext: dateSchema.optional(),
   skippedDates: z.array(dateSchema).optional(),
+  serviceId: nonEmptyText.optional(),
+  generatedFrom: nonEmptyText.optional(),
   tags: z.array(nonEmptyText).optional(),
 })
 
@@ -119,6 +139,34 @@ function assertUniqueIds(items: { id: string }[], label: string, ctx: z.Refineme
   }
 }
 
+const NoteItemSchema = z.object({
+  id: nonEmptyText,
+  text: z.string(),
+  done: z.boolean(),
+  price: z.number().finite().nonnegative().optional(),
+  qty: z.number().finite().positive().optional(),
+  important: z.boolean().optional(),
+})
+
+// Las notas son secundarias: se validan en forma pero NO se cruzan contra
+// cuentas/categorías/metas. Si una referencia ya no existe, la nota simplemente
+// no la muestra — no debe invalidar un backup entero.
+const NoteSchema = z.object({
+  id: nonEmptyText,
+  title: z.string(),
+  type: z.enum(['note', 'checklist', 'shopping']),
+  body: z.string().optional(),
+  items: z.array(NoteItemSchema),
+  color: nonEmptyText,
+  icon: iconSchema,
+  goalId: z.string().optional(),
+  categoryId: z.string().optional(),
+  accountId: z.string().optional(),
+  archived: z.boolean().optional(),
+  createdAt: z.number().finite(),
+  updatedAt: z.number().finite(),
+})
+
 const BackupDataSchema = z.object({
   accounts: z.array(AccountSchema),
   categories: z.array(CategorySchema),
@@ -126,6 +174,7 @@ const BackupDataSchema = z.object({
   transactions: z.array(TransactionSchema),
   goalContributions: z.array(GoalContributionSchema).optional().default([]),
   currency: z.enum(CURRENCY_CODES),
+  notes: z.array(NoteSchema).optional(),
 }).superRefine((data, ctx) => {
   assertUniqueIds(data.accounts, 'cuentas', ctx)
   assertUniqueIds(data.categories, 'categorías', ctx)
@@ -145,6 +194,15 @@ const BackupDataSchema = z.object({
     ctx.addIssue({ code: 'custom', message: 'El backup contiene transacciones inválidas o referencias inexistentes.' })
   }
 
+  const splitsValid = data.transactions.every(tx => {
+    if (!tx.splits || tx.splits.length === 0) return true
+    const sum = tx.splits.reduce((total, split) => total + split.amount, 0)
+    return Math.abs(sum - tx.amount) < 0.01 && tx.splits.every(split => categoryIds.has(split.categoryId))
+  })
+  if (!splitsValid) {
+    ctx.addIssue({ code: 'custom', message: 'El backup contiene divisiones de transacción cuya suma no coincide con el monto o con categorías inexistentes.' })
+  }
+
   const contributionsValid = data.goalContributions.every(contribution =>
     goalIds.has(contribution.goalId) && accountIds.has(contribution.fromAccountId))
   if (!contributionsValid) {
@@ -152,8 +210,16 @@ const BackupDataSchema = z.object({
   }
 })
 
+// v1 -> v2: v2 solo agrega campos opcionales (currency de cuenta, splits,
+// toAmount, serviceId, incremento de aportes automáticos) que antes se
+// perdían silenciosamente al restaurar. Un backup v1 sigue siendo válido tal
+// cual — los campos nuevos simplemente no estaban ahí — así que no hace
+// falta transformar los datos, solo aceptar ambas versiones al leer.
+// v2 -> v3: v3 solo agrega `notes` (listas del usuario), un campo opcional. Un
+// backup v1/v2 sigue siendo válido tal cual (sin notas). Igual que en v1->v2,
+// no hace falta transformar: solo aceptar las tres versiones al leer.
 const FinanceBackupSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   exportedAt: z.string().optional(),
   data: BackupDataSchema,
 })

@@ -395,105 +395,234 @@
   .text-warn    { color: #f59e0b !important; }
 
   /* --- MobileProfile ---------------------------- */
-  .mpr-root { display: flex; flex-direction: column; gap: 12px; padding: 12px 0 calc(20px + env(safe-area-inset-bottom)); }
-  .mpr-hero {
-    align-items: center;
-    background: var(--m-surface);
-    border-top: 1px solid var(--m-border);
-    border-bottom: 1px solid var(--m-border);
+  /* Tarjetas flotantes con separación real entre ellas (no tiras de borde de
+     lado a lado pegadas al fondo, que es lo que hacía ver esta pantalla como
+     una lista de Ajustes en vez de un panel propio). */
+  .mpr-root {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 18px 16px 16px;
+    gap: 14px;
+    padding: 10px 14px calc(20px + env(safe-area-inset-bottom));
+  }
+  .mpr-hero {
+    background:
+      radial-gradient(circle at 25% -10%, color-mix(in oklab, var(--m-primary) 30%, transparent), transparent 55%),
+      linear-gradient(160deg, #16294d 0%, #0b1526 60%, #070c18 100%);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    padding: 26px 18px 18px;
+    position: relative;
     text-align: center;
+  }
+  .mpr-hero-glow {
+    background: radial-gradient(circle, color-mix(in oklab, var(--m-primary) 55%, transparent), transparent 70%);
+    border-radius: 50%;
+    filter: blur(6px);
+    height: 180px;
+    opacity: .35;
+    pointer-events: none;
+    position: absolute;
+    right: -60px;
+    top: -80px;
+    width: 180px;
   }
   .mpr-avatar {
     align-items: center;
     background: var(--m-primary);
     border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.10), 0 8px 20px rgba(0,0,0,.35);
     color: #000;
     display: flex;
-    font-size: 26px;
+    font-size: 30px;
     font-weight: 800;
-    height: 64px;
+    height: 76px;
     justify-content: center;
-    margin-bottom: 6px;
-    width: 64px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    position: relative;
+    width: 76px;
+    z-index: 1;
   }
-  .mpr-hero h2 { color: var(--m-text); font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+  .mpr-avatar-btn {
+    border: 0;
+    padding: 0;
+  }
+  .mpr-avatar-img {
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+  /* El menú de cambiar/eliminar foto solo existe mientras está abierto — nada
+     se muestra de forma permanente junto al avatar. */
+  .mpr-avatar-wrap { margin-bottom: 12px; position: relative; z-index: 2; }
+  .mpr-avatar-wrap .mpr-avatar { margin-bottom: 0; }
+  .mpr-photo-menu-backdrop {
+    background: rgba(4,8,18,.55);
+    border: 0;
+    inset: 0;
+    padding: 0;
+    position: fixed;
+    z-index: 5;
+  }
+  .mpr-photo-menu {
+    background: #16294d;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px;
+    box-shadow: var(--m-elevation);
+    display: flex;
+    flex-direction: column;
+    left: 50%;
+    min-width: 172px;
+    overflow: hidden;
+    position: absolute;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    z-index: 6;
+  }
+  .mpr-photo-menu button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    display: flex;
+    font-size: 13.5px;
+    font-weight: 700;
+    gap: 8px;
+    padding: 11px 14px;
+    text-align: left;
+  }
+  .mpr-photo-menu button:active { background: rgba(255,255,255,.08); }
+  .mpr-photo-menu-danger { color: #ff8fa3 !important; }
+  /* El fondo del héroe es siempre el degradado oscuro de marca, sin importar
+     el tema claro/oscuro de la app (como la tarjeta de un banco) — por eso
+     el texto usa blancos fijos, no los tokens --m-text que cambian con el tema. */
+  .mpr-hero-identity {
+    align-items: center;
+    display: flex;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+  }
+  .mpr-hero h2 { color: #fff; font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
   .mpr-edit-name-btn {
     align-items: center;
-    background: color-mix(in oklab, var(--m-text) 7%, transparent);
-    border: 1px solid var(--m-border);
-    border-radius: 20px;
-    color: var(--m-muted);
+    background: rgba(255,255,255,.12);
+    border: 0;
+    border-radius: 999px;
+    color: rgba(255,255,255,.85);
     display: flex;
-    font-size: 13px;
-    font-weight: 600;
-    gap: 5px;
-    padding: 5px 12px;
+    height: 24px;
+    justify-content: center;
+    width: 24px;
   }
-  .mpr-name-editor { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; width: 100%; }
+  .mpr-name-editor { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; position: relative; width: 100%; z-index: 1; }
   .mpr-name-editor input {
-    background: var(--m-surface-2);
-    border: 1.5px solid var(--m-border);
+    background: rgba(255,255,255,.08);
+    border: 1.5px solid rgba(255,255,255,.16);
     border-radius: 12px;
-    color: var(--m-text);
+    color: #fff;
     font-size: 16px;
     padding: 10px 14px;
     text-align: center;
     width: 100%;
   }
+  .mpr-name-editor input::placeholder { color: rgba(255,255,255,.4); }
   .mpr-name-actions { display: flex; gap: 8px; }
   .mpr-name-actions button { border-radius: 12px; flex: 1; font-size: 14px; font-weight: 700; min-height: 42px; }
   .mpr-name-actions button.primary { background: var(--m-primary); border: 0; color: #000; }
-  .mpr-name-actions button:not(.primary) { background: var(--m-surface-2); border: 1px solid var(--m-border); color: var(--m-muted); }
-  .mpr-balance-badge {
+  .mpr-name-actions button:not(.primary) { background: rgba(255,255,255,.1); border: 0; color: rgba(255,255,255,.8); }
+  .mpr-hero-balance {
     align-items: center;
-    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
-    border: 1px solid color-mix(in oklab, var(--m-primary) 25%, transparent);
-    border-radius: 14px;
     display: flex;
-    gap: 8px;
-    font-size: 13px;
-    margin-top: 8px;
-    padding: 7px 14px;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 16px;
+    position: relative;
+    z-index: 1;
   }
-  .mpr-balance-badge span { color: var(--m-muted); }
-  .mpr-balance-badge strong { color: var(--m-text); font-variant-numeric: tabular-nums; font-weight: 800; }
+  .mpr-hero-balance small { color: rgba(255,255,255,.55); font-size: 12.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+  .mpr-hero-balance strong { color: #fff; font-size: 34px; font-variant-numeric: tabular-nums; font-weight: 850; letter-spacing: -.02em; }
   .mpr-stats-grid {
     display: grid;
-    gap: 10px;
+    gap: 8px;
     grid-template-columns: repeat(3, 1fr);
-    margin-top: 12px;
+    margin-top: 18px;
+    position: relative;
     width: 100%;
+    z-index: 1;
   }
   .mpr-stat-card {
-    background: color-mix(in oklab, var(--m-text) 4%, transparent);
-    border: 1px solid var(--m-border);
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.08);
     border-radius: 14px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     justify-content: center;
-    min-height: 76px;
-    padding: 12px 10px;
+    min-height: 68px;
+    padding: 10px 8px;
   }
   .mpr-stat-card small {
-    color: var(--m-muted);
+    color: rgba(255,255,255,.55);
     font-size: 11px;
     font-weight: 700;
     line-height: 1.2;
   }
   .mpr-stat-card strong {
-    color: var(--m-text);
-    font-size: 20px;
+    color: #fff;
+    font-size: 19px;
     font-weight: 900;
     letter-spacing: -.03em;
   }
-  .mpr-section { background: var(--m-surface); border-top: 1px solid var(--m-border); border-bottom: 1px solid var(--m-border); display: flex; flex-direction: column; overflow: hidden; }
-  .mpr-section-header { align-items: center; display: flex; justify-content: space-between; padding: 14px 16px 10px; }
-  .mpr-section-header > span { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+
+  /* KPI de Deudas / Flujo de caja — mosaicos de 2 columnas, no filas de
+     lista: cada uno es un vistazo con su propio color e icono. */
+  .mpr-kpi-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .mpr-kpi-card {
+    background: var(--m-surface);
+    border: 0;
+    border-radius: 18px;
+    border-top: 2.5px solid var(--kpi-color);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 14px 14px 13px;
+    text-align: left;
+  }
+  .mpr-kpi-card:active { background: color-mix(in oklab, var(--kpi-color) 6%, var(--m-surface)); }
+  .mpr-kpi-icon {
+    align-items: center;
+    background: color-mix(in oklab, var(--kpi-color) 16%, transparent);
+    border-radius: 10px;
+    color: var(--kpi-color);
+    display: flex;
+    height: 32px;
+    justify-content: center;
+    margin-bottom: 6px;
+    width: 32px;
+  }
+  .mpr-kpi-label { color: var(--m-muted); font-size: 12px; font-weight: 750; }
+  .mpr-kpi-value { color: var(--m-text); font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 850; letter-spacing: -.02em; }
+  .mpr-kpi-sub { color: var(--m-muted); font-size: 11.5px; }
+
+  /* Tarjetas flotantes (Cuentas, Explorar) — antes eran tiras de borde
+     pegadas de lado a lado, ahora tienen radio y separación real. */
+  .mpr-card {
+    background: var(--m-surface);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mpr-card-header { align-items: center; display: flex; justify-content: space-between; padding: 15px 16px 8px; }
+  .mpr-card-header > span { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
   .mpr-inline-link {
     align-items: center;
     background: transparent;
@@ -573,6 +702,40 @@
   .mpr-empty { align-items: center; display: flex; flex-direction: column; gap: 10px; padding: 36px 24px; text-align: center; }
   .mpr-empty p { color: var(--m-muted); font-size: 14px; margin: 0; }
   .mpr-empty button { background: var(--m-primary); border: 0; border-radius: 14px; color: #000; font-size: 14px; font-weight: 700; padding: 10px 20px; }
+
+  /* "Explorar" — mosaicos de color, a propósito distintos de las filas de
+     texto del menú "Herramientas" de Movimientos (mismo contenido conceptual,
+     look distinto, para que no se sientan como el mismo lugar duplicado). */
+  .mpr-explore-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 6px 16px 16px;
+  }
+  .mpr-explore-tile {
+    align-items: center;
+    background: color-mix(in oklab, var(--tile-color) 10%, var(--m-surface));
+    border: 0;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 6px 12px;
+    text-align: center;
+  }
+  .mpr-explore-tile:active { background: color-mix(in oklab, var(--tile-color) 18%, var(--m-surface)); }
+  .mpr-explore-icon {
+    align-items: center;
+    background: color-mix(in oklab, var(--tile-color) 22%, transparent);
+    border-radius: 12px;
+    color: var(--tile-color);
+    display: flex;
+    height: 38px;
+    justify-content: center;
+    width: 38px;
+  }
+  .mpr-explore-tile b { color: var(--m-text); font-size: 12px; font-weight: 750; line-height: 1.25; }
+
   .mpr-link-list { display: flex; flex-direction: column; }
   .mpr-link-list button,
   .mpr-link-row {
@@ -624,12 +787,20 @@
     flex-shrink: 0;
     transform: rotate(90deg);
   }
+  .mpr-link-value {
+    color: var(--m-text);
+    flex-shrink: 0;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 750;
+  }
 
   /* Quick access grid (profile) */
   .mpr-quick-grid {
     display: grid;
     gap: 10px;
     grid-template-columns: repeat(2, 1fr);
+    padding: 4px 16px 16px;
   }
   .mpr-quick-grid-compact .mpr-quick-card { min-height: 116px; }
   .mpr-quick-card {
@@ -1251,11 +1422,6 @@
   }
   .msub-section > .msub-row:last-child { border-bottom: 1px solid var(--m-border); }
   .msub-row:active { opacity: .75; }
-  .msub-cat-icon {
-    align-items: center; border-radius: 16px;
-    display: flex; flex-shrink: 0;
-    height: 46px; justify-content: center; width: 46px;
-  }
   .msub-row-info { flex: 1; min-width: 0; }
   .msub-row-info b { display: block; font-size: 15.5px; font-weight: 850; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .msub-row-info small { color: var(--m-muted); font-size: 12px; }
@@ -1264,51 +1430,80 @@
   .msub-row-right strong { font-size: 15px; font-weight: 900; white-space: nowrap; }
   .msub-row-right small { color: var(--m-muted); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  /* Logo real de marca: siempre sobre fondo blanco fijo (legibilidad de
-     logos negros como HBO/Patreon, y así se ven en sus guías de marca). */
-  .msub-cat-icon.brand,
-  .msub-catalog-icon.brand,
-  .msub-catalog-preview.brand {
+  /* Baldosa de servicio unificada: cuadro del color de la marca + glifo blanco
+     (logo real o icono genérico), con un borde interior sutil para dar cuerpo
+     a los colores claros. Todos los iconos quedan parejos y profesionales. */
+  .msub-service-tile {
     align-items: center;
-    background: #fff;
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+    color: #fff;
     display: flex;
+    flex-shrink: 0;
     justify-content: center;
+  }
+  .msub-service-tile-custom {
+    background: color-mix(in oklab, var(--m-text) 7%, transparent);
+    border: 1px dashed var(--m-border);
+    box-shadow: none;
+    color: var(--m-muted);
+    height: 52px;
+    width: 52px;
   }
 
-  /* Selector de fecha de cobro (dentro del formulario de suscripción) */
-  .msub-chargeday { display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 0; }
-  .msub-weekday-row { display: grid; gap: 5px; grid-template-columns: repeat(7, 1fr); }
-  .msub-weekday {
-    align-items: center;
-    background: color-mix(in oklab, var(--m-text) 5%, transparent);
-    border: 1.5px solid var(--m-border);
-    border-radius: 10px;
-    color: var(--m-muted);
+  /* Selector de fecha de cobro: tarjeta propia con teclas cuadradas y claras. */
+  .msub-chargeday {
+    background: color-mix(in oklab, var(--m-text) 3%, transparent);
+    border: 1px solid var(--m-border);
+    border-radius: 16px;
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+  .msub-chargeday-title {
+    color: var(--m-muted);
     font-size: 12px;
     font-weight: 800;
-    justify-content: center;
-    min-height: 40px;
-    padding: 0 2px;
-    text-transform: capitalize;
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
-  .msub-weekday.on { background: color-mix(in oklab, var(--accent, #ffdd3d) 20%, transparent); border-color: var(--accent, #ffdd3d); color: var(--m-text); font-weight: 900; }
-  .msub-monthday-grid { display: grid; gap: 5px; grid-template-columns: repeat(7, 1fr); }
-  .msub-monthday {
+  .msub-weekday-row { display: grid; gap: 6px; grid-template-columns: repeat(7, 1fr); }
+  .msub-weekday {
     align-items: center;
-    background: color-mix(in oklab, var(--m-text) 5%, transparent);
-    border: 1.5px solid var(--m-border);
-    border-radius: 9px;
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 12px;
     color: var(--m-muted);
     display: flex;
-    font-size: 12px;
-    font-weight: 750;
+    font-size: 12.5px;
+    font-weight: 800;
+    justify-content: center;
+    min-height: 44px;
+    text-transform: capitalize;
+  }
+  .msub-monthday-grid { display: grid; gap: 6px; grid-template-columns: repeat(7, 1fr); }
+  .msub-monthday {
+    align-items: center;
+    aspect-ratio: 1;
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 10px;
+    color: var(--m-text);
+    display: flex;
+    font-size: 13px;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    height: 34px;
     justify-content: center;
   }
-  .msub-monthday.on { background: color-mix(in oklab, var(--accent, #ffdd3d) 20%, transparent); border-color: var(--accent, #ffdd3d); color: var(--m-text); font-weight: 900; }
-  .msub-chargeday-hint { color: var(--m-muted); font-size: 11px; }
+  .msub-weekday.on,
+  .msub-monthday.on {
+    background: var(--accent, #ffdd3d);
+    border-color: var(--accent, #ffdd3d);
+    color: #151515;
+    font-weight: 900;
+  }
+  .msub-chargeday-hint { color: var(--m-muted); font-size: 12px; line-height: 1.4; }
 
   .msub-empty {
     align-items: center; color: var(--m-muted);
@@ -1429,15 +1624,11 @@
     line-height: 1.3; overflow: hidden; text-overflow: ellipsis;
     width: 100%;
   }
-  .msub-catalog-icon {
-    align-items: center; background: color-mix(in oklab, var(--m-text) 8%, transparent);
-    border-radius: 14px; color: var(--m-muted);
-    display: flex; height: 52px; justify-content: center; width: 52px;
-  }
   .msub-catalog-preview {
-    align-items: center; border-radius: 12px;
-    display: flex; height: 44px; justify-content: center;
-    margin: 0 auto; width: 44px;
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 2px;
   }
   .msub-form-sheet {
     background: var(--m-surface);

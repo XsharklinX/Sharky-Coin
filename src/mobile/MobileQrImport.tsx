@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { parseBackup } from '@/data/backup'
-import { QrTransferReceiver } from '@/data/qrTransfer'
+import { QrTransferReceiver, decompressPayload } from '@/data/qrTransfer'
 import { useFinance } from '@/store/finance'
+import { useNotes } from '@/store/notes'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
@@ -52,7 +53,7 @@ export function MobileQrImport({ onClose }: { onClose: () => void }) {
               setTotal(receiverRef.current.totalCount)
               if (receiverRef.current.isComplete) {
                 doneRef.current = true
-                finishImport()
+                void finishImport()
                 return
               }
             }
@@ -63,16 +64,19 @@ export function MobileQrImport({ onClose }: { onClose: () => void }) {
       rafRef.current = requestAnimationFrame(tick)
     }
 
-    const finishImport = () => {
-      const payload = receiverRef.current.assemble()
+    const finishImport = async () => {
+      const compressed = receiverRef.current.assemble()
       stopCamera()
-      if (!payload) {
+      if (!compressed) {
         toast(t('qrImportInvalidData'), { icon: 'alert' })
         onClose()
         return
       }
       try {
-        finance.restoreBackup(parseBackup(payload))
+        const payload = await decompressPayload(compressed)
+        const data = parseBackup(payload)
+        finance.restoreBackup(data)
+        useNotes.getState().importNotes(data.notes ?? [])
         toast(t('qrImportSuccessToast'), { icon: 'check', type: 'ok' })
         onClose()
       } catch (error) {
@@ -110,7 +114,7 @@ export function MobileQrImport({ onClose }: { onClose: () => void }) {
 
   return (
     <SheetPortal>
-      <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('qrImportTitle')} onClick={onClose}>
+      <div ref={dialogRef} className="mobile-detail-sheet" style={{ zIndex: 420 }} role="dialog" aria-modal="true" aria-label={t('qrImportTitle')} onClick={onClose}>
         <section className="mqr-sheet" onClick={e => e.stopPropagation()}>
           <header>
             <span>{t('qrImportTitle')}</span>
@@ -130,8 +134,8 @@ export function MobileQrImport({ onClose }: { onClose: () => void }) {
                   <canvas ref={canvasRef} style={{ display: 'none' }} />
                   <div className="mqr-video-reticle" />
                 </div>
-                <p className="mqr-hint">{total > 0 ? t('qrImportProgress').replace('{received}', String(received)).replace('{total}', String(total)) : t('qrImportWaiting')}</p>
-                {total > 0 && (
+                <p className="mqr-hint">{total > 1 ? t('qrImportProgress').replace('{received}', String(received)).replace('{total}', String(total)) : t('qrImportWaiting')}</p>
+                {total > 1 && (
                   <div className="mqr-progress-track">
                     <div className="mqr-progress-fill" style={{ width: `${(received / total) * 100}%` }} />
                   </div>

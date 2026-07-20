@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Acceso rapido 1x1 — que se sepa que hace.
+
+  Antes era un "+" pelado: nadie podia saber si agregaba un gasto o un ingreso.
+  Ahora lleva la palabra debajo. Sigue siendo del tamano de un icono normal.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_quickadd_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_quickadd_bg"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:includeFontPadding="false"
+        android:text="+"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.06"
+        android:maxLines="1"
+        android:text="@string/widget_quickadd_caption"
+        android:textAllCaps="true"
+        android:textColor="#F0F4FF"
+        android:textSize="9sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

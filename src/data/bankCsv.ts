@@ -177,12 +177,12 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
 }
 
 const CATEGORY_RULES: Array<[RegExp, string]> = [
-  [/supermercado|jumbo|nacional|bravo|sirena|pricesmart/i, 'cat_super'],
-  [/uber|combustible|gasolina|peaje|parqueo/i, 'cat_trans'],
-  [/edesur|internet|claro|netflix|spotify|caasd/i, 'cat_serv'],
-  [/restaurante|cafe|delivery|pedidosya|victorina/i, 'cat_rest'],
-  [/farmacia|clinica|gimnasio|laboratorio/i, 'cat_salud'],
-  [/nomina|salario|sueldo/i, 'cat_salario'],
+  [/supermercado|super\b|jumbo|nacional|bravo|sirena|pricesmart|plaza lama|pola|aprezio|colmado/i, 'cat_super'],
+  [/uber|didi|cabify|indrive|combustible|gasolina|gasolinera|texaco|shell|esso|isla\b|sunix|peaje|parqueo|paso a paso/i, 'cat_trans'],
+  [/edesur|edenorte|edeeste|edes\b|claro|altice|viva|tricom|internet|caasd|netflix|spotify|hbo|disney|youtube premium|amazon prime/i, 'cat_serv'],
+  [/restaurante|resto|pizza|burger|mcdonald|wendy|kfc|domino|pica pollo|adrian tropical|pedidosya|uber eats|delivery|victorina|cafe|cafeteria/i, 'cat_rest'],
+  [/farmacia|carol|gbc|medvida|hospiten|cedimat|clinica|hospital|laboratorio|referencia|gimnasio|gym/i, 'cat_salud'],
+  [/nomina|salario|sueldo|pago de nomina|quincena/i, 'cat_salario'],
 ]
 const LEARNED_RULES_KEY = 'sharky-bank-rules-v1'
 
@@ -277,7 +277,7 @@ function dateDistanceDays(a: string, b: string): number {
 
 export function isDuplicateTransaction(
   existing: Transaction[],
-  row: Pick<Transaction, 'date' | 'amount' | 'note'>,
+  row: Pick<Transaction, 'date' | 'amount' | 'note'> & { accountId?: string },
   options: { maxDays?: number; ignoreId?: string } = {},
 ): boolean {
   const amount = Math.abs(row.amount).toFixed(2)
@@ -287,7 +287,11 @@ export function isDuplicateTransaction(
     tx.id !== options.ignoreId
     && Math.abs(tx.amount).toFixed(2) === amount
     && normalizeNote(tx.note) === note
-    && dateDistanceDays(tx.date, row.date) <= maxDays)
+    && dateDistanceDays(tx.date, row.date) <= maxDays
+    // Si se conoce la cuenta de ambos lados, deben coincidir: dos cuentas
+    // distintas con el mismo monto/nota/fecha no son un duplicado, son dos
+    // movimientos legítimos (ej. la misma compra dividida en dos tarjetas).
+    && (row.accountId === undefined || tx.accountId === undefined || tx.accountId === row.accountId))
 }
 
 function parseCsv(csv: string) {
@@ -379,15 +383,27 @@ export function parseBankCsv(
   }).filter(row => row.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(row.date))
 }
 
-/** Sugiere una categoría para una nota (comercio/descripción) según reglas aprendidas y por defecto. */
-export function guessCategoryId(note: string, categories: Category[], type: 'income' | 'expense'): string | undefined {
+/**
+ * Sugiere una categoría para una nota (comercio/descripción) según reglas
+ * aprendidas y por defecto.
+ *
+ * `allowFallback` (por defecto true, para el importador CSV) decide qué pasa
+ * cuando no hay coincidencia: true → cae en la primera categoría del tipo;
+ * false (avisos bancarios) → devuelve undefined para dejar el movimiento SIN
+ * categoría, que el usuario asigne y esa elección se aprenda para la próxima.
+ */
+export function guessCategoryId(
+  note: string,
+  categories: Category[],
+  type: 'income' | 'expense',
+  allowFallback = true,
+): string | undefined {
   const normalized = clean(note)
   const normalizedMerchant = normalizeNote(note)
   const learned = learnedRules()
   const learnedRule = learned[normalized] ?? learned[normalizedMerchant] ?? Object.entries(learned)
     .find(([pattern]) => pattern.length >= 3 && (normalized.includes(pattern) || normalizedMerchant.includes(pattern)))?.[1]
   const rule = learnedRule ?? CATEGORY_RULES.find(([pattern]) => pattern.test(note))?.[1]
-  return categories.some(category => category.id === rule && category.type === type)
-    ? rule
-    : categories.find(category => category.type === type)?.id
+  if (categories.some(category => category.id === rule && category.type === type)) return rule
+  return allowFallback ? categories.find(category => category.type === type)?.id : undefined
 }

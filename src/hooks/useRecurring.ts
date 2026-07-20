@@ -16,6 +16,22 @@ export function firstRecurrenceDate(tx: Transaction): string {
   return tx.recurringNext ?? advanceRecurrenceDate(tx.recurringStart ?? tx.date, tx.recurring ?? 'monthly')
 }
 
+/**
+ * true si ya existe una ocurrencia generada de `template` para `date`.
+ * Vínculo estable por `generatedFrom`, no una adivinanza por nota/cuenta/
+ * categoría: sobrevive a que el usuario edite la plantilla después de
+ * generar ocurrencias, y de paso sirve de historial de ejecución
+ * (`transactions.filter(t => t.generatedFrom === template.id)`). El OR con
+ * el matching por contenido es compatibilidad: ocurrencias generadas antes
+ * de que existiera `generatedFrom` no lo tienen y no deben duplicarse.
+ */
+export function isOccurrenceGenerated(template: Transaction, date: string, transactions: Transaction[]): boolean {
+  return transactions.some(tx => tx.date === date && (
+    tx.generatedFrom === template.id
+    || (tx.note === template.note && tx.categoryId === template.categoryId && tx.accountId === template.accountId)
+  ))
+}
+
 export function useRecurring(): void {
   const { transactions, addTx, updateTx } = useFinance()
   const ran = useRef(false)
@@ -31,8 +47,7 @@ export function useRecurring(): void {
       let next = firstRecurrenceDate(template)
       let generated = 0
       while (next <= today && (!template.recurringEnd || next <= template.recurringEnd) && generated < 24) {
-        const exists = transactions.some(tx => tx.date === next && tx.note === template.note
-          && tx.categoryId === template.categoryId && tx.accountId === template.accountId)
+        const exists = isOccurrenceGenerated(template, next, transactions)
         const isSkipped = template.skippedDates?.includes(next) ?? false
         if (!exists && !isSkipped) {
           // Un recurrente nunca debe poder tumbar el arranque: si el saldo no
@@ -41,7 +56,7 @@ export function useRecurring(): void {
             addTx({
               type: template.type, amount: template.amount, note: template.note,
               date: next, accountId: template.accountId, categoryId: template.categoryId,
-              tags: template.tags,
+              tags: template.tags, generatedFrom: template.id,
             })
             created++
           } catch {

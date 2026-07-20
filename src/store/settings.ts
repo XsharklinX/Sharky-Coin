@@ -18,6 +18,8 @@ interface SettingsState {
   releaseChannel: 'stable' | 'beta'
   errorTelemetryEnabled: boolean
   displayName: string
+  /** Data URL (JPEG, ya recortada a cuadrado y reducida) de la foto de perfil; `null` = usar la inicial del nombre. */
+  profilePhoto: string | null
   language: 'en' | 'es'
   languageAutoDetected: boolean
   requireBiometric: boolean
@@ -31,11 +33,14 @@ interface SettingsState {
   notifiedAlerts: string[]
   hasSeenOnboarding: boolean
   remindersEnabled: boolean
+  quickAddNotification: boolean
   widgetAccountIds: string[]
   lastWeeklyBackupAt: string | null
   weeklyAutoBackupEnabled: boolean
   weeklyAutoBackupDay: number
   weeklyAutoBackupHour: number
+  /** Carpeta destino elegida por el usuario para el backup (manual y automático). `null` = predeterminada ("Sharky Finance"). */
+  weeklyBackupFolder: string | null
   fxAlertEnabled: boolean
   fxAlertCurrency: string
   fxAlertThreshold: number
@@ -54,6 +59,7 @@ interface SettingsState {
   setReleaseChannel: (v: SettingsState['releaseChannel']) => void
   setErrorTelemetryEnabled: (v: boolean) => void
   setDisplayName: (v: string) => void
+  setProfilePhoto: (v: string | null) => void
   setLanguage: (v: 'en' | 'es') => void
   setLanguageAutoDetected: (v: boolean) => void
   setRequireBiometric: (v: boolean) => void
@@ -67,11 +73,13 @@ interface SettingsState {
   markAlertNotified: (id: string) => void
   markOnboardingSeen: () => void
   setRemindersEnabled: (v: boolean) => void
+  setQuickAddNotification: (v: boolean) => void
   setWidgetAccountIds: (ids: string[]) => void
   setLastWeeklyBackupAt: (v: string | null) => void
   setWeeklyAutoBackupEnabled: (v: boolean) => void
   setWeeklyAutoBackupDay: (v: number) => void
   setWeeklyAutoBackupHour: (v: number) => void
+  setWeeklyBackupFolder: (v: string | null) => void
   setFxAlertEnabled:    (v: boolean) => void
   setFxAlertCurrency:   (v: string) => void
   setFxAlertThreshold:  (v: number) => void
@@ -94,6 +102,7 @@ export const useSettings = create<SettingsState>()(
       releaseChannel: 'stable',
       errorTelemetryEnabled: false,
       displayName: '',
+      profilePhoto: null,
       language: 'es',
       languageAutoDetected: false,
       requireBiometric: false,
@@ -107,11 +116,13 @@ export const useSettings = create<SettingsState>()(
       notifiedAlerts: [],
       hasSeenOnboarding: false,
       remindersEnabled: true,
+      quickAddNotification: false,
       widgetAccountIds: [],
       lastWeeklyBackupAt: null,
       weeklyAutoBackupEnabled: true,
       weeklyAutoBackupDay: 1,
       weeklyAutoBackupHour: 3,
+      weeklyBackupFolder: null,
       fxAlertEnabled: false,
       fxAlertCurrency: 'USD',
       fxAlertThreshold: 60,
@@ -130,6 +141,7 @@ export const useSettings = create<SettingsState>()(
       setReleaseChannel: (releaseChannel) => set({ releaseChannel }),
       setErrorTelemetryEnabled: (errorTelemetryEnabled) => set({ errorTelemetryEnabled }),
       setDisplayName: (displayName) => set({ displayName }),
+      setProfilePhoto: (profilePhoto) => set({ profilePhoto }),
       setLanguage: (language) => set({ language }),
       setLanguageAutoDetected: (languageAutoDetected) => set({ languageAutoDetected }),
       setRequireBiometric: (requireBiometric) => set({ requireBiometric }),
@@ -165,11 +177,13 @@ export const useSettings = create<SettingsState>()(
         state.notifiedAlerts.includes(id) ? state : { notifiedAlerts: [...state.notifiedAlerts, id] }),
       markOnboardingSeen: () => set({ hasSeenOnboarding: true }),
       setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
+      setQuickAddNotification: (quickAddNotification) => set({ quickAddNotification }),
       setWidgetAccountIds: (widgetAccountIds) => set({ widgetAccountIds }),
       setLastWeeklyBackupAt: (lastWeeklyBackupAt) => set({ lastWeeklyBackupAt }),
       setWeeklyAutoBackupEnabled: (weeklyAutoBackupEnabled) => set({ weeklyAutoBackupEnabled }),
       setWeeklyAutoBackupDay: (weeklyAutoBackupDay) => set({ weeklyAutoBackupDay: Math.max(0, Math.min(6, weeklyAutoBackupDay)) }),
       setWeeklyAutoBackupHour: (weeklyAutoBackupHour) => set({ weeklyAutoBackupHour: Math.max(0, Math.min(23, weeklyAutoBackupHour)) }),
+      setWeeklyBackupFolder: (weeklyBackupFolder) => set({ weeklyBackupFolder }),
       setFxAlertEnabled:   (fxAlertEnabled) => set({ fxAlertEnabled }),
       setFxAlertCurrency:  (fxAlertCurrency) => set({ fxAlertCurrency }),
       setFxAlertThreshold: (fxAlertThreshold) => set({ fxAlertThreshold: Math.max(0, fxAlertThreshold) }),

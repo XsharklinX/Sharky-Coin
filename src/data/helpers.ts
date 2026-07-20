@@ -176,6 +176,22 @@ export function totalBalanceInBase(accounts: Account[], base: CurrencyCode): num
   return visibleAccounts(accounts).reduce((sum, account) => sum + accountBalanceInBase(account, base), 0)
 }
 
+export interface NetWorthBreakdown { assets: number; liabilities: number }
+
+/**
+ * Desglosa el patrimonio en activos (saldos positivos) y pasivos (saldos
+ * negativos — típicamente deuda de tarjeta de crédito), en vez de un solo
+ * número combinado. Se separa por el SIGNO real de cada cuenta, no por su
+ * `type`: una tarjeta de crédito sobrepagada (saldo positivo) cuenta como
+ * activo, igual que en cualquier estado de patrimonio real.
+ */
+export function netWorthBreakdown(accounts: Account[], base: CurrencyCode): NetWorthBreakdown {
+  return visibleAccounts(accounts).reduce((acc, account) => {
+    const value = accountBalanceInBase(account, base)
+    return value >= 0 ? { ...acc, assets: acc.assets + value } : { ...acc, liabilities: acc.liabilities - value }
+  }, { assets: 0, liabilities: 0 })
+}
+
 /**
  * Convierte los montos de las transacciones de cuentas con divisa propia a la
  * divisa base (incluyendo splits, proporcionalmente). Solo para agregados y

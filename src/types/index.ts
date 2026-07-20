@@ -33,6 +33,8 @@ export type IconName =
   | 'crown' | 'trophy' | 'shield' | 'map' | 'package'
   // iconos financieros
   | 'banknote' | 'coins' | 'handCoins' | 'landmark' | 'receipt'
+  // compartir / portapapeles
+  | 'share' | 'clipboard'
 
 // ── Entidades financieras ─────────────────────────────────
 export interface Account {
@@ -119,6 +121,12 @@ export interface Transaction {
   recurringNext?: string
   /** Fechas (YYYY-MM-DD) de ocurrencias saltadas por el usuario: no se generan. */
   skippedDates?: string[]
+  /**
+   * Id de la transacción-plantilla recurrente que generó esta ocurrencia. Es
+   * el vínculo estable (sobrevive a editar la plantilla) para deduplicar y
+   * contar ocurrencias, en vez de adivinar por nota/cuenta/monto.
+   */
+  generatedFrom?: string
   /** Solo suscripciones creadas desde el catálogo: id en SUBSCRIPTION_CATALOG, para mostrar el logo real de la marca. */
   serviceId?:   string
   tags?:        string[]            // ej. ['trabajo', 'viaje']
@@ -141,6 +149,13 @@ export interface Goal {
   color:     string
   icon:      IconName
   deadline?: string          // YYYY-MM-DD
+  /**
+   * Ahorro de apertura inmutable. El `saved` real de una meta es siempre
+   * `openingSaved + suma de GoalContribution`. Se conserva aparte para poder
+   * auditar y recalcular `saved` si alguna vez deriva por un bug.
+   * Opcional por compatibilidad: las metas antiguas lo back-derivan al cargar.
+   */
+  openingSaved?: number
   /** Aporte periódico automático hacia esta meta, generado como GoalContribution. */
   autoContribute?: GoalAutoContribute
 }
@@ -203,6 +218,7 @@ export type ViewId =
   | 'subscriptions'
   | 'debt'
   | 'cashflow'
+  | 'notes'
 
 export interface ViewProps {
   txns:        Transaction[]

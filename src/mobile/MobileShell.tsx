@@ -3,11 +3,13 @@ import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { Icon } from '@/components/ui/Icon'
 import { useT } from '@/i18n'
 import type { AppShortcut } from '@/hooks/useAppShortcut'
+import type { NotificationTargetType } from '@/hooks/useNotificationTarget'
 import type { SharedReceipt } from '@/hooks/useTauri'
 import type { Transaction, ViewId, ViewProps } from '@/types'
+import type { BatchReceiptInput } from './MobileReceiptBatch'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
 import { MobileAccounts } from './MobileAccounts'
-import { MobileAnalytics } from './MobileAnalytics'
+import { MobileAnalytics, type AnalyticsPeriod } from './MobileAnalytics'
 import { MobileCreateFlow } from './MobileCreateFlow'
 import { SheetPortal } from './SheetPortal'
 import { MobileMovements } from './MobileMovements'
@@ -24,8 +26,9 @@ const MobileCurrencyConverter = lazy(() => import('./MobileCurrencyConverter').t
 const MobileGlobalSearch = lazy(() => import('./MobileGlobalSearch').then(m => ({ default: m.MobileGlobalSearch })))
 const MobileCSVImport = lazy(() => import('./MobileCSVImport').then(m => ({ default: m.MobileCSVImport })))
 const MobileReceiptBatch = lazy(() => import('./MobileReceiptBatch').then(m => ({ default: m.MobileReceiptBatch })))
-import { MobileQuickAddSheet } from './MobileQuickAddSheet'
+const MobileNotificationCenter = lazy(() => import('./MobileNotificationCenter').then(m => ({ default: m.MobileNotificationCenter })))
 import { MobileTopBar } from './MobileTopBar'
+import { useNotificationFeed } from '@/hooks/useNotificationFeed'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import type { Sheet } from './settings/shared'
@@ -34,7 +37,11 @@ type MobileViewRenderer = (props: ViewProps) => React.ReactNode
 // Orden visual de las sub-pestañas: Cuentas primero (landing por defecto del
 // tab "Cuentas" en el bottom nav), luego Informes, luego Metas.
 const REPORT_TAB_VIEWS: ViewId[] = ['accounts', 'goals']
-const TOOL_VIEWS: ViewId[] = ['budgets', 'subscriptions']
+const TOOL_VIEWS: ViewId[] = ['budgets', 'subscriptions', 'notes', 'debt', 'cashflow', 'annual', 'calendar']
+// Pantallas que se abren como "herramienta" desde el menú (⋯) de Movimientos.
+// Al salir de una, volvemos al lugar de origen (normalmente Movimientos, que es
+// donde vive el menú de herramientas) en vez de aterrizar en Cuentas.
+const TOOL_SCREENS: ViewId[] = ['budgets', 'subscriptions', 'annual', 'calendar', 'debt', 'cashflow', 'notes']
 
 function MobileSkeletonScreen() {
   return (
@@ -51,10 +58,14 @@ function MobileSkeletonScreen() {
 function routeFromView(view: ViewId): MobileRoute {
   if (view === 'transactions') return 'home'
   if (view === 'stats') return 'analysis'
-  if (view === 'annual' || view === 'calendar' || view === 'debt' || view === 'cashflow' || view === 'accounts' || view === 'goals') {
+  if (view === 'accounts' || view === 'goals') {
     return 'reports'
   }
-  if (view === 'budgets' || view === 'subscriptions') return 'profile'
+  // Estas viven bajo Perfil (no Cuentas): son herramientas/reportes, no un
+  // listado de cuentas — antes heredaban la pestaña "Cuentas" del bottom nav
+  // por reusar la misma ruta, lo cual confundía (se veían como si fueran parte
+  // de Cuentas).
+  if (view === 'budgets' || view === 'subscriptions' || view === 'notes' || view === 'debt' || view === 'cashflow' || view === 'annual' || view === 'calendar') return 'profile'
   return 'home'
 }
 
@@ -71,8 +82,11 @@ function internalTitles(t: ReturnType<typeof useT>): Partial<Record<ViewId, stri
     calendar: t('calendarLabel'),
     budgets: t('budgets'),
     subscriptions: t('subscriptions'),
+    notes: t('listsTitle'),
     debt: t('debtCalculator'),
     cashflow: t('cashflowTitle'),
+    accounts: t('accounts'),
+    goals: t('goals'),
   }
 }
 
@@ -91,6 +105,8 @@ export function MobileShell({
   onConsumeSharedReceipt,
   appShortcut,
   onConsumeAppShortcut,
+  notificationTarget,
+  onConsumeNotificationTarget,
 }: {
   view: ViewId
   setView: (view: ViewId) => void
@@ -106,18 +122,21 @@ export function MobileShell({
   onConsumeSharedReceipt?: () => void
   appShortcut?: AppShortcut | null
   onConsumeAppShortcut?: () => void
+  notificationTarget?: NotificationTargetType | null
+  onConsumeNotificationTarget?: () => void
 }) {
   const t = useT()
   const [route, setRoute] = useState<MobileRoute>(routeFromView(view))
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
-  const [batchReceipts, setBatchReceipts] = useState<{ dataUrl: string; name: string }[] | null>(null)
-  const [quickAddSheet, setQuickAddSheet] = useState<'expense' | 'income' | null>(null)
+  const [batchReceipts, setBatchReceipts] = useState<BatchReceiptInput[] | null>(null)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const [converterOpen, setConverterOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
   const [createKey, setCreateKey] = useState(0)
+  const [analyticsInitialPeriod, setAnalyticsInitialPeriod] = useState<AnalyticsPeriod | undefined>(undefined)
   const [reportTransition, setReportTransition] = useState<'next' | 'prev'>('next')
   const [toolTransition, setToolTransition] = useState<'next' | 'prev'>('next')
   const prevIsAdd = useRef(false)
@@ -127,6 +146,12 @@ export function MobileShell({
   const scrollPositions = useRef<Record<string, number>>({})
   const activeScrollKey = useRef('')
   const activeMkey = mkey
+
+  const notifFeed = useNotificationFeed()
+  const openNotifications = () => {
+    notifFeed.markAllSeen()
+    setNotifOpen(true)
+  }
 
   const rememberScroll = () => {
     const scroller = contentRef.current
@@ -144,26 +169,42 @@ export function MobileShell({
     }
   }, [route, setView, view])
 
+  // Origen al abrir una herramienta: para volver ahí al salir (por defecto
+  // Movimientos, que es donde vive el menú de herramientas).
+  const toolReturn = useRef<{ route: MobileRoute; view: ViewId }>({ route: 'home', view: 'transactions' })
+
   const gotoView = (next: ViewId) => {
     rememberScroll()
+    if (TOOL_SCREENS.includes(next) && !TOOL_SCREENS.includes(view)) {
+      toolReturn.current = { route, view }
+    }
     setRoute(routeFromView(next))
     setView(next)
   }
+  // `gotoView` es una closure nueva en cada render (captura `route`/`view`
+  // actuales) — el efecto de `appShortcut` de abajo solo debe reaccionar al
+  // shortcut en sí, no a que `gotoView` haya cambiado de identidad. Se lee
+  // por ref para no correr el efecto de más ni recibir la advertencia de
+  // dependencias faltantes.
+  const gotoViewRef = useRef(gotoView)
+  gotoViewRef.current = gotoView
+
+  const exitTool = () => {
+    rememberScroll()
+    const origin = toolReturn.current
+    setRoute(origin.route)
+    setView(origin.view)
+  }
 
   useMobileBackDismiss(route === 'add', () => {
+    setQuickAddMode(null)
+    setBatchReceipts(null)
     setRoute('home')
     setView('transactions')
     onConsumeSharedReceipt?.()
   })
   useMobileBackDismiss(toolsOpen, () => setToolsOpen(false))
   const toolsRef = useDialogA11y<HTMLDivElement>(() => setToolsOpen(false), toolsOpen)
-
-  const lastReportsHome = useRef<ViewId>('accounts')
-  useEffect(() => {
-    if (view === 'accounts' || view === 'goals') {
-      lastReportsHome.current = view
-    }
-  }, [view])
 
   useEffect(() => {
     if (route !== 'reports') return
@@ -174,11 +215,9 @@ export function MobileShell({
     previousReportTab.current = nextIndex
   }, [route, view])
 
-  const isInReportsSub = route === 'reports' && view !== 'accounts' && view !== 'goals'
-  useMobileBackDismiss(isInReportsSub, () => { rememberScroll(); setView(lastReportsHome.current) })
 
-  const isInProfileSub = route === 'profile' && (view === 'budgets' || view === 'subscriptions')
-  useMobileBackDismiss(isInProfileSub, () => { rememberScroll(); setView('dashboard') })
+  const isInProfileSub = route === 'profile' && (view === 'budgets' || view === 'subscriptions' || view === 'notes' || view === 'debt' || view === 'cashflow' || view === 'annual' || view === 'calendar')
+  useMobileBackDismiss(isInProfileSub, exitTool)
 
   useEffect(() => {
     if (route !== 'profile') return
@@ -198,18 +237,54 @@ export function MobileShell({
   useEffect(() => {
     if (!appShortcut) return
     if (appShortcut === 'add-expense' || appShortcut === 'add-income') {
-      setQuickAddSheet(appShortcut === 'add-expense' ? 'expense' : 'income')
+      // Mismo flujo que el botón + de la barra inferior — nunca la hoja
+      // reducida: el widget y la notificación persistente deben abrir
+      // exactamente la misma pantalla que se usa dentro de la app.
+      setQuickAddMode(appShortcut === 'add-expense' ? 'expense' : 'income')
+      setRoute('add')
     } else if (appShortcut === 'reports') {
-      gotoView('accounts')
+      // 'accounts' es la vista por defecto de la ruta "reports" (ver
+      // routeFromView): el ViewId 'reports' no mapea a ninguna ruta movil.
+      gotoViewRef.current('accounts')
     } else if (appShortcut === 'accounts') {
-      gotoView('accounts')
+      gotoViewRef.current('accounts')
     } else if (appShortcut === 'budgets') {
-      gotoView('budgets')
+      gotoViewRef.current('budgets')
     } else if (appShortcut === 'converter') {
       setConverterOpen(true)
     }
     onConsumeAppShortcut?.()
   }, [appShortcut, onConsumeAppShortcut])
+
+  // Adónde lleva cada tipo de aviso — lo usan tanto el aviso nativo (tocado
+  // desde la bandeja de Android) como una entrada de Historial dentro de la
+  // propia campanita, para no duplicar el mapeo en dos lugares.
+  const applyNotificationTarget = (type: NotificationTargetType) => {
+    if (type === 'budget') {
+      gotoViewRef.current('budgets')
+    } else if (type === 'recurring' || type === 'lowfunds') {
+      gotoViewRef.current('accounts')
+    } else if (type === 'goal') {
+      gotoViewRef.current('goals')
+    } else if (type === 'weekly') {
+      setAnalyticsInitialPeriod('week')
+      gotoViewRef.current('stats')
+    } else if (type === 'fx') {
+      setConverterOpen(true)
+    } else if (type === 'anomaly' || type === 'activity') {
+      gotoViewRef.current('transactions')
+    }
+  }
+
+  // Al tocar un aviso nativo (campanita del sistema: presupuesto, semanal,
+  // pago próximo...) la app debe abrir la pantalla que ese aviso describe, no
+  // quedarse en Inicio (queja explícita: "vi la semanal pero no me llevó a
+  // ningún lado"). Ver useNotificationTarget para el mecanismo de entrega.
+  useEffect(() => {
+    if (!notificationTarget) return
+    applyNotificationTarget(notificationTarget)
+    onConsumeNotificationTarget?.()
+  }, [notificationTarget, onConsumeNotificationTarget])
 
   const goRoute = (next: MobileRoute) => {
     rememberScroll()
@@ -222,35 +297,6 @@ export function MobileShell({
   }
 
   const renderReportsRoute = () => {
-    if (view === 'annual') {
-      return (
-        <Suspense fallback={<MobileSkeletonScreen />}>
-          <MobileAnnual mkey={mkey} />
-        </Suspense>
-      )
-    }
-    if (view === 'calendar') {
-      return (
-        <Suspense fallback={<MobileSkeletonScreen />}>
-          <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
-        </Suspense>
-      )
-    }
-    if (view === 'debt') {
-      return (
-        <Suspense fallback={<MobileSkeletonScreen />}>
-          <MobileDebt />
-        </Suspense>
-      )
-    }
-    if (view === 'cashflow') {
-      return (
-        <Suspense fallback={<MobileSkeletonScreen />}>
-          <MobileCashflow />
-        </Suspense>
-      )
-    }
-
     const goalsRenderer = mobileViews.goals
 
     return (
@@ -296,7 +342,6 @@ export function MobileShell({
           <Suspense fallback={null}>
             <MobileReceiptBatch
               receipts={batch}
-              mkey={mkey}
               onDone={() => {
                 setQuickAddMode(null)
                 setBatchReceipts(null)
@@ -344,7 +389,7 @@ export function MobileShell({
     }
 
     if (route === 'analysis') {
-      return <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} onImport={() => setCsvOpen(true)} />
+      return <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} onImport={() => setCsvOpen(true)} onEditTx={onEditTx} initialPeriod={analyticsInitialPeriod} />
     }
 
     if (route === 'reports') {
@@ -361,8 +406,8 @@ export function MobileShell({
           </div>
         )
       }
-      if (view === 'budgets') {
-        const renderer = mobileViews.budgets
+      if (view === 'budgets' || view === 'notes') {
+        const renderer = mobileViews[view]
         return renderer ? (
           <div className={`mobile-tool-pane mobile-tool-pane-${toolTransition}`} key={view}>
             <ViewErrorBoundary resetKey={`${route}:${view}`}>
@@ -370,6 +415,42 @@ export function MobileShell({
             </ViewErrorBoundary>
           </div>
         ) : null
+      }
+      if (view === 'debt') {
+        return (
+          <div className={`mobile-tool-pane mobile-tool-pane-${toolTransition}`} key={view}>
+            <Suspense fallback={<MobileSkeletonScreen />}>
+              <MobileDebt />
+            </Suspense>
+          </div>
+        )
+      }
+      if (view === 'cashflow') {
+        return (
+          <div className={`mobile-tool-pane mobile-tool-pane-${toolTransition}`} key={view}>
+            <Suspense fallback={<MobileSkeletonScreen />}>
+              <MobileCashflow />
+            </Suspense>
+          </div>
+        )
+      }
+      if (view === 'annual') {
+        return (
+          <div className={`mobile-tool-pane mobile-tool-pane-${toolTransition}`} key={view}>
+            <Suspense fallback={<MobileSkeletonScreen />}>
+              <MobileAnnual mkey={mkey} />
+            </Suspense>
+          </div>
+        )
+      }
+      if (view === 'calendar') {
+        return (
+          <div className={`mobile-tool-pane mobile-tool-pane-${toolTransition}`} key={view}>
+            <Suspense fallback={<MobileSkeletonScreen />}>
+              <MobileCalendar mkey={mkey} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
+            </Suspense>
+          </div>
+        )
       }
       return (
         <MobileProfile
@@ -386,13 +467,13 @@ export function MobileShell({
     if (route === 'add') {
       return () => {
         setQuickAddMode(null)
+        setBatchReceipts(null)
         setRoute('home')
         setView('transactions')
         onConsumeSharedReceipt?.()
       }
     }
-    if (isInReportsSub) return () => { rememberScroll(); setView(lastReportsHome.current) }
-    if (isInProfileSub) return () => { rememberScroll(); setView('dashboard') }
+    if (isInProfileSub) return exitTool
     return undefined
   })()
   const routeResetKey = `${route}:${view}:${mkey}`
@@ -445,6 +526,16 @@ export function MobileShell({
           />
         </Suspense>
       )}
+      {notifOpen && (
+        <Suspense fallback={null}>
+          <MobileNotificationCenter
+            onClose={() => setNotifOpen(false)}
+            onGotoBudgets={() => gotoView('budgets')}
+            onGotoTarget={applyNotificationTarget}
+            onEditTx={onEditTx}
+          />
+        </Suspense>
+      )}
       {toolsOpen && (
         <SheetPortal>
         <div
@@ -486,53 +577,13 @@ export function MobileShell({
                   </div>
                   <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
                 </button>
-                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('annual') }}>
-                  <span className="mobile-tools-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
-                    <Icon name="chart" size={20} />
+                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('notes') }}>
+                  <span className="mobile-tools-row-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+                    <Icon name="clipboard" size={20} />
                   </span>
                   <div>
-                    <b>{t('annualReport')}</b>
-                    <small>{t('annualQuickDesc')}</small>
-                  </div>
-                  <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
-                </button>
-                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('calendar') }}>
-                  <span className="mobile-tools-row-icon" style={{ background: '#f59e0b22', color: '#f59e0b' }}>
-                    <Icon name="calendar" size={20} />
-                  </span>
-                  <div>
-                    <b>{t('calendarLabel')}</b>
-                    <small>{t('calendarQuickDesc')}</small>
-                  </div>
-                  <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
-                </button>
-                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('subscriptions') }}>
-                  <span className="mobile-tools-row-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
-                    <Icon name="repeat" size={20} />
-                  </span>
-                  <div>
-                    <b>{t('subscriptions')}</b>
-                    <small>{t('subscriptionsQuickDesc')}</small>
-                  </div>
-                  <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
-                </button>
-                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('debt') }}>
-                  <span className="mobile-tools-row-icon" style={{ background: '#ff6b8a22', color: '#ff6b8a' }}>
-                    <Icon name="dollar" size={20} />
-                  </span>
-                  <div>
-                    <b>{t('debtsLabel')}</b>
-                    <small>{t('debtQuickDesc')}</small>
-                  </div>
-                  <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
-                </button>
-                <button className="mobile-tools-row" onClick={() => { setToolsOpen(false); gotoView('cashflow') }}>
-                  <span className="mobile-tools-row-icon" style={{ background: '#38bdf822', color: '#38bdf8' }}>
-                    <Icon name="trend" size={20} />
-                  </span>
-                  <div>
-                    <b>{t('cashflowTitle')}</b>
-                    <small>{t('cashflowQuickDesc')}</small>
+                    <b>{t('listsTitle')}</b>
+                    <small>{t('listsQuickDesc')}</small>
                   </div>
                   <Icon name="arrowUp" size={13} className="mobile-tools-row-arrow" />
                 </button>
@@ -561,13 +612,12 @@ export function MobileShell({
         onBack={topBarBack}
         onMenu={route === 'home' ? (() => setToolsOpen(true)) : undefined}
         onSelectMonth={onMonth}
-        onSettings={() => {
-          if (route === 'profile') return onSettings()
-          onSettings()
-        }}
+        onSettings={() => onSettings()}
         onCurrency={() => setCurrencyOpen(true)}
         onCalendar={route === 'home' ? () => gotoView('calendar') : undefined}
         onSearch={() => setSearchOpen(true)}
+        onBell={openNotifications}
+        notifCount={notifFeed.unseenCount}
       />
       {route === 'add' ? (
         mainContent
@@ -587,18 +637,6 @@ export function MobileShell({
             }}
           />
         </>
-      )}
-      {quickAddSheet && (
-        <MobileQuickAddSheet
-          mode={quickAddSheet}
-          onClose={() => setQuickAddSheet(null)}
-          onSaved={() => setQuickAddSheet(null)}
-          onOpenFull={() => {
-            setQuickAddMode(quickAddSheet)
-            setQuickAddSheet(null)
-            setRoute('add')
-          }}
-        />
       )}
     </main>
   )

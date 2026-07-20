@@ -324,6 +324,20 @@
   }
   .mbud-row-pct.warn { color: #f59e0b; }
   .mbud-row-pct.over { color: #ff6b8a; }
+  /* Etiqueta de estado prominente a la derecha del nombre: "Queda X" / "Excedido".
+     El color comunica salud antes de leer el texto. */
+  .mbud-row-status {
+    flex-shrink: 0;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 850;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+  }
+  .mbud-row-status.ok { color: #35d0a2; }
+  .mbud-row-status.warn { color: #f59e0b; }
+  .mbud-row-status.over { color: #ff6b8a; }
+  .mbud-row-status.muted { color: var(--text-dim); font-weight: 750; }
   .mbud-row-bar {
     background: color-mix(in oklab, var(--text) 7%, transparent);
     border-radius: 999px;

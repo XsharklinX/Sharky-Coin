@@ -1,15 +1,85 @@
 /**
- * Protocolo de transferencia de backup por códigos QR animados: sin red, sin
- * nube — el teléfono viejo muestra una secuencia de QR en pantalla y el
- * teléfono nuevo los escanea con la cámara hasta reunir todas las partes.
- * Mismo formato de backup que ya usa `data/backup.ts` (createBackup/parseBackup),
- * solo se parte el JSON en fragmentos que caben en un QR escaneable de forma
- * confiable con la cámara de un teléfono.
+ * Protocolo de transferencia de backup por códigos QR: sin red, sin nube —
+ * el teléfono viejo muestra el código en pantalla y el teléfono nuevo lo
+ * escanea con la cámara. Mismo formato de backup que ya usa `data/backup.ts`
+ * (createBackup/parseBackup), pero comprimido (gzip) antes de codificar: la
+ * mayoría de los backups reales (cuentas, categorías, metas, ajustes y
+ * varios meses de movimientos) caben así en un solo QR — una sola escaneada,
+ * un código FIJO. Si el backup es demasiado grande incluso comprimido, el
+ * emisor NO cae en un modo de códigos que cambian solos (era imposible de
+ * escanear): ofrece migrar por archivo de respaldo, que no tiene límite. El
+ * troceado en frames se conserva para el importador, pero el emisor solo
+ * muestra código cuando todo cabe en uno.
  */
 
 /** Prefijo que identifica un frame de $harky (para ignorar QR ajenos al escanear). */
-const PROTOCOL_PREFIX = 'SHKYQR1'
+const PROTOCOL_PREFIX = 'SHKYQR2'
 const SEPARATOR = '|'
+
+/**
+ * Capacidad máxima de un solo código: lo más alto posible para que quepan más
+ * backups en una sola escaneada, sin pasar del punto en que la densidad del QR
+ * lo vuelve difícil de enfocar con la cámara a distancia normal. ~1800 chars
+ * ≈ QR versión ~33 con corrección 'L': denso pero legible por un teléfono
+ * moderno de cerca.
+ */
+export const MAX_FRAME_CHARS = 1800
+
+// Se usa el reader/writer nativo de CompressionStream/DecompressionStream
+// directamente, sin pasar por Blob/Response: en algunos entornos (WebViews
+// viejos, jsdom/happy-dom en tests) `Blob.stream()` no produce un stream
+// realmente compatible y `pipeThrough` se queda colgado para siempre.
+async function pump(bytes: Uint8Array, transform: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+  const writer = transform.writable.getWriter()
+  const readAll = (async () => {
+    const reader = transform.readable.getReader()
+    const chunks: Uint8Array[] = []
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      if (value) chunks.push(value)
+    }
+    return chunks
+  })()
+  await writer.write(bytes as Uint8Array<ArrayBuffer>)
+  await writer.close()
+  const chunks = await readAll
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.length }
+  return out
+}
+
+/** Comprime texto con gzip y lo codifica en base64 (seguro para meter en un QR de texto). */
+export async function compressPayload(text: string): Promise<string> {
+  const compressed = await pump(new TextEncoder().encode(text), new CompressionStream('gzip'))
+  return bufferToBase64(compressed)
+}
+
+/** Inverso de `compressPayload`. */
+export async function decompressPayload(base64: string): Promise<string> {
+  const decompressed = await pump(base64ToBuffer(base64), new DecompressionStream('gzip'))
+  return new TextDecoder().decode(decompressed)
+}
+
+function bufferToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  // En trozos: convertir un array grande de una vez con String.fromCharCode(...bytes)
+  // puede desbordar el límite de argumentos del motor JS.
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
+}
+
+function base64ToBuffer(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
 
 export interface QrFrame {
   transferId: string

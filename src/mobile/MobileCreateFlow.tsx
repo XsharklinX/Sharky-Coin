@@ -1,24 +1,36 @@
 import { useCallback, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { useDialogs } from '@/components/ui/DialogProvider'
 import { isDuplicateTransaction } from '@/data/bankCsv'
 import { fmtCompact, localToday } from '@/data/helpers'
 import { ACCENT_COLORS } from '@/constants'
 import { dateLocale } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
+import { isTauri } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
+import { useNotes } from '@/store/notes'
+import { noteTotals } from '@/data/notes'
 import { translateCategoryName, useT } from '@/i18n'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
-import { recognizeReceipt } from '@/lib/receiptOcr'
+import { openNativeScanner } from '@/lib/mlkitOcr'
+import { recognizeReceipt, type ReceiptOcrResult } from '@/lib/receiptOcr'
 import { MobileDatePicker } from './MobileDatePicker'
 import type { Category, IconName, RecurrenceFrequency, Transaction } from '@/types'
+import type { BatchReceiptInput } from './MobileReceiptBatch'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
+import { useSubmitGuard } from './useSubmitGuard'
 import { SheetPortal } from './SheetPortal'
 
 type MobileTxMode = Transaction['type']
+
+// El escaneo de varios recibos seguidos con la cámara en vivo (Fase 6 del
+// roadmap) solo tiene sentido en Android+Tauri — es donde existe la cámara
+// nativa; en web/desktop ya está la galería con selección múltiple.
+const isAndroidTauri = isTauri() && /android/i.test(navigator.userAgent)
 
 const today = localToday
 const keypad = [
@@ -105,10 +117,11 @@ export function MobileCreateFlow({
   mkey: string
   initialMode?: MobileTxMode
   receiptPreview?: { dataUrl: string; mimeType: string; name: string }
-  onOpenBatch?: (receipts: { dataUrl: string; name: string }[]) => void
+  onOpenBatch?: (receipts: BatchReceiptInput[]) => void
   onSaved: () => void
 }) {
   const t = useT()
+  const { confirm } = useDialogs()
   const settings = useSettings()
   const lang = (settings.language ?? 'es') as 'en' | 'es'
   const locale = dateLocale(lang)
@@ -125,6 +138,7 @@ export function MobileCreateFlow({
   const [note, setNote] = useState('')
   const [noteFocused, setNoteFocused] = useState(false)
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
+  const { submitting, beginSubmit, endSubmit } = useSubmitGuard()
   const [transferPicker, setTransferPicker] = useState<'from' | 'to' | null>(null)
   const [accountPicker, setAccountPicker] = useState(false)
   const [datePicker, setDatePicker] = useState(false)
@@ -142,6 +156,13 @@ export function MobileCreateFlow({
   const [scanMenuOpen, setScanMenuOpen] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scannedImage, setScannedImage] = useState<{ dataUrl: string; name: string } | null>(null)
+  // Confirmación visual: qué campos se acaban de rellenar por el escaneo, para
+  // resaltarlos un instante (el "vi el monto y lo entendí" sin cámara en vivo).
+  const [justScanned, setJustScanned] = useState<Set<'amount' | 'date' | 'account'>>(new Set())
+  // Lista de compras abierta que coincide con el recibo escaneado (por monto),
+  // para ofrecer marcarla como comprada de una vez.
+  const [matchedListId, setMatchedListId] = useState<string | null>(null)
+  const notes = useNotes(s => s.notes)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   const amount = evaluateExpression(amountText)
@@ -182,6 +203,17 @@ export function MobileCreateFlow({
 
   useMobileBackDismiss(categoryEditorOpen, () => setCategoryEditorOpen(false))
   useMobileBackDismiss(!!transferPicker, () => setTransferPicker(null))
+  // El resaltado por escaneo se apaga solo — es una confirmación momentánea,
+  // no un estado permanente del campo.
+  const scanHighlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const applyJustScanned = useCallback((fields: Set<'amount' | 'date' | 'account'>) => {
+    if (scanHighlightTimer.current) clearTimeout(scanHighlightTimer.current)
+    setJustScanned(fields)
+    if (fields.size > 0) {
+      scanHighlightTimer.current = setTimeout(() => setJustScanned(new Set()), 2200)
+    }
+  }, [])
+
   useMobileBackDismiss(accountPicker, () => setAccountPicker(false))
   useMobileBackDismiss(datePicker, () => setDatePicker(false))
   useMobileBackDismiss(recurEndPicker, () => setRecurEndPicker(false))
@@ -262,6 +294,60 @@ export function MobileCreateFlow({
     onOpenBatch?.(receipts)
   }
 
+  // Fase 6 del roadmap: la cámara en vivo también sirve para escanear varios
+  // recibos seguidos, no solo uno. Abre el escáner, pregunta "¿otro más?" tras
+  // cada captura, y arma el lote con la extracción que cada foto ya trae —
+  // MobileReceiptBatch la reusa directo, sin volver a correr OCR.
+  const openCameraBatch = async () => {
+    const collected: BatchReceiptInput[] = []
+    while (true) {
+      const scan = await openNativeScanner()
+      if (!scan) break
+      collected.push({
+        dataUrl: scan.dataUrl,
+        name: `recibo-${collected.length + 1}.jpg`,
+        amount: scan.amount,
+        date: scan.date,
+        cardLast4: scan.cardLast4,
+        merchant: scan.merchant,
+      })
+      const again = await confirm({
+        title: t('scanAnotherTitle'),
+        description: t('scanAnotherDesc').replace('{n}', String(collected.length)),
+        confirmLabel: t('scanAnotherConfirm'),
+        cancelLabel: t('scanAnotherDone'),
+        icon: 'camera',
+      })
+      if (!again) break
+    }
+    if (collected.length === 0) return
+    if (collected.length === 1) {
+      // Un solo recibo: el formulario normal es mejor que abrir el modo lote.
+      const only = collected[0]
+      await scanReceiptDataUrl(only.dataUrl, only.name, {
+        rawText: '', amount: only.amount ?? null, date: only.date ?? null, cardLast4: only.cardLast4 ?? null, merchant: only.merchant ?? null,
+      })
+      return
+    }
+    onOpenBatch?.(collected)
+  }
+
+  // Cámara nativa (con recuadro azul en vivo y auto-captura) en Android+Tauri;
+  // en web/desktop, o si el plugin falla por cualquier razón, cae al
+  // `<input capture>` de siempre. La cámara ya trae el monto/fecha/tarjeta
+  // extraídos (Fase 4 del roadmap) — se le pasan directo a scanReceiptDataUrl
+  // para no correr OCR dos veces sobre la misma foto.
+  const openCamera = async () => {
+    const scan = await openNativeScanner()
+    if (scan) {
+      await scanReceiptDataUrl(scan.dataUrl, 'recibo.jpg', {
+        rawText: '', amount: scan.amount, date: scan.date, cardLast4: scan.cardLast4, merchant: scan.merchant,
+      })
+      return
+    }
+    cameraInputRef.current?.click()
+  }
+
   const scanReceiptFile = async (file: File) => {
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
@@ -269,28 +355,83 @@ export function MobileCreateFlow({
       reader.onerror = reject
       reader.readAsDataURL(file)
     })
-    setScannedImage({ dataUrl, name: file.name })
+    await scanReceiptDataUrl(dataUrl, file.name)
+  }
+
+  // Núcleo compartido por las tres fuentes de recibo (input `capture`, galería,
+  // y la cámara nativa) — todas terminan con un data URL que reconocer, así
+  // que solo el paso de "obtener la imagen" difiere. `preExtracted` salta el
+  // OCR cuando la cámara nativa ya trae los campos resueltos (Fase 4).
+  const scanReceiptDataUrl = async (dataUrl: string, name: string, preExtracted?: ReceiptOcrResult) => {
+    setScannedImage({ dataUrl, name })
     setScanning(true)
+    setJustScanned(new Set())
     try {
-      const result = await recognizeReceipt(file)
+      const result = preExtracted ?? await recognizeReceipt(dataUrl)
       let found = false
+      const highlighted = new Set<'amount' | 'date' | 'account'>()
+
       if (result.amount !== null) {
         setAmountText(String(result.amount))
         const foundAmountLabel = `${CURRENCIES[currency].symbol} ${result.amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[currency].decimals, maximumFractionDigits: CURRENCIES[currency].decimals })}`
         toast(t('scanAmountFound').replace('{amount}', foundAmountLabel), { icon: 'check', type: 'ok' })
         found = true
+        highlighted.add('amount')
       }
       if (result.date !== null) {
         setDate(result.date)
         if (!found) toast(t('scanDateFound').replace('{date}', formatDateShort(result.date, locale)), { icon: 'calendar', type: 'ok' })
         found = true
+        highlighted.add('date')
       }
+
+      // Últimos 4 dígitos de la tarjeta impresos en el recibo → ubica sola la
+      // cuenta correcta entre las del usuario (mismo criterio que las
+      // notificaciones bancarias). Si hay más de una cuenta con esos 4
+      // dígitos (raro, pero posible) no se adivina — mejor que el usuario elija.
+      if (result.cardLast4) {
+        const matches = accounts.filter(a => a.last4 === result.cardLast4)
+        if (matches.length === 1) {
+          setAccountId(matches[0].id)
+          toast(t('scanAccountFound').replace('{account}', matches[0].name), { icon: 'cards', type: 'ok' })
+          highlighted.add('account')
+        }
+      }
+
+      // Si el monto reconocido coincide (con margen) con lo que falta de
+      // pagar en una lista de compras abierta, se ofrece marcarla comprada:
+      // el recibo ES la compra de esa lista.
+      if (result.amount !== null) {
+        const candidate = notes.find(n => {
+          if (n.type !== 'shopping' || n.archived) return false
+          const totals = noteTotals(n)
+          if (totals.pricedCount === 0 || totals.remaining <= 0) return false
+          return Math.abs(totals.remaining - result.amount!) <= Math.max(1, totals.remaining * 0.05)
+        })
+        if (candidate) setMatchedListId(candidate.id)
+      }
+
+      applyJustScanned(highlighted)
       if (!found) toast(t('scanNothingFound'), { icon: 'alert' })
     } catch {
       toast(t('scanFailed'), { icon: 'alert' })
     } finally {
       setScanning(false)
     }
+  }
+
+  // Marca como comprados todos los ítems pendientes de la lista detectada y
+  // usa su título como nota del movimiento — cierra el círculo: recibo → lista.
+  const applyMatchedList = () => {
+    if (!matchedListId) return
+    const note = useNotes.getState().notes.find(n => n.id === matchedListId)
+    if (!note) { setMatchedListId(null); return }
+    for (const item of note.items) {
+      if (!item.done) useNotes.getState().toggleItem(note.id, item.id)
+    }
+    setNote(note.title)
+    setMatchedListId(null)
+    toast(t('listMarkedBoughtToast').replace('{list}', note.title), { icon: 'check', type: 'ok' })
   }
 
   const save = () => {
@@ -311,13 +452,14 @@ export function MobileCreateFlow({
     }
     setTriedSave(false)
     setFormError(null)
+    if (!beginSubmit()) return
     try {
       let duplicate = false
       if (mode === 'transfer') {
         transfer({ fromAccount, toAccount, amount, date, note: note.trim() || t('transfer') })
       } else {
         const finalNote = note.trim() || activeCategory!.name
-        duplicate = isDuplicateTransaction(transactions, { date, amount, note: finalNote })
+        duplicate = isDuplicateTransaction(transactions, { date, amount, note: finalNote, accountId: activeAccountId! })
         addTx({
           type: mode, amount, date,
           note: finalNote,
@@ -346,8 +488,10 @@ export function MobileCreateFlow({
       setAccountId(null)
       setRecurring(false)
       setRecurEnd('')
+      endSubmit()
       onSaved()
     } catch (error) {
+      endSubmit()
       toast(error instanceof Error ? error.message : t('couldNotSave'), { icon: 'alert' })
     }
   }
@@ -395,7 +539,26 @@ export function MobileCreateFlow({
                   {scanning ? t('scanningReceipt') : t('receiptHint')}
                 </span>
               </div>
-            ) : (
+            ) : null}
+            {/* El monto del recibo coincide con lo que falta de una lista de
+                compras abierta: probablemente ES esa compra. */}
+            {matchedListId && (() => {
+              const list = notes.find(n => n.id === matchedListId)
+              if (!list) return null
+              return (
+                <div className="mobile-create-list-match">
+                  <span className="mobile-create-list-match-icon"><Icon name="cart" size={16} /></span>
+                  <span className="mobile-create-list-match-text">
+                    {t('listMatchQuestion').replace('{list}', list.title)}
+                  </span>
+                  <div className="mobile-create-list-match-actions">
+                    <button onClick={() => setMatchedListId(null)}>{t('no')}</button>
+                    <button className="primary" onClick={applyMatchedList}>{t('yesMarkBought')}</button>
+                  </div>
+                </div>
+              )
+            })()}
+            {!scannedImage && (
               <button className="mobile-receipt-scan-btn" onClick={() => setScanMenuOpen(true)}>
                 <Icon name="receipt" size={16} />
                 {t('scanReceipt')}
@@ -589,7 +752,7 @@ export function MobileCreateFlow({
             </span>
             {mode !== 'transfer' && (
               <button
-                className={`mobile-create-pad-account${!activeAccount ? ' unset' : ''}${triedSave && !activeAccountId ? ' field-error' : ''}`}
+                className={`mobile-create-pad-account${!activeAccount ? ' unset' : ''}${triedSave && !activeAccountId ? ' field-error' : ''}${justScanned.has('account') ? ' scan-found' : ''}`}
                 onClick={() => setAccountPicker(true)}
                 type="button"
                 aria-label={t('account')}
@@ -614,7 +777,7 @@ export function MobileCreateFlow({
             {hasOperator && (
               <small className="mobile-create-amount-expr">{currencyPrefix} {amountText}</small>
             )}
-            <strong className="mobile-create-amount-value" style={{ color: amountText ? amountColor : '#3a3a3a' }}>
+            <strong className={`mobile-create-amount-value${justScanned.has('amount') ? ' scan-found' : ''}`} style={{ color: amountText ? amountColor : '#3a3a3a' }}>
               {amountText
                 ? (amountText.endsWith('.')
                     ? `${currencyPrefix} ${amount.toLocaleString('en-US')}.`
@@ -648,7 +811,7 @@ export function MobileCreateFlow({
               onKeyDown={e => { if (e.key === 'Enter') noteInputRef.current?.blur() }}
             />
           </div>
-          <button className="mobile-quick-date-btn" onClick={() => setDatePicker(true)}>
+          <button className={`mobile-quick-date-btn${justScanned.has('date') ? ' scan-found' : ''}`} onClick={() => setDatePicker(true)}>
             <Icon name="calendar" size={13} />
             <span>{isToday ? t('today') : formatDateShort(date, locale)}</span>
           </button>
@@ -691,7 +854,7 @@ export function MobileCreateFlow({
               <button className="mobile-back-button" onClick={() => pressKey('back')} aria-label={t('delete')}>
                 <Icon name="close" size={18} />
               </button>
-              <button className="mobile-done-button" onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
+              <button className="mobile-done-button" disabled={submitting} onClick={save} aria-label={mode === 'transfer' ? t('transfer') : t('save')}>
                 <Icon name="check" size={20} />
               </button>
             </div>
@@ -777,10 +940,16 @@ export function MobileCreateFlow({
               <button aria-label={t('close')} onClick={() => setScanMenuOpen(false)}><Icon name="close" size={18} /></button>
             </header>
             <div className="mobile-picker-list">
-              <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); cameraInputRef.current?.click() }}>
+              <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); void openCamera() }}>
                 <Icon name="camera" size={20} />
                 <b>{t('scanReceiptCamera')}</b>
               </button>
+              {isAndroidTauri && onOpenBatch && (
+                <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); void openCameraBatch() }}>
+                  <Icon name="receipt" size={20} />
+                  <b>{t('scanReceiptCameraBatch')}</b>
+                </button>
+              )}
               <button className="mobile-picker-row" onClick={() => { setScanMenuOpen(false); galleryInputRef.current?.click() }}>
                 <Icon name="upload" size={20} />
                 <b>{t('scanReceiptGallery')}</b>

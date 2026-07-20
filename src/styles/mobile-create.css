@@ -316,6 +316,78 @@
     transition: color .15s;
     white-space: nowrap;
   }
+
+  /* ── Confirmación visual del escaneo ──────────────────────────────────
+     El campo que el OCR acaba de rellenar (monto / fecha / cuenta) pulsa en
+     azul un instante — la sensación de "la app vio esto y lo entendió",
+     sin necesitar una cámara en vivo con overlay. Se apaga solo (ver
+     `applyJustScanned` en MobileCreateFlow). */
+  @keyframes mobile-scan-pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--m-primary) 55%, #5bc0ff 45%); }
+    35%  { box-shadow: 0 0 0 7px color-mix(in oklab, #5bc0ff 30%, transparent); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .mobile-create-pad-account.scan-found,
+  .mobile-quick-date-btn.scan-found {
+    animation: mobile-scan-pulse 1.1s ease-out;
+    border-color: #5bc0ff;
+  }
+  .mobile-create-amount-value.scan-found {
+    animation: mobile-scan-pulse 1.1s ease-out;
+    border-radius: 8px;
+    color: #5bc0ff !important;
+    transition: color .5s ease 1.1s;
+  }
+
+  /* ── Banner "¿es la compra de tu lista?" ── */
+  .mobile-create-list-match {
+    align-items: center;
+    background: color-mix(in oklab, #35d0a2 12%, var(--m-surface));
+    border: 1px solid color-mix(in oklab, #35d0a2 30%, transparent);
+    border-radius: 14px;
+    display: flex;
+    gap: 10px;
+    margin: 0 16px 10px;
+    padding: 11px 12px;
+  }
+  .mobile-create-list-match-icon {
+    align-items: center;
+    background: color-mix(in oklab, #35d0a2 18%, transparent);
+    border-radius: 9px;
+    color: #35d0a2;
+    display: flex;
+    flex-shrink: 0;
+    height: 30px;
+    justify-content: center;
+    width: 30px;
+  }
+  .mobile-create-list-match-text {
+    color: var(--m-text);
+    flex: 1;
+    font-size: 12.5px;
+    font-weight: 650;
+    line-height: 1.4;
+  }
+  .mobile-create-list-match-actions {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 6px;
+  }
+  .mobile-create-list-match-actions button {
+    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    border: 0;
+    border-radius: 9px;
+    color: var(--m-text);
+    font-size: 11.5px;
+    font-weight: 750;
+    min-height: 28px;
+    padding: 0 12px;
+  }
+  .mobile-create-list-match-actions button.primary {
+    background: #35d0a2;
+    color: #06121c;
+  }
   /* Quick row above the keypad: account icon · note · date — all part of the bottom panel */
   .mobile-create-quick-row {
     align-items: center;
@@ -601,11 +673,21 @@
     text-align: left;
   }
   .mrb-field-label {
+    align-items: center;
     color: var(--m-muted);
+    display: flex;
     font-size: 10px;
     font-weight: 800;
+    gap: 4px;
     letter-spacing: .05em;
     text-transform: uppercase;
+  }
+  /* Marca la cuenta que se detectó sola por los últimos 4 dígitos de la tarjeta. */
+  .mrb-auto-badge {
+    background: #5bc0ff;
+    border-radius: 50%;
+    color: #06121c;
+    padding: 2px;
   }
   .mrb-field strong {
     color: var(--m-text);
@@ -886,73 +968,6 @@
   .mobile-category-grid button:active { background: color-mix(in oklab, var(--m-text) 8%, transparent); }
   .mobile-section-card header button:active,
   .mobile-hero-card button:active { filter: brightness(.92); }
-
-  /* ── MobileQuickAddSheet (accesos directos del ícono) ── */
-  .mobile-quickadd-sheet {
-    background: var(--m-bg, #121212);
-    border-radius: 24px 24px 0 0;
-    bottom: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    left: 0;
-    max-height: 92dvh;
-    overflow: hidden;
-    padding: 16px 16px calc(12px + env(safe-area-inset-bottom));
-    position: fixed;
-    right: 0;
-    width: 100%;
-  }
-  .mobile-quickadd-header {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-  }
-  .mobile-quickadd-header > span {
-    color: var(--m-text);
-    font-size: 17px;
-    font-weight: 900;
-    letter-spacing: -.02em;
-  }
-  .mobile-quickadd-header button {
-    align-items: center;
-    background: color-mix(in oklab, var(--m-text) 8%, transparent);
-    border: 1px solid var(--m-border);
-    border-radius: 999px;
-    color: var(--m-text);
-    display: grid;
-    height: 38px;
-    place-items: center;
-    width: 38px;
-  }
-  .mobile-quickadd-categories {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y pinch-zoom;
-  }
-  .mobile-quickadd-account-name {
-    color: var(--m-text);
-    flex: 1;
-    font-size: 13px;
-    font-weight: 800;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .mobile-quickadd-more {
-    background: color-mix(in oklab, var(--m-primary) 12%, transparent);
-    border: 1px solid color-mix(in oklab, var(--m-primary) 20%, transparent);
-    border-radius: 999px;
-    color: var(--m-primary);
-    flex-shrink: 0;
-    font-size: 11px;
-    font-weight: 850;
-    padding: 7px 12px;
-    white-space: nowrap;
-  }
 
   /* ── MobileAmountSheet ── */
   /* El sheet de monto siempre se invoca DESDE otro sheet (editor de presupuesto,

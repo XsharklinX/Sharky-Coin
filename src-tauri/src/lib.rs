@@ -36,17 +36,25 @@ fn read_backup(path: String) -> Result<String, String> {
 }
 
 /// Guarda un archivo en la carpeta "Sharky Finance" (Descargas en Android,
-/// Documentos en desktop), creándola si no existe. Sobrescribe sin sufijo:
-/// se usa para backups (manuales y el automático semanal), que deben
-/// reemplazar al anterior en vez de acumularse.
+/// Documentos en desktop) o, si se indica `folder`, directamente en esa
+/// carpeta (ruta absoluta ya resuelta por el lado JS — el usuario la eligió).
+/// Crea la carpeta si no existe. Sobrescribe sin sufijo: se usa para backups
+/// (manuales y el automático semanal), que deben reemplazar al anterior en
+/// vez de acumularse.
 #[tauri::command]
-fn save_to_app_folder(app: tauri::AppHandle, filename: String, contents: Vec<u8>) -> Result<String, String> {
-    let mut dir = if cfg!(target_os = "android") {
-        std::path::PathBuf::from("/storage/emulated/0/Download")
-    } else {
-        app.path().document_dir().map_err(|e| e.to_string())?
+fn save_to_app_folder(app: tauri::AppHandle, filename: String, contents: Vec<u8>, folder: Option<String>) -> Result<String, String> {
+    let dir = match folder {
+        Some(f) => std::path::PathBuf::from(f),
+        None => {
+            let mut d = if cfg!(target_os = "android") {
+                std::path::PathBuf::from("/storage/emulated/0/Download")
+            } else {
+                app.path().document_dir().map_err(|e| e.to_string())?
+            };
+            d.push("Sharky Finance");
+            d
+        }
     };
-    dir.push("Sharky Finance");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(&filename);
     std::fs::write(&path, contents).map_err(|e| e.to_string())?;
@@ -107,6 +115,64 @@ fn take_pending_shared_files(app: tauri::AppHandle) -> Result<Vec<SharedFile>, S
     let _ = std::fs::remove_file(&marker_path);
 
     Ok(files)
+}
+
+/// Atajo pendiente (widget o icono mantenido) que `MainActivity.kt` dejo en
+/// `{cache_dir}/shortcut.txt`.
+///
+/// Es una RED DE SEGURIDAD para el deep link. El plugin `deep-link` deberia
+/// entregar `sharky://shortcut/...` por `onOpenUrl`/`getCurrent`, pero en la
+/// practica (ver el comentario en `store/auth.ts`) hay dispositivos donde el
+/// evento no llega en warm-start — la app pasa a primer plano pero se queda en
+/// Inicio. El flujo de "compartir" ya esquiva ese problema escribiendo un
+/// marcador desde MainActivity; esto hace lo mismo para los atajos. Se consume
+/// una sola vez (se borra al leerlo).
+#[tauri::command]
+fn take_pending_shortcut(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let cache_dir = app.path().app_cache_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let marker_path = cache_dir.join("shortcut.txt");
+    if !marker_path.exists() {
+        return Ok(None);
+    }
+    let value = std::fs::read_to_string(&marker_path).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&marker_path);
+    let trimmed = value.trim().to_string();
+    Ok(if trimmed.is_empty() { None } else { Some(trimmed) })
+}
+
+/// Aviso nativo pendiente (tocado desde la bandeja de Android) que
+/// `MainActivity.kt` dejo en `{cache_dir}/notification.txt`.
+///
+/// Misma red de seguridad que `take_pending_shortcut`, para el deep link
+/// `sharky://notification/<tipo>` que abre `ReminderWorker` al notificar
+/// presupuesto/semanal/etc. Se consume una sola vez (se borra al leerlo).
+#[tauri::command]
+fn take_pending_notification(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let cache_dir = app.path().app_cache_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let marker_path = cache_dir.join("notification.txt");
+    if !marker_path.exists() {
+        return Ok(None);
+    }
+    let value = std::fs::read_to_string(&marker_path).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&marker_path);
+    let trimmed = value.trim().to_string();
+    Ok(if trimmed.is_empty() { None } else { Some(trimmed) })
+}
+
+/// Historial de avisos nativos ya disparados (`ReminderWorker.kt` lo escribe
+/// en `{files_dir}/notification_history.json`, capado a las últimas ~100
+/// entradas). A diferencia de `take_pending_notification`, esto NO se
+/// consume/borra al leerlo — el lado JS hace merge por id contra su propio
+/// store persistido, así que releer el mismo archivo varias veces es
+/// inofensivo (idempotente).
+#[tauri::command]
+fn read_notification_history(app: tauri::AppHandle) -> Result<String, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e: tauri::Error| e.to_string())?;
+    let path = data_dir.join("notification_history.json");
+    if !path.exists() {
+        return Ok("[]".to_string());
+    }
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 const SECURE_STORAGE_SERVICE: &str = "com.sharky.miapp";
@@ -226,6 +292,9 @@ pub fn run() {
             save_to_downloads,
             save_to_app_folder,
             read_backup,
+            take_pending_shortcut,
+            take_pending_notification,
+            read_notification_history,
             secure_storage_set,
             secure_storage_get,
             secure_storage_remove,

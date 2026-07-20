@@ -123,6 +123,85 @@ export function recomputeAccountBalances(
   })
 }
 
+/**
+ * Igual que `recomputeAccountBalances` pero para `Goal.saved`: evita que el
+ * ahorro guardado sea una segunda fuente de verdad frente a la suma real de
+ * `GoalContribution` — se reconcilia contra `openingSaved + aportes`.
+ */
+export function recomputeGoalsSaved(goals: Goal[], contributions: GoalContribution[]): Goal[] {
+  return goals.map(goal => {
+    const total = contributions
+      .filter(contribution => contribution.goalId === goal.id)
+      .reduce((sum, contribution) => sum + contribution.amount, 0)
+    const opening = goal.openingSaved ?? goal.saved - total
+    return { ...goal, openingSaved: opening, saved: opening + total }
+  })
+}
+
+/**
+ * Redondea al entero más cercano TODOS los montos del libro (quita los
+ * centavos). Pensado para deshacer los decimales que aparecen tras convertir de
+ * moneda y volver (100 → 99.98 → 100), sin tener que editar cada movimiento.
+ *
+ * Redondea la fuente de verdad —apertura de cuentas/metas y cada
+ * movimiento/aporte— y luego RECONSTRUYE saldos y ahorros con las mismas
+ * funciones de reconciliación. Así el resultado es entero Y la invariante
+ * `saldo = apertura + movimientos` se mantiene, en vez de redondear cada saldo
+ * por separado (que la rompería). Los splits se re-cuadran para que sigan
+ * sumando el monto redondeado del movimiento.
+ */
+export function roundFinanceAmounts(data: FinanceData): FinanceData {
+  const r = (n: number) => Math.round(n)
+
+  const transactions = data.transactions.map(tx => {
+    const amount = r(tx.amount)
+    let splits = tx.splits
+    if (tx.splits && tx.splits.length >= 2) {
+      const rounded = tx.splits.map(s => ({ ...s, amount: r(s.amount) }))
+      // Cuadrar la diferencia de redondeo en la parte de mayor monto, para que
+      // las partes sigan sumando exactamente el total redondeado.
+      const diff = amount - rounded.reduce((sum, s) => sum + s.amount, 0)
+      if (diff !== 0 && rounded.length > 0) {
+        const idx = rounded.reduce((best, s, i, arr) => (s.amount > arr[best].amount ? i : best), 0)
+        rounded[idx] = { ...rounded[idx], amount: rounded[idx].amount + diff }
+      }
+      splits = rounded
+    }
+    return {
+      ...tx,
+      amount,
+      ...(tx.toAmount !== undefined ? { toAmount: r(tx.toAmount) } : {}),
+      ...(splits ? { splits } : {}),
+    }
+  })
+
+  const goalContributions = data.goalContributions.map(gc => ({ ...gc, amount: r(gc.amount) }))
+
+  const accounts = recomputeAccountBalances(
+    data.accounts.map(a => ({
+      ...a,
+      openingBalance: r(a.openingBalance ?? a.balance),
+      ...(a.limit !== undefined ? { limit: r(a.limit) } : {}),
+    })),
+    transactions,
+    goalContributions,
+  )
+
+  const goals = recomputeGoalsSaved(
+    data.goals.map(g => ({ ...g, openingSaved: r(g.openingSaved ?? g.saved), target: r(g.target) })),
+    goalContributions,
+  )
+
+  const categories = data.categories.map(c => ({
+    ...c,
+    budget: r(c.budget),
+    ...(c.weeklyBudget !== undefined ? { weeklyBudget: r(c.weeklyBudget) } : {}),
+    ...(c.annualBudget !== undefined ? { annualBudget: r(c.annualBudget) } : {}),
+  }))
+
+  return { accounts, transactions, categories, goals, goalContributions, currency: data.currency }
+}
+
 // ── Helpers de balance (inmutables) ──────────────────────
 function applyBalance(accounts: Account[], tx: Transaction, sign: 1 | -1): Account[] {
   if (tx.type === 'transfer') {
@@ -175,13 +254,14 @@ function normalizeTransaction(tx: Transaction): Transaction {
 
   const {
     id, type, amount, date, note, categoryId, accountId, splits,
-    recurring, recurringStart, recurringEnd, recurringNext, skippedDates, serviceId, tags,
+    recurring, recurringStart, recurringEnd, recurringNext, skippedDates, serviceId, generatedFrom, tags,
   } = tx
   return {
     id, type, amount, date, note, categoryId, accountId,
     ...(type === 'expense' && splits && splits.length >= 2 ? { splits } : {}),
     ...(recurring ? { recurring, recurringStart, recurringEnd, recurringNext, skippedDates } : {}),
     ...(recurring && serviceId ? { serviceId } : {}),
+    ...(!recurring && generatedFrom ? { generatedFrom } : {}),
     ...(tags?.length ? { tags } : {}),
   }
 }
@@ -240,7 +320,15 @@ export function restoreFinanceDataWithSnapshot(
   data: Pick<FinanceState, 'accounts' | 'transactions' | 'categories' | 'goals' | 'goalContributions' | 'currency'>,
 ): FinanceData {
   createRecoverySnapshot(current, 'pre-restore')
-  return sanitizeFinanceData(data)
+  const sanitized = sanitizeFinanceData(data)
+  // Chequeo de salud tras restaurar: si el backup traía un saldo o ahorro
+  // desviado (de un bug previo, una edición manual del JSON, etc.), se
+  // reconcilia contra apertura/aportes en vez de propagar el número dañado.
+  return {
+    ...sanitized,
+    accounts: recomputeAccountBalances(sanitized.accounts, sanitized.transactions, sanitized.goalContributions),
+    goals: recomputeGoalsSaved(sanitized.goals, sanitized.goalContributions),
+  }
 }
 
 // ── Tipos del store ───────────────────────────────────────
@@ -263,7 +351,10 @@ export interface FinanceState {
   addAccount:    (account: Omit<Account, 'id'>) => void
   updateAccount: (id: string, fields: Partial<Omit<Account, 'id'>>) => void
   deleteAccount: (id: string) => void
-  reconcileAccount: (id: string, balance: number) => void
+  // Concilia el saldo real (ej. el del banco) contra el calculado: si difieren,
+  // crea un movimiento de ajuste visible en el libro (nunca sobreescribe el
+  // saldo en silencio). Devuelve la diferencia aplicada (0 = ya cuadraba).
+  reconcileAccount: (id: string, balance: number) => number
 
   // Metas
   addGoal:     (g: Omit<Goal, 'id'>) => void
@@ -283,6 +374,11 @@ export interface FinanceState {
   // Integridad: recalcula los saldos desde apertura + movimientos.
   // Devuelve cuántas cuentas estaban derivadas (se corrigieron).
   recomputeBalances: () => number
+
+  // Redondea al entero más cercano todos los montos (quita centavos). Crea un
+  // punto de recuperación antes, porque es destructivo. Devuelve cuántos
+  // movimientos cambiaron de valor.
+  roundAllAmounts: () => number
 
   // Datos
   startDemo:  () => void
@@ -378,18 +474,69 @@ export const useFinance = create<FinanceState>()(
         accounts: [...s.accounts, { id: newId('acc_'), ...account, openingBalance: account.openingBalance ?? account.balance }],
       })),
 
-      updateAccount: (id, fields) => set(s => ({
-        accounts: s.accounts.map(account => {
-          if (account.id !== id) return account
-          const next = { ...account, ...fields }
-          // Editar el saldo a mano es una corrección del saldo actual: ajustamos
-          // el saldo de apertura para preservar la invariante opening + movimientos.
-          if (fields.balance !== undefined && fields.openingBalance === undefined) {
-            next.openingBalance = fields.balance - accountMovementsTotal(id, s.transactions, s.goalContributions)
+      updateAccount: (id, fields) => set(s => {
+        const account = s.accounts.find(a => a.id === id)
+        if (!account) return s
+
+        // Detecta si esta edición REALMENTE cambia la divisa efectiva de la
+        // cuenta (no solo si la clave "currency" viene en el objeto — el
+        // editor siempre la incluye, cambie o no). Comparamos el valor
+        // resultante contra el actual.
+        const oldCur = account.currency ?? s.currency
+        const newCur = ('currency' in fields ? fields.currency : account.currency) ?? s.currency
+        const currencyChanged = 'currency' in fields && newCur !== oldCur
+
+        if (!currencyChanged) {
+          return {
+            accounts: s.accounts.map(a => {
+              if (a.id !== id) return a
+              const next = { ...a, ...fields }
+              // Editar el saldo a mano es una corrección del saldo actual: ajustamos
+              // el saldo de apertura para preservar la invariante opening + movimientos.
+              if (fields.balance !== undefined && fields.openingBalance === undefined) {
+                next.openingBalance = fields.balance - accountMovementsTotal(id, s.transactions, s.goalContributions)
+              }
+              return next
+            }),
           }
-          return next
-        }),
-      })),
+        }
+
+        // La divisa de la cuenta cambió: su saldo, apertura, límite y los
+        // montos de SUS transacciones/aportes están guardados en la divisa
+        // vieja — hay que re-expresarlos en la nueva. Sin esto, el número se
+        // queda igual pero la app lo reinterpreta en otra moneda en cada
+        // cálculo posterior (mismo bug que tenía el cambio de divisa global).
+        const decimals = CURRENCIES[newCur].decimals
+        const factor = 10 ** decimals
+        const conv = (n: number) => Math.round(convertCurrency(n, oldCur, newCur) * factor) / factor
+
+        return {
+          accounts: s.accounts.map(a => {
+            if (a.id !== id) return a
+            const next = { ...a, ...fields, balance: conv(fields.balance ?? a.balance) }
+            if (a.openingBalance !== undefined) next.openingBalance = conv(fields.openingBalance ?? a.openingBalance)
+            if (a.limit !== undefined) next.limit = conv(fields.limit ?? a.limit)
+            return next
+          }),
+          transactions: s.transactions.map(t => {
+            if (t.type === 'transfer') {
+              // amount = en la divisa de fromAccount; toAmount = en la de
+              // toAccount (implícito == amount si nunca difirieron entre sí).
+              if (t.fromAccount === id) return { ...t, amount: conv(t.amount), toAmount: t.toAmount ?? t.amount }
+              if (t.toAccount === id) return { ...t, toAmount: conv(t.toAmount ?? t.amount) }
+              return t
+            }
+            if (t.accountId !== id) return t
+            return {
+              ...t,
+              amount: conv(t.amount),
+              ...(t.splits ? { splits: t.splits.map(sp => ({ ...sp, amount: conv(sp.amount) })) } : {}),
+            }
+          }),
+          goalContributions: s.goalContributions.map(gc =>
+            gc.fromAccountId === id ? { ...gc, amount: conv(gc.amount) } : gc),
+        }
+      }),
 
       deleteAccount: (id) => set(s => {
         if (!canDeleteAccount(id, s.transactions)) throw new Error(tt('errDeleteAccountWithTxns'))
@@ -397,23 +544,43 @@ export const useFinance = create<FinanceState>()(
         return { accounts: s.accounts.filter(account => account.id !== id) }
       }),
 
-      reconcileAccount: (id, balance) => set(s => ({
-        accounts: s.accounts.map(account => account.id === id
-          ? {
-              ...account,
-              balance,
-              openingBalance: balance - accountMovementsTotal(id, s.transactions, s.goalContributions),
-            }
-          : account),
-      })),
+      reconcileAccount: (id, balance) => {
+        const s = get()
+        const account = s.accounts.find(a => a.id === id)
+        if (!account) return 0
+        const diff = Math.round((balance - account.balance) * 100) / 100
+        if (Math.abs(diff) < 0.005) return 0
+        const tx = normalizeTransaction({
+          id: newId(), type: diff > 0 ? 'income' : 'expense', amount: Math.abs(diff),
+          accountId: id, date: localToday(), note: tt('reconciliationAdjustmentNote'),
+        } as Transaction)
+        set({
+          transactions: sortTxns([tx, ...s.transactions]),
+          accounts: applyBalance(s.accounts, tx, 1),
+        })
+        return diff
+      },
 
       // ── Metas ──────────────────────────────────────────
       addGoal: (g) => set(s => ({
-        goals: [...s.goals, { id: newId('goal_'), ...g, saved: g.saved ?? 0 }],
+        // Meta nueva sin aportes: el ahorro inicial es el ahorro de apertura.
+        goals: [...s.goals, { id: newId('goal_'), ...g, saved: g.saved ?? 0, openingSaved: g.openingSaved ?? g.saved ?? 0 }],
       })),
 
       updateGoal: (id, fields) => set(s => ({
-        goals: s.goals.map(g => g.id === id ? { ...g, ...fields } : g),
+        goals: s.goals.map(g => {
+          if (g.id !== id) return g
+          const next = { ...g, ...fields }
+          // Editar el ahorro a mano es una corrección del ahorro actual: ajustamos
+          // el ahorro de apertura para preservar la invariante opening + aportes.
+          if (fields.saved !== undefined && fields.openingSaved === undefined) {
+            const contributed = s.goalContributions
+              .filter(contribution => contribution.goalId === id)
+              .reduce((sum, contribution) => sum + contribution.amount, 0)
+            next.openingSaved = fields.saved - contributed
+          }
+          return next
+        }),
       })),
 
       deleteGoal: (id) => set(s => ({
@@ -476,44 +643,92 @@ export const useFinance = create<FinanceState>()(
       }),
 
       // ── Config ─────────────────────────────────────────
-      // Cambia la moneda activa y convierte todos los montos ya
-      // registrados (cuentas, transacciones, metas, presupuestos) a su
-      // equivalente real en la nueva moneda, según las tasas de cambio.
+      // Cambia la moneda activa y re-expresa todos los montos en la nueva
+      // moneda. CLAVE: cada monto se convierte desde SU divisa real —
+      // `account.currency` para cuentas con divisa propia (y sus movimientos /
+      // aportes), o la base anterior para el resto — NO desde la base anterior
+      // a ciegas. Al convertir una cuenta con divisa propia se limpia esa
+      // divisa (todo queda expresado en la nueva base). Esto evita que una
+      // cuenta en, p.ej., COP se multiplique por la tasa DOP→COP y, peor aún,
+      // que ese error se componga cada vez que se cambia de moneda.
       setCurrency: (currency) => set(s => {
         if (currency === s.currency) return { currency }
 
+        const oldBase = s.currency
         const decimals = CURRENCIES[currency].decimals
         const factor = 10 ** decimals
-        const conv = (n: number) => Math.round(convertCurrency(n, s.currency, currency) * factor) / factor
+        const conv = (n: number, from: CurrencyCode) =>
+          Math.round(convertCurrency(n, from, currency) * factor) / factor
+
+        // Divisa real de cada cuenta ANTES de normalizar (la propia o la base vieja).
+        const accountCur = new Map<string, CurrencyCode>(
+          s.accounts.map(a => [a.id, a.currency ?? oldBase]))
+        const curOf = (id?: string): CurrencyCode => (id && accountCur.get(id)) || oldBase
 
         return {
           currency,
-          accounts: s.accounts.map(a => ({
-            ...a,
-            balance: conv(a.balance),
-            ...(a.openingBalance !== undefined ? { openingBalance: conv(a.openingBalance) } : {}),
-            ...(a.limit !== undefined ? { limit: conv(a.limit) } : {}),
-          })),
-          transactions: s.transactions.map(t => ({ ...t, amount: conv(t.amount) })),
+          accounts: s.accounts.map(a => {
+            const from = a.currency ?? oldBase
+            const { currency: _own, ...rest } = a
+            return {
+              ...rest,
+              balance: conv(a.balance, from),
+              ...(a.openingBalance !== undefined ? { openingBalance: conv(a.openingBalance, from) } : {}),
+              ...(a.limit !== undefined ? { limit: conv(a.limit, from) } : {}),
+            }
+          }),
+          transactions: s.transactions.map(t => {
+            if (t.type === 'transfer') {
+              return {
+                ...t,
+                amount: conv(t.amount, curOf(t.fromAccount)),
+                ...(t.toAmount !== undefined ? { toAmount: conv(t.toAmount, curOf(t.toAccount)) } : {}),
+              }
+            }
+            const from = curOf(t.accountId)
+            return {
+              ...t,
+              amount: conv(t.amount, from),
+              ...(t.splits ? { splits: t.splits.map(sp => ({ ...sp, amount: conv(sp.amount, from) })) } : {}),
+            }
+          }),
           categories: s.categories.map(c => ({
             ...c,
-            budget: conv(c.budget),
-            ...(c.weeklyBudget !== undefined ? { weeklyBudget: conv(c.weeklyBudget) } : {}),
-            ...(c.annualBudget !== undefined ? { annualBudget: conv(c.annualBudget) } : {}),
+            budget: conv(c.budget, oldBase),
+            ...(c.weeklyBudget !== undefined ? { weeklyBudget: conv(c.weeklyBudget, oldBase) } : {}),
+            ...(c.annualBudget !== undefined ? { annualBudget: conv(c.annualBudget, oldBase) } : {}),
           })),
-          goals: s.goals.map(g => ({ ...g, target: conv(g.target), saved: conv(g.saved) })),
-          goalContributions: s.goalContributions.map(gc => ({ ...gc, amount: conv(gc.amount) })),
+          goals: s.goals.map(g => ({ ...g, target: conv(g.target, oldBase), saved: conv(g.saved, oldBase) })),
+          goalContributions: s.goalContributions.map(gc => ({ ...gc, amount: conv(gc.amount, curOf(gc.fromAccountId)) })),
         }
       }),
 
       // ── Integridad de saldos ───────────────────────────
       recomputeBalances: () => {
-        const { accounts, transactions, goalContributions } = get()
-        const recomputed = recomputeAccountBalances(accounts, transactions, goalContributions)
-        const drifted = recomputed.reduce((n, account, i) =>
+        const { accounts, transactions, goals, goalContributions } = get()
+        const recomputedAccounts = recomputeAccountBalances(accounts, transactions, goalContributions)
+        const recomputedGoals = recomputeGoalsSaved(goals, goalContributions)
+        const driftedAccounts = recomputedAccounts.reduce((n, account, i) =>
           Math.abs(account.balance - accounts[i].balance) > 0.005 ? n + 1 : n, 0)
-        set({ accounts: recomputed })
-        return drifted
+        const driftedGoals = recomputedGoals.reduce((n, goal, i) =>
+          Math.abs(goal.saved - goals[i].saved) > 0.005 ? n + 1 : n, 0)
+        set({ accounts: recomputedAccounts, goals: recomputedGoals })
+        return driftedAccounts + driftedGoals
+      },
+
+      roundAllAmounts: () => {
+        const state = get()
+        const data: FinanceData = {
+          accounts: state.accounts, transactions: state.transactions, categories: state.categories,
+          goals: state.goals, goalContributions: state.goalContributions, currency: state.currency,
+        }
+        // Reversible: un punto de recuperación antes de tocar nada.
+        createRecoverySnapshot(state, 'pre-round')
+        const rounded = roundFinanceAmounts(data)
+        const changed = rounded.transactions.reduce((n, tx, i) =>
+          tx.amount !== state.transactions[i].amount ? n + 1 : n, 0)
+        set(rounded)
+        return changed
       },
 
       // ── Datos demo / vacío ─────────────────────────────

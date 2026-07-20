@@ -333,7 +333,12 @@
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(4,7,12,.62);
     backdrop-filter: blur(5px); display: grid; place-items: center;
-    z-index: 200; padding: 20px; animation: fade .15s ease;
+    /* Por encima de TODOS los sheets/pantallas superpuestos: la pantalla de
+       Ajustes es z-index 220 y los sheets llegan a 420. A 200 el diálogo de
+       confirmación (useDialogs) quedaba DETRÁS de Ajustes — tocabas la acción
+       y no se veía nada. Debajo de los toasts (600/9999), que sí deben flotar
+       sobre cualquier modal. */
+    z-index: 500; padding: 20px; animation: fade .15s ease;
   }
   .modal {
     width: 100%; max-width: 460px; background: var(--surface-2);

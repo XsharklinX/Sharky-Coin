@@ -18,6 +18,20 @@ const ACCT_ICONS: Record<string, IconName> = {
   cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
 }
 
+/**
+ * `amount`/`date`/`cardLast4`/`merchant` vienen presentes cuando el recibo se
+ * capturó con la cámara nativa (Fase 4/6 del roadmap) — ya trae la extracción
+ * hecha, así que este ítem se salta `recognizeReceipt()` por completo.
+ */
+export interface BatchReceiptInput {
+  dataUrl: string
+  name: string
+  amount?: number | null
+  date?: string | null
+  cardLast4?: string | null
+  merchant?: string | null
+}
+
 interface BatchItem {
   id: string
   dataUrl: string
@@ -29,18 +43,18 @@ interface BatchItem {
   categoryId: string
   accountId: string
   note: string
+  /** La cuenta se ubicó sola por los últimos 4 dígitos impresos en el recibo. */
+  accountAutoMatched?: boolean
 }
 
 type EditingField = { itemId: string; field: 'amount' | 'date' | 'category' | 'account' } | null
 
 export function MobileReceiptBatch({
   receipts,
-  mkey: _mkey,
   onDone,
   onCancel,
 }: {
-  receipts: { dataUrl: string; name: string }[]
-  mkey: string
+  receipts: BatchReceiptInput[]
   onDone: () => void
   onCancel: () => void
 }) {
@@ -51,18 +65,39 @@ export function MobileReceiptBatch({
   const defaultCategoryId = expenseCategories[0]?.id ?? ''
   const defaultAccountId = accounts[0]?.id ?? ''
 
-  const [items, setItems] = useState<BatchItem[]>(() => receipts.map((r, i) => ({
-    id: `receipt_${i}_${Date.now()}`,
-    dataUrl: r.dataUrl,
-    name: r.name,
-    status: 'scanning',
-    included: true,
-    amount: 0,
-    date: localToday(),
-    categoryId: defaultCategoryId,
-    accountId: defaultAccountId,
-    note: t('scanReceipt'),
-  })))
+  const [items, setItems] = useState<BatchItem[]>(() => receipts.map((r, i) => {
+    const id = `receipt_${i}_${Date.now()}`
+    const hasPreExtracted = r.amount != null || r.date != null || r.cardLast4 != null || r.merchant != null
+    if (hasPreExtracted) {
+      // Cámara nativa: ya viene con la extracción hecha, se salta el OCR.
+      const cardMatches = r.cardLast4 ? accounts.filter(a => a.last4 === r.cardLast4) : []
+      return {
+        id,
+        dataUrl: r.dataUrl,
+        name: r.name,
+        status: 'done',
+        included: true,
+        amount: r.amount ?? 0,
+        date: r.date ?? localToday(),
+        categoryId: defaultCategoryId,
+        accountId: cardMatches.length === 1 ? cardMatches[0].id : defaultAccountId,
+        accountAutoMatched: cardMatches.length === 1,
+        note: r.merchant ?? t('scanReceipt'),
+      }
+    }
+    return {
+      id,
+      dataUrl: r.dataUrl,
+      name: r.name,
+      status: 'scanning',
+      included: true,
+      amount: 0,
+      date: localToday(),
+      categoryId: defaultCategoryId,
+      accountId: defaultAccountId,
+      note: t('scanReceipt'),
+    }
+  }))
   const [scanIndex, setScanIndex] = useState(0)
   const [editing, setEditing] = useState<EditingField>(null)
   const [saving, setSaving] = useState(false)
@@ -81,13 +116,20 @@ export function MobileReceiptBatch({
       for (let i = 0; i < items.length; i++) {
         setScanIndex(i)
         const item = items[i]
+        if (item.status !== 'scanning') continue // ya vino resuelto de la cámara nativa
         try {
           const result = await recognizeReceipt(item.dataUrl)
+          // Últimos 4 dígitos de la tarjeta impresos en el recibo → ubica sola
+          // la cuenta correcta, igual que en el flujo de un solo movimiento.
+          const cardMatches = result.cardLast4 ? accounts.filter(a => a.last4 === result.cardLast4) : []
           setItems(prev => prev.map(it => it.id === item.id ? {
             ...it,
             status: 'done',
             amount: result.amount ?? 0,
             date: result.date ?? it.date,
+            accountId: cardMatches.length === 1 ? cardMatches[0].id : it.accountId,
+            accountAutoMatched: cardMatches.length === 1,
+            note: result.merchant ?? it.note,
           } : it))
         } catch {
           setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'error' } : it))
@@ -197,7 +239,10 @@ export function MobileReceiptBatch({
                         <strong>{category ? translateCategoryName(category, lang) : t('selectLabel')}</strong>
                       </button>
                       <button className="mrb-field" onClick={() => setEditing({ itemId: item.id, field: 'account' })}>
-                        <span className="mrb-field-label">{t('account')}</span>
+                        <span className="mrb-field-label">
+                          {t('account')}
+                          {item.accountAutoMatched && <Icon name="check" size={10} className="mrb-auto-badge" />}
+                        </span>
                         <strong>{account?.name ?? t('selectLabel')}</strong>
                       </button>
                     </div>

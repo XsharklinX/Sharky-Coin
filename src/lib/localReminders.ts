@@ -6,6 +6,8 @@ import { amountForCategory, currentMonthKey, dateLocale, fmtCompact, localToday,
 import { currentRate, fxAlertTriggered } from '@/data/fxAlerts'
 import { getCurrencyMeta } from '@/data/currencies'
 import { detectSpendingAnomalies } from '@/data/financeIntelligence'
+import { useNotificationHistory, type NotificationHistoryEntry } from '@/store/notificationHistory'
+import type { NotificationTargetType } from '@/hooks/useNotificationTarget'
 import type { CurrencyCode } from '@/types'
 
 function isAndroidTauri(): boolean {
@@ -191,5 +193,43 @@ export async function cancelLocalReminders(): Promise<void> {
     await invoke('plugin:local-reminders|cancel_reminders')
   } catch {
     // no-op
+  }
+}
+
+interface NativeHistoryRecord {
+  id: unknown
+  type: unknown
+  title: unknown
+  body: unknown
+  createdAt: unknown
+}
+
+function isNotificationTargetType(v: unknown): v is NotificationTargetType {
+  return typeof v === 'string' &&
+    ['budget', 'recurring', 'lowfunds', 'goal', 'weekly', 'fx', 'anomaly', 'activity'].includes(v)
+}
+
+/**
+ * Trae los avisos nativos ya disparados por `ReminderWorker.kt`
+ * (`notification_history.json`) y los mezcla en el store persistido de la
+ * app — así la campanita puede mostrar avisos como el resumen semanal, que
+ * antes se disparaban y desaparecían sin dejar rastro dentro de la app.
+ * Idempotente: se puede llamar tantas veces como se quiera (al arrancar y al
+ * volver a primer plano), el merge por id descarta lo que ya se conocía.
+ */
+export async function syncNotificationHistory(): Promise<void> {
+  if (!isAndroidTauri()) return
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const raw = await invoke<string>('read_notification_history')
+    const parsed = JSON.parse(raw) as NativeHistoryRecord[]
+    const entries: NotificationHistoryEntry[] = parsed
+      .filter((r): r is NativeHistoryRecord & { id: string; title: string; body: string; createdAt: number } =>
+        typeof r.id === 'string' && typeof r.title === 'string' &&
+        typeof r.body === 'string' && typeof r.createdAt === 'number' && isNotificationTargetType(r.type))
+      .map(r => ({ id: r.id, type: r.type as NotificationTargetType, title: r.title, body: r.body, createdAt: r.createdAt }))
+    useNotificationHistory.getState().merge(entries)
+  } catch {
+    // plugin no disponible o historial vacío — no-op
   }
 }

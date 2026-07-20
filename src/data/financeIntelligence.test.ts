@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectSpendingAnomalies, detectSubscriptions, generateFinancialIntelligence, projectCashflow } from '@/data/financeIntelligence'
+import { computeTrends, detectSpendingAnomalies, detectSubscriptions, generateFinancialIntelligence, projectCashflow } from '@/data/financeIntelligence'
 import type { Category, Transaction } from '@/types'
 
 const categories: Category[] = [
@@ -45,5 +45,25 @@ describe('finance intelligence', () => {
     const result = generateFinancialIntelligence({ txns, categories, mkey: '2026-05', currentBalance: 10000 })
     expect(result.monthlyActions.length).toBeGreaterThan(0)
     expect(result.recommendedMonthlySavings).toBeGreaterThan(0)
+  })
+
+  it('computeTrends: el delta de categoria compara contra el promedio anterior, no solo repite el monto (bug corregido)', () => {
+    const trends = computeTrends(txns, categories, '2026-05')
+    const foodTrend = trends.find(item => item.kind === 'category' && item.label === 'Restaurantes')
+    expect(foodTrend).toBeDefined()
+    // Antes: delta === amount (4200). Ahora: amount - promedio(900,950,1000)/3... => 4200 - 950
+    expect(foodTrend!.previousAvg).toBeCloseTo((900 + 950 + 1000) / 3, 1)
+    expect(foodTrend!.delta).toBeCloseTo(4200 - (900 + 950 + 1000) / 3, 1)
+    expect(foodTrend!.delta).not.toBe(foodTrend!.amount)
+  })
+
+  it('computeTrends: comerciante nuevo (sin historial) tiene previousAvg 0 y delta === amount', () => {
+    const withNewMerchant: Transaction[] = [
+      ...txns,
+      { id: 'new-1', type: 'expense', amount: 300, date: '2026-05-15', note: 'Comercio Nuevo', categoryId: 'cat_food', accountId: 'cash' },
+    ]
+    const trends = computeTrends(withNewMerchant, categories, '2026-05')
+    const newTrend = trends.find(item => item.kind === 'merchant' && item.label === 'comercio nuevo')
+    expect(newTrend).toMatchObject({ previousAvg: 0, delta: 300, amount: 300 })
   })
 })

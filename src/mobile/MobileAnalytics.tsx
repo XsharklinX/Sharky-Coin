@@ -7,7 +7,7 @@ import { compareCategoryTotals } from '@/data/comparisons'
 import { exportCsv, exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { playConfirmSound } from '@/lib/sound'
-import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthSeries, rollingNetWorthSeries, savingsBalance, shortMonth, totalBalanceInBase, totals, transactionsForTotals, txForMonth, type NetWorthPoint } from '@/data/helpers'
+import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, shortMonth, totalBalanceInBase, totals, transactionsForTotals, txForMonth, type NetWorthPoint } from '@/data/helpers'
 import { projectNetWorth } from '@/data/netWorthProjection'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -16,9 +16,9 @@ import { translateCategoryName, useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import { SheetPortal } from './SheetPortal'
-import type { CurrencyCode, IconName } from '@/types'
+import type { CurrencyCode, IconName, Transaction } from '@/types'
 
-type AnalyticsPeriod = 'week' | 'month' | 'year'
+export type AnalyticsPeriod = 'week' | 'month' | 'year'
 
 function getMonthsShort(t: ReturnType<typeof useT>) {
   return [
@@ -137,7 +137,7 @@ function NetWorthHistoryChart({ history, projected, currency, lang, fmtAmount }:
   )
 }
 
-export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; onBudgets?: () => void; onImport?: () => void }) {
+export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPeriod }: { mkey: string; onBudgets?: () => void; onImport?: () => void; onEditTx?: (tx: Transaction) => void; initialPeriod?: AnalyticsPeriod }) {
   const { transactions, accounts, categories, goalContributions, currency, updateTx } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
@@ -146,7 +146,11 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
   const compactNumbers = settings.compactNumbers
   const MONTHS_SHORT = getMonthsShort(t)
   const PERIODS = getPeriods(t)
-  const [period, setPeriod] = useState<AnalyticsPeriod>('month')
+  const [period, setPeriod] = useState<AnalyticsPeriod>(initialPeriod ?? 'month')
+  // Categoría enfocada en la dona: al tocar una porción/leyenda se resalta esa
+  // rebanada, el resto se atenúa y el centro muestra su monto. Es solo estado
+  // visual local (no filtra datos ni muta nada), así que es 100% reversible.
+  const [focusCat, setFocusCat] = useState<string | null>(null)
   const finance = useFinance()
   const ownerName = useSettings(s => s.displayName) || '$harky'
   const [exportOpen, setExportOpen] = useState(false)
@@ -279,14 +283,23 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
     [scopedTx, previousScopedTx, categories, showCompare],
   )
 
-  const donutValueLabel = fmtVal(summary.expense, currency)
+  // Solo cuenta como enfoque si la categoría sigue en el periodo visible (evita
+  // un enfoque "fantasma" al cambiar de mes/periodo sin tener que resetearlo).
+  const activeFocus = focusCat && categoryRows.some(row => row.category.id === focusCat) ? focusCat : null
+  const focusRow = activeFocus ? categoryRows.find(row => row.category.id === activeFocus) : null
+
+  const donutValueLabel = fmtVal(focusRow ? focusRow.amount : summary.expense, currency)
+  const donutCaption = focusRow ? translateCategoryName(focusRow.category, lang) : t('expenses')
   const donutValueSize = donutValueLabel.length > 11 ? 12 : donutValueLabel.length > 8 ? 14 : 16
 
   const donut = categoryRows.length
     ? `conic-gradient(${categoryRows.map((row, i) => {
         const start = categoryRows.slice(0, i).reduce((sum, current) => sum + current.amount / totalExpense * 100, 0)
         const end = start + row.amount / totalExpense * 100
-        return `${row.category.color} ${start}% ${end}%`
+        const color = activeFocus && activeFocus !== row.category.id
+          ? 'color-mix(in oklab, var(--m-text) 9%, transparent)'
+          : row.category.color
+        return `${color} ${start}% ${end}%`
       }).join(', ')}, rgba(255,255,255,.07) 0)`
     : 'conic-gradient(rgba(255,255,255,.07) 0 100%)'
 
@@ -311,6 +324,9 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
     anomalySensitivity: settings.anomalySensitivity,
   }), [categories, currentNetWorth, mkey, settings.anomalySensitivity, visTx])
   const recentAnomaly = intelligence.anomalies[0]
+  // Solo cuenta como "tendencia" algo que ya existia y crecio de forma notable
+  // (previousAvg > 0) — si no, cualquier gasto nuevo dispararia el insight cada mes.
+  const topTrend = intelligence.trends.find(item => item.previousAvg > 0 && item.delta > Math.max(300, item.previousAvg * 0.3))
   const upcomingSubscription = intelligence.subscriptions.find(item => !item.alreadyRecurring) ?? intelligence.subscriptions[0]
   const netWorthHistory = netWorth.filter(point => point.key <= mkey)
   const netWorthPoint = netWorth.find(point => point.key === mkey) ?? netWorthHistory[netWorthHistory.length - 1] ?? netWorth[0]
@@ -325,6 +341,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
     [accounts, transactions, goalContributions, mkey, lang, currency],
   )
   const netWorthProjected = useMemo(() => projectNetWorth(netWorthRolling, 6), [netWorthRolling])
+  const netWorthSplit = useMemo(() => netWorthBreakdown(accounts, currency), [accounts, currency])
 
   // Convierte el gasto detectado como suscripción en un recurrente mensual real
   const makeSubscriptionRecurring = () => {
@@ -367,6 +384,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
           subtitle: t('anomalousExpenseText')
             .replace('{amount}', fmtVal(recentAnomaly.tx.amount, currency))
             .replace('{baseline}', fmtVal(recentAnomaly.baseline, currency)),
+          action: onEditTx ? { label: t('insightActionViewMovement'), onClick: () => onEditTx(recentAnomaly.tx) } : undefined,
         }
       : null,
     upcomingSubscription
@@ -400,6 +418,16 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
           tone: spendTrend > 10 ? 'warn' : spendTrend < -10 ? 'ok' : '',
           title: (spendTrend >= 0 ? t('spendMoreThanLastMonth') : t('spendLessThanLastMonth')).replace('{pct}', String(Math.abs(spendTrend))),
           subtitle: t('samePaceAsElapsedDays'),
+        }
+      : null,
+    topTrend
+      ? {
+          id: 'top-trend',
+          icon: 'trend' as IconName,
+          tone: 'warn',
+          title: t('topTrendTitle').replace('{label}', topTrend.label).replace('{amount}', fmtVal(topTrend.amount, currency)),
+          subtitle: t('topTrendSubtitle').replace('{avg}', fmtVal(topTrend.previousAvg, currency)),
+          action: onBudgets && topTrend.kind === 'category' ? { label: t('insightActionBudget'), onClick: onBudgets } : undefined,
         }
       : null,
     showTrend && projectedExpense > 0
@@ -521,7 +549,13 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
             <strong className={`man-quick-value ${currentNetWorth >= 0 ? 'income' : 'expense'}`}>
               {fmtVal(netWorthPoint?.value ?? currentNetWorth, currency)}
             </strong>
-            <span className="man-quick-subtle">{t('patrimonyScope')}</span>
+            <span className="man-quick-subtle">
+              {netWorthSplit.liabilities > 0
+                ? t('netWorthBreakdownLabel')
+                    .replace('{assets}', fmtVal(netWorthSplit.assets, currency))
+                    .replace('{liabilities}', fmtVal(netWorthSplit.liabilities, currency))
+                : t('patrimonyScope')}
+            </span>
           </article>
         </div>
       </section>
@@ -533,20 +567,33 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
         </div>
 
         <div className="man-donut-wrap">
-          <div className="man-donut" style={{ background: donut }}>
+          <button
+            type="button"
+            className="man-donut"
+            style={{ background: donut }}
+            aria-label={activeFocus ? t('clearSelectionLabel') : t('expenseDistribution')}
+            onClick={() => setFocusCat(null)}
+          >
             <span>
-              <small>{t('expenses')}</small>
+              <small>{donutCaption}</small>
               <strong style={{ fontSize: donutValueSize }}>{donutValueLabel}</strong>
             </span>
-          </div>
+          </button>
 
           <div className="man-legend">
             {categoryRows.slice(0, 5).map(row => {
               const pct = Math.round(row.amount / totalExpense * 100)
               const category = categories.find(item => item.id === row.category.id)
               const budgetUsagePct = category && category.budget > 0 ? Math.min(100, row.amount / category.budget * 100) : null
+              const dimmed = activeFocus !== null && activeFocus !== row.category.id
               return (
-                <div key={row.category.id} className="man-legend-row">
+                <button
+                  type="button"
+                  key={row.category.id}
+                  className={`man-legend-row${activeFocus === row.category.id ? ' on' : ''}${dimmed ? ' dim' : ''}`}
+                  aria-pressed={activeFocus === row.category.id}
+                  onClick={() => setFocusCat(prev => prev === row.category.id ? null : row.category.id)}
+                >
                   <i style={{ background: row.category.color }} />
                   <div className="man-legend-main">
                     <strong>{translateCategoryName(row.category, lang)}</strong>
@@ -560,7 +607,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport }: { mkey: string; o
                     {fmtVal(row.amount, currency)}
                     <small>{pct}%</small>
                   </div>
-                </div>
+                </button>
               )
             })}
             {!categoryRows.length && <p className="man-empty">{t('noExpensesToAnalyze')}</p>}

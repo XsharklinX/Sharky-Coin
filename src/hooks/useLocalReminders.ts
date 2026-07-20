@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { cancelLocalReminders, requestReminderPermission, scheduleLocalReminders, syncReminderSnapshot } from '@/lib/localReminders'
+import { cancelLocalReminders, requestReminderPermission, scheduleLocalReminders, syncNotificationHistory, syncReminderSnapshot } from '@/lib/localReminders'
+import { setQuickAddNotification } from '@/lib/quickAddNotification'
 
 /**
  * Mantiene sincronizado el snapshot que usa el worker nativo (WorkManager)
@@ -15,6 +16,7 @@ export function useLocalReminders(): void {
   const language = useSettings(s => s.language)
   const dismissedAlerts = useSettings(s => s.dismissedAlerts)
   const remindersEnabled = useSettings(s => s.remindersEnabled)
+  const quickAddNotification = useSettings(s => s.quickAddNotification)
   const isFirstSync = useRef(true)
 
   useEffect(() => {
@@ -26,6 +28,15 @@ export function useLocalReminders(): void {
     }
   }, [remindersEnabled])
 
+  // Notificación persistente de "agregar rápido": se re-postea al arrancar
+  // (sobrevive a cerrar la app / reiniciar el teléfono cuando el usuario abre
+  // la app) y reacciona al toggle. Pide el permiso de notificaciones si hace
+  // falta, por si los recordatorios están apagados.
+  useEffect(() => {
+    if (quickAddNotification) void requestReminderPermission()
+    void setQuickAddNotification(quickAddNotification)
+  }, [quickAddNotification])
+
   useEffect(() => {
     if (!remindersEnabled) return
     const delay = isFirstSync.current ? 0 : 1500
@@ -33,4 +44,14 @@ export function useLocalReminders(): void {
     const id = setTimeout(() => { void syncReminderSnapshot() }, delay)
     return () => clearTimeout(id)
   }, [transactions, categories, currency, language, dismissedAlerts, remindersEnabled])
+
+  // Trae al store los avisos nativos ya disparados (semanal, fx, actividad...)
+  // para que la campanita los muestre — al arrancar y cada vez que la app
+  // vuelve a primer plano (el worker puede haber notificado en segundo plano).
+  useEffect(() => {
+    void syncNotificationHistory()
+    const onVisible = () => { if (document.visibilityState === 'visible') void syncNotificationHistory() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
+import { isDuplicateTransaction } from '@/data/bankCsv'
 import { dateLocale, fmt } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
 import { useFinance } from '@/store/finance'
@@ -13,6 +14,7 @@ import { MobileAmountSheet } from '@/mobile/MobileAmountSheet'
 import { MobileTextSheet } from '@/mobile/MobileTextSheet'
 import { MobileDatePicker } from '@/mobile/MobileDatePicker'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
+import { useSubmitGuard } from '@/mobile/useSubmitGuard'
 import { SheetPortal } from '@/mobile/SheetPortal'
 import type { CurrencyCode, IconName, RecurrenceFrequency, Transaction, TxSplit, TxType } from '@/types'
 
@@ -20,7 +22,7 @@ function currencyPrefix(c: CurrencyCode): string {
   return CURRENCIES[c].symbol
 }
 
-type Sub = 'amount' | 'note' | 'account' | 'category' | 'date' | 'recurEnd' | null
+type Sub = 'amount' | 'note' | 'account' | 'category' | 'date' | 'recurEnd' | 'fromAccount' | 'toAccount' | null
 type SplitSub = { kind: 'amount' | 'category'; index: number } | null
 
 const ACCT_ICONS: Record<string, IconName> = {
@@ -37,13 +39,17 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   onClose: () => void
   onDelete?: (id: string) => void
 }) {
-  const { accounts, categories, currency, addTx, updateTx, deleteTx } = useFinance()
+  const { accounts, categories, currency, transactions, addTx, updateTx, deleteTx } = useFinance()
   const settings = useSettings()
   const overdraftPolicy = settings.overdraftPolicy
   const locale = dateLocale(settings.language)
   const { confirm } = useDialogs()
   const t = useT()
   const editing = value !== 'new'
+  // Las transferencias solo se crean desde el flujo dedicado (MobileCreateFlow);
+  // este formulario las edita, pero nunca las convierte en gasto/ingreso ni
+  // viceversa — el store ya rechaza ese cambio de tipo.
+  const isTransfer = editing && value.type === 'transfer'
 
   const [type,           setType]           = useState<Exclude<TxType, 'transfer'>>('expense')
   const [amount,         setAmount]         = useState(0)
@@ -51,6 +57,8 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   const [date,           setDate]           = useState(`${mkey}-01`)
   const [accountId,      setAccountId]      = useState(accounts[0]?.id ?? '')
   const [categoryId,     setCategoryId]     = useState('')
+  const [fromAccount,    setFromAccount]    = useState('')
+  const [toAccount,      setToAccount]      = useState('')
   const [recurring,      setRecurring]      = useState(false)
   const [recurFreq,      setRecurFreq]      = useState<RecurrenceFrequency>('monthly')
   const [recurringStart, setRecurringStart] = useState(`${mkey}-01`)
@@ -60,9 +68,18 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   const [splitOn,        setSplitOn]        = useState(false)
   const [splits,         setSplits]         = useState<TxSplit[]>([])
   const [splitSub,       setSplitSub]       = useState<SplitSub>(null)
+  const { submitting, beginSubmit, endSubmit } = useSubmitGuard()
 
   useEffect(() => {
     if (!editing) return
+    if (value.type === 'transfer') {
+      setAmount(value.amount)
+      setNote(value.note)
+      setDate(value.date)
+      setFromAccount(value.fromAccount ?? '')
+      setToAccount(value.toAccount ?? '')
+      return
+    }
     setType(value.type === 'income' ? 'income' : 'expense')
     setAmount(value.amount)
     setNote(value.note)
@@ -90,6 +107,8 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   const activeAccount  = accounts.find(a => a.id === accountId)  ?? null
   const activeCategory = visibleCats.find(c => c.id === categoryId) ?? null
   const typeColor      = type === 'income' ? '#35d0a2' : '#f65574'
+  const fromAccountObj = accounts.find(a => a.id === fromAccount) ?? null
+  const toAccountObj   = accounts.find(a => a.id === toAccount) ?? null
 
   useMobileBackDismiss(sub !== null || splitSub !== null, () => { setSub(null); setSplitSub(null) })
 
@@ -110,7 +129,29 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
     setSplits(current => current.map((split, i) => i === index ? { ...split, ...patch } : split))
   }
 
+  const submitTransfer = () => {
+    if (value === 'new') return
+    if (!amount)
+      return toast(t('amountError'), { icon: 'alert' })
+    if (!fromAccount || !toAccount)
+      return toast(t('accountError'), { icon: 'alert' })
+    if (fromAccount === toAccount)
+      return toast(t('errSameAccount'), { icon: 'alert' })
+    if (!beginSubmit()) return
+
+    try {
+      updateTx(value.id, { amount, date, note: note.trim() || t('transfer'), fromAccount, toAccount })
+    } catch (err) {
+      endSubmit()
+      toast(err instanceof Error ? err.message : t('couldNotSave'), { icon: 'alert' }); return
+    }
+    playConfirmSound()
+    toast(t('movementUpdated'), { icon: 'check', type: 'ok' })
+    onClose()
+  }
+
   const submit = () => {
+    if (isTransfer) { submitTransfer(); return }
     if (!amount)
       return toast(t('amountError'), { icon: 'alert' })
     if (!note.trim())
@@ -153,14 +194,19 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       && (acct?.overdraftPolicy ?? overdraftPolicy) === 'warn')
       toast(t('negativeBalanceWarn').replace('{name}', acct?.name ?? t('account')), { icon: 'alert' })
 
+    const duplicate = !editing && isDuplicateTransaction(transactions, { date, amount, note: fields.note, accountId })
+
+    if (!beginSubmit()) return
     try {
       if (editing) updateTx(value.id, fields)
       else addTx(fields)
     } catch (err) {
+      endSubmit()
       toast(err instanceof Error ? err.message : t('couldNotSave'), { icon: 'alert' }); return
     }
     playConfirmSound()
-    toast(editing ? t('movementUpdated') : t('movementSaved'), { icon: 'check', type: 'ok' })
+    toast(duplicate ? t('possibleDuplicateMovement') : editing ? t('movementUpdated') : t('movementSaved'),
+      { icon: duplicate ? 'alert' : 'check', type: duplicate ? undefined : 'ok' })
     onClose()
   }
 
@@ -171,8 +217,8 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   }
 
   const arrow = <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
-  // El monto se registra en la divisa de la cuenta seleccionada
-  const txCurrency = activeAccount?.currency ?? currency
+  // El monto se registra en la divisa de la cuenta seleccionada (origen, si es transferencia)
+  const txCurrency = (isTransfer ? fromAccountObj?.currency : activeAccount?.currency) ?? currency
   const pfx = currencyPrefix(txCurrency)
 
   return (
@@ -181,11 +227,11 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
       <div className="txf-overlay" role="dialog" aria-modal="true">
 
         <header className="mpr-editor-header">
-          <div className="mpr-editor-header-icon" style={{ background: typeColor + '28', color: typeColor }}>
-            <Icon name={type === 'income' ? 'arrowUp' : 'arrowDn'} size={18} />
+          <div className="mpr-editor-header-icon" style={{ background: (isTransfer ? '#ffdd3d' : typeColor) + '28', color: isTransfer ? '#ffdd3d' : typeColor }}>
+            <Icon name={isTransfer ? 'repeat' : type === 'income' ? 'arrowUp' : 'arrowDn'} size={18} />
           </div>
           <span className="mpr-editor-name-input" style={{ cursor: 'default' }}>
-            {editing ? t('editMovement') : t('newMovement')}
+            {isTransfer ? t('transfer') : editing ? t('editMovement') : t('newMovement')}
           </span>
           <button className="mpr-editor-close" onClick={onClose}>
             <Icon name="close" size={18} />
@@ -195,27 +241,29 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
         <div className="txf-body">
 
           {/* Type */}
-          <div className="mpr-form-section">
-            <button
-              className={`mpr-type-pill${type === 'expense' ? ' on' : ''}`}
-              style={type === 'expense' ? { borderColor: '#f65574', background: '#f6557420', color: '#f65574' } : {}}
-              onClick={() => setType('expense')}
-            >
-              <Icon name="arrowDn" size={14} /> {t('expense')}
-            </button>
-            <button
-              className={`mpr-type-pill${type === 'income' ? ' on' : ''}`}
-              style={type === 'income' ? { borderColor: '#35d0a2', background: '#35d0a220', color: '#35d0a2' } : {}}
-              onClick={() => setType('income')}
-            >
-              <Icon name="arrowUp" size={14} /> {t('income')}
-            </button>
-          </div>
+          {!isTransfer && (
+            <div className="mpr-form-section">
+              <button
+                className={`mpr-type-pill${type === 'expense' ? ' on' : ''}`}
+                style={type === 'expense' ? { borderColor: '#f65574', background: '#f6557420', color: '#f65574' } : {}}
+                onClick={() => setType('expense')}
+              >
+                <Icon name="arrowDn" size={14} /> {t('expense')}
+              </button>
+              <button
+                className={`mpr-type-pill${type === 'income' ? ' on' : ''}`}
+                style={type === 'income' ? { borderColor: '#35d0a2', background: '#35d0a220', color: '#35d0a2' } : {}}
+                onClick={() => setType('income')}
+              >
+                <Icon name="arrowUp" size={14} /> {t('income')}
+              </button>
+            </div>
+          )}
 
           {/* Amount hero */}
           <button className="txf-amount-hero" onClick={() => setSub('amount')}>
-            <span className="txf-amount-label">{type === 'expense' ? t('totalExpenseLabel') : t('totalIncomeLabel')}</span>
-            <span className="txf-amount-value" style={{ color: amount > 0 ? typeColor : 'var(--m-muted)' }}>
+            <span className="txf-amount-label">{isTransfer ? t('amount') : type === 'expense' ? t('totalExpenseLabel') : t('totalIncomeLabel')}</span>
+            <span className="txf-amount-value" style={{ color: amount > 0 ? (isTransfer ? '#ffdd3d' : typeColor) : 'var(--m-muted)' }}>
               {amount > 0 ? `${pfx} ${amount.toLocaleString('en-US', { minimumFractionDigits: CURRENCIES[txCurrency].decimals, maximumFractionDigits: CURRENCIES[txCurrency].decimals })}` : `${pfx} 0`}
             </span>
             <span className="txf-amount-tap">{t('tapToEditLabel')}</span>
@@ -230,20 +278,49 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
               {arrow}
             </button>
 
-            <button className="mpr-form-row" onClick={() => setSub('account')}>
-              <Icon
-                name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'wallet'}
-                size={16}
-                style={{ color: activeAccount?.color ?? 'var(--m-muted)', flexShrink: 0 }}
-              />
-              <span className="mpr-form-row-label">{t('account')}</span>
-              <span className={activeAccount ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
-                {activeAccount?.name ?? t('selectLabel')}
-              </span>
-              {arrow}
-            </button>
+            {isTransfer ? (
+              <>
+                <button className="mpr-form-row" onClick={() => setSub('fromAccount')}>
+                  <Icon
+                    name={fromAccountObj ? ACCT_ICONS[fromAccountObj.type] : 'wallet'}
+                    size={16}
+                    style={{ color: fromAccountObj?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+                  />
+                  <span className="mpr-form-row-label">{t('sourceAccount')}</span>
+                  <span className={fromAccountObj ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                    {fromAccountObj?.name ?? t('selectLabel')}
+                  </span>
+                  {arrow}
+                </button>
+                <button className="mpr-form-row" onClick={() => setSub('toAccount')}>
+                  <Icon
+                    name={toAccountObj ? ACCT_ICONS[toAccountObj.type] : 'wallet'}
+                    size={16}
+                    style={{ color: toAccountObj?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+                  />
+                  <span className="mpr-form-row-label">{t('destinationAccount')}</span>
+                  <span className={toAccountObj ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                    {toAccountObj?.name ?? t('selectLabel')}
+                  </span>
+                  {arrow}
+                </button>
+              </>
+            ) : (
+              <button className="mpr-form-row" onClick={() => setSub('account')}>
+                <Icon
+                  name={activeAccount ? ACCT_ICONS[activeAccount.type] : 'wallet'}
+                  size={16}
+                  style={{ color: activeAccount?.color ?? 'var(--m-muted)', flexShrink: 0 }}
+                />
+                <span className="mpr-form-row-label">{t('account')}</span>
+                <span className={activeAccount ? 'mpr-form-row-val' : 'mpr-form-row-dim'}>
+                  {activeAccount?.name ?? t('selectLabel')}
+                </span>
+                {arrow}
+              </button>
+            )}
 
-            {!splitsActive && (
+            {!isTransfer && !splitsActive && (
               <button className="mpr-form-row" onClick={() => setSub('category')}>
                 <Icon
                   name={(activeCategory?.icon as IconName | undefined) ?? 'tag'}
@@ -267,7 +344,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
           </div>
 
           {/* Split entre categorías (solo gastos) */}
-          {type === 'expense' && (
+          {!isTransfer && type === 'expense' && (
             <button
               className={`mobile-create-recurring-toggle${splitOn ? ' active' : ''}`}
               onClick={toggleSplit}
@@ -322,7 +399,8 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             </div>
           )}
 
-          {/* Recurring */}
+          {/* Recurring (no aplica a transferencias) */}
+          {!isTransfer && (
           <button
             className={`mobile-create-recurring-toggle${recurring ? ' active' : ''}`}
             onClick={() => setRecurring(r => !r)}
@@ -331,8 +409,9 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             <span className="mobile-recur-label">{t('scheduleRecurrenceLabel')}</span>
             <span className={`mobile-recur-switch${recurring ? ' on' : ''}`} />
           </button>
+          )}
 
-          {recurring && (
+          {!isTransfer && recurring && (
             <div className="mpr-form-rows txf-rows">
               <div className="mpr-form-row">
                 <Icon name="repeat" size={16} style={{ color: 'var(--m-muted)', flexShrink: 0 }} />
@@ -370,7 +449,7 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
             </button>
           )}
           <button className="mpr-btn-cancel" onClick={onClose}>{t('cancel')}</button>
-          <button className="mpr-btn-save" style={{ background: 'var(--m-primary, #ffdd3d)' }} onClick={submit}>
+          <button className="mpr-btn-save" disabled={submitting} style={{ background: 'var(--m-primary, #ffdd3d)' }} onClick={submit}>
             {editing ? t('save') : t('add')}
           </button>
         </div>
@@ -438,6 +517,39 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
                   {a.id === accountId && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 4 }} />}
                 </button>
               ))}
+            </div>
+          </section>
+        </div>
+        </SheetPortal>
+      )}
+
+      {(sub === 'fromAccount' || sub === 'toAccount') && (
+        <SheetPortal>
+        <div className="mobile-detail-sheet" style={{ zIndex: 200 }} role="dialog" aria-modal="true" onClick={() => setSub(null)}>
+          <section onClick={e => e.stopPropagation()}>
+            <header>
+              <span>{sub === 'fromAccount' ? t('sourceAccount') : t('destinationAccount')}</span>
+              <button aria-label={t('close')} onClick={() => setSub(null)}><Icon name="close" size={18} /></button>
+            </header>
+            <div className="mobile-picker-list">
+              {accounts.map(a => {
+                const current = sub === 'fromAccount' ? fromAccount : toAccount
+                const setCurrent = sub === 'fromAccount' ? setFromAccount : setToAccount
+                return (
+                  <button
+                    key={a.id}
+                    className={`mobile-picker-row${a.id === current ? ' active' : ''}`}
+                    onClick={() => { setCurrent(a.id); setSub(null) }}
+                  >
+                    <span style={{ color: a.color }}>
+                      <Icon name={ACCT_ICONS[a.type]} size={22} />
+                    </span>
+                    <b>{a.name}</b>
+                    <small>{fmt(a.balance, a.currency ?? currency)}</small>
+                    {a.id === current && <Icon name="check" size={16} style={{ color: 'var(--accent, #ffdd3d)', marginLeft: 4 }} />}
+                  </button>
+                )
+              })}
             </div>
           </section>
         </div>

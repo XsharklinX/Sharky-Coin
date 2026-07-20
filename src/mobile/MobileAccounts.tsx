@@ -13,6 +13,7 @@ import { playAccountsSound, playConfirmSound, playDeleteSound } from '@/lib/soun
 import { translateCategoryName, useT } from '@/i18n'
 import { useDialogA11y } from './useDialogA11y'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
+import { useSubmitGuard } from './useSubmitGuard'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import { MobileTextSheet } from './MobileTextSheet'
 import { MobileDigitSheet } from './MobileDigitSheet'
@@ -50,7 +51,11 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
   const fmtVal = useFmt()
   const t = useT()
   const TYPE_META = getTypeMeta(t)
-  const [selected, setSelected] = useState<Account | null>(null)
+  // Guardamos el id, no el objeto: si la cuenta cambia mientras el detalle
+  // esta abierto (ej. al conciliar el saldo), `selected` se re-deriva del
+  // store en cada render en vez de quedarse con una referencia vieja.
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selected = accounts.find(a => a.id === selectedId) ?? null
   const [activityAccount, setActivityAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | 'new' | null>(null)
 
@@ -81,7 +86,7 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
       playDeleteSound()
       toast(t('accountDeleted'), { icon: 'trash', type: 'ok' })
       setEditingAccount(null)
-      setSelected(null)
+      setSelectedId(null)
     } catch (error) {
       toast(error instanceof Error ? error.message : t('couldNotDeleteAccount'), { icon: 'alert' })
     }
@@ -215,7 +220,7 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
                 const series  = monthlyAccountSeries(transactions, a.id, mkey, dateLocale(lang))
                 const maxFlow = Math.max(1, ...series.map(s => Math.abs(s.inflow - s.outflow)))
                 return (
-                  <button key={a.id} className="mrep-account-row" onClick={() => setSelected(a)}>
+                  <button key={a.id} className="mrep-account-row" onClick={() => setSelectedId(a.id)}>
                     <span className="mrep-account-icon" style={{ background: a.color + '22', color: a.color }}>
                       <Icon name={TYPE_META[a.type].icon} size={20} />
                     </span>
@@ -273,8 +278,8 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
         <AccountDetailSheet
           account={selected}
           mkey={mkey}
-          onClose={() => setSelected(null)}
-          onEdit={a => { setSelected(null); setEditingAccount(a) }}
+          onClose={() => setSelectedId(null)}
+          onEdit={a => { setSelectedId(null); setEditingAccount(a) }}
           onViewAll={() => setActivityAccount(selected)}
         />
       )}
@@ -301,14 +306,28 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
 }
 
 function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { account: Account; mkey: string; onClose: () => void; onEdit: (account: Account) => void; onViewAll: () => void }) {
-  const { transactions, accounts, categories, currency } = useFinance()
+  const { transactions, accounts, categories, currency, reconcileAccount } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
   const lang = useSettings(s => s.language)
   const TYPE_META = getTypeMeta(t)
+  const [reconciling, setReconciling] = useState(false)
+  const { beginSubmit, endSubmit } = useSubmitGuard()
 
-  useMobileBackDismiss(true, onClose)
-  const dialogRef = useDialogA11y<HTMLDivElement>(onClose)
+  useMobileBackDismiss(reconciling, () => setReconciling(false))
+  useMobileBackDismiss(!reconciling, onClose)
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !reconciling)
+
+  const handleReconcile = (realBalance: number) => {
+    if (!beginSubmit()) return
+    setReconciling(false)
+    const diff = reconcileAccount(account.id, realBalance)
+    endSubmit()
+    if (diff === 0) { toast(t('reconciliationAlreadyMatches'), { icon: 'check', type: 'ok' }); return }
+    playConfirmSound()
+    toast(t(diff > 0 ? 'reconciliationAdjustmentAdded' : 'reconciliationAdjustmentSubtracted')
+      .replace('{amount}', fmtVal(Math.abs(diff), accountCurrency(account, currency))), { icon: 'check', type: 'ok' })
+  }
 
   const series = useMemo(
     () => monthlyAccountSeries(transactions, account.id, mkey, dateLocale(lang)),
@@ -327,6 +346,7 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { acc
   const utilPct = used !== null && account.limit ? Math.min(100, used / account.limit * 100) : null
 
   return (
+    <>
     <SheetPortal>
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={account.name} onClick={onClose}>
       <section className="macc-sheet" onClick={e => e.stopPropagation()}>
@@ -425,10 +445,26 @@ function AccountDetailSheet({ account, mkey, onClose, onEdit, onViewAll }: { acc
               </div>
             )}
           </div>
+
+          <button className="macc-view-all" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => setReconciling(true)}>
+            <Icon name="check" size={14} style={{ marginRight: 4 }} />{t('reconcileAccountLabel')}
+          </button>
         </div>
       </section>
     </div>
     </SheetPortal>
+
+    {reconciling && (
+      <MobileAmountSheet
+        title={t('reconcileAccountLabel')}
+        value={account.balance}
+        currency={accountCurrency(account, currency)}
+        allowNegative={account.type === 'credit'}
+        onDone={handleReconcile}
+        onClose={() => setReconciling(false)}
+      />
+    )}
+    </>
   )
 }
 

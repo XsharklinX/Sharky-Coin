@@ -29,6 +29,8 @@ export interface TrendInsight {
   label: string
   amount: number
   delta: number
+  /** Promedio de los 3 meses anteriores contra el que se compara `delta` — la "formula" del insight. */
+  previousAvg: number
   kind: 'merchant' | 'category' | 'tag'
 }
 
@@ -159,26 +161,24 @@ export function computeTrends(txns: Transaction[], categories: Category[], mkey:
   const previousMerchants = build(previous, tx => normalizeMerchant(tx.note))
   const currentTags = build(current, tx => tx.tags?.[0])
   const previousTags = build(previous, tx => tx.tags?.[0])
+  const previousCategories = build(previous, tx => tx.categoryId)
   const categoryData = byCategory(current, 'expense', categories)
 
-  const merchantTrends = Array.from(currentMerchants.entries()).map(([label, amount]) => ({
-    label,
-    amount,
-    delta: amount - ((previousMerchants.get(label) ?? 0) / 3),
-    kind: 'merchant' as const,
-  }))
-  const tagTrends = Array.from(currentTags.entries()).map(([label, amount]) => ({
-    label: `#${label}`,
-    amount,
-    delta: amount - ((previousTags.get(label) ?? 0) / 3),
-    kind: 'tag' as const,
-  }))
-  const categoryTrends = categoryData.map(item => ({
-    label: item.category.name,
-    amount: item.amount,
-    delta: item.amount,
-    kind: 'category' as const,
-  }))
+  const merchantTrends = Array.from(currentMerchants.entries()).map(([label, amount]) => {
+    const previousAvg = (previousMerchants.get(label) ?? 0) / 3
+    return { label, amount, delta: amount - previousAvg, previousAvg, kind: 'merchant' as const }
+  })
+  const tagTrends = Array.from(currentTags.entries()).map(([label, amount]) => {
+    const previousAvg = (previousTags.get(label) ?? 0) / 3
+    return { label: `#${label}`, amount, delta: amount - previousAvg, previousAvg, kind: 'tag' as const }
+  })
+  // Antes: delta = amount (no comparaba con nada, solo ordenaba por gasto total).
+  // Ahora compara contra el promedio de los 3 meses anteriores, igual que
+  // comerciantes/tags — así "tendencia" refleja un cambio real, no solo el monto.
+  const categoryTrends = categoryData.map(item => {
+    const previousAvg = (previousCategories.get(item.category.id) ?? 0) / 3
+    return { label: item.category.name, amount: item.amount, delta: item.amount - previousAvg, previousAvg, kind: 'category' as const }
+  })
 
   return [...merchantTrends, ...tagTrends, ...categoryTrends]
     .filter(item => item.amount > 0)

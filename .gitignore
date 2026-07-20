@@ -15,6 +15,17 @@ src-tauri/gen/android/**/.cxx/
 src-tauri/gen/android/**/local.properties
 src-tauri/gen/android/**/tauri.properties
 
+# Plugins nativos (plugins/): solo se versiona la fuente. El resto lo regenera
+# el build — `.tauri/` es el glue que genera el CLI de Tauri, y target/build/
+# son artefactos de Cargo y Gradle.
+plugins/*/target/
+plugins/*/Cargo.lock
+plugins/*/android/build/
+plugins/*/android/.gradle/
+plugins/*/android/.cxx/
+plugins/*/android/.tauri/
+plugins/*/android/local.properties
+
 # Packaged Windows artifacts
 release/
 

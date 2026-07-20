@@ -3,12 +3,18 @@ import { amountForCategory, currentMonthKey, fmtCompact, localToday, txForMonth 
 import { tt } from '@/i18n'
 import type { Category, CurrencyCode, IconName, Transaction } from '@/types'
 
+export type MobileAlertTarget =
+  | { type: 'budget'; categoryId: string }
+  | { type: 'recurring'; transactionId: string }
+
 export interface MobileAlert {
   id:    string
   level: 'warn' | 'danger'
   icon:  IconName
   title: string
   text:  string
+  /** A dónde debe llevar el toque en este aviso (campanita) — nunca es solo informativo. */
+  target: MobileAlertTarget
 }
 
 const DUE_SOON_DAYS = 3
@@ -19,6 +25,7 @@ export function getMobileAlerts(
   currency: CurrencyCode,
   todayStr = localToday(),
   locale = 'es-DO',
+  dismissedAlerts: string[] = [],
 ): MobileAlert[] {
   const mkey = currentMonthKey()
   const monthTx = txForMonth(transactions, mkey)
@@ -36,6 +43,7 @@ export function getMobileAlerts(
         icon:  'alert',
         title: tt('budgetExceededAlertTitle', { name: cat.name }),
         text:  tt('budgetAlertProgress', { spent: fmtCompact(spent, currency), budget: fmtCompact(cat.budget, currency), pct }),
+        target: { type: 'budget', categoryId: cat.id },
       })
     } else if (pct >= 80) {
       alerts.push({
@@ -44,6 +52,7 @@ export function getMobileAlerts(
         icon:  'alert',
         title: tt('budgetWarnAlertTitle', { pct, name: cat.name }),
         text:  tt('budgetAlertProgressShort', { spent: fmtCompact(spent, currency), budget: fmtCompact(cat.budget, currency) }),
+        target: { type: 'budget', categoryId: cat.id },
       })
     }
   })
@@ -65,8 +74,11 @@ export function getMobileAlerts(
       icon:  'calendar',
       title: tt('recurringDueTitle', { note: template.note || tt('noNoteWord') }),
       text:  tt('recurringDueText', { when, amount: fmtCompact(template.amount, currency) }),
+      target: { type: 'recurring', transactionId: template.id },
     })
   })
 
-  return alerts
+  if (dismissedAlerts.length === 0) return alerts
+  const dismissed = new Set(dismissedAlerts)
+  return alerts.filter(a => !dismissed.has(a.id))
 }

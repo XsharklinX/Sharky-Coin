@@ -1,12 +1,16 @@
 import { Suspense, lazy, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { ViewErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 
 const MobileQrExport = lazy(() => import('../MobileQrExport').then(m => ({ default: m.MobileQrExport })))
 const MobileQrImport = lazy(() => import('../MobileQrImport').then(m => ({ default: m.MobileQrImport })))
 
-export function SettingsMigration({ activeSheet, onOpen, onClose }: Pick<SheetProps, 'activeSheet' | 'onOpen' | 'onClose'>) {
+// `grouped` se acepta por consistencia con los demás componentes de una sola
+// fila; esta tarjeta ya se renderiza sin título de sección, así que no cambia
+// su salida — solo evita un error de tipos al componerla dentro de un grupo.
+export function SettingsMigration({ activeSheet, onOpen, onClose }: Pick<SheetProps, 'activeSheet' | 'onOpen' | 'onClose'> & { grouped?: boolean }) {
   const t = useT()
   const [mode, setMode] = useState<'send' | 'receive' | null>(null)
 
@@ -36,14 +40,18 @@ export function SettingsMigration({ activeSheet, onOpen, onClose }: Pick<SheetPr
       )}
 
       {mode === 'send' && (
-        <Suspense fallback={null}>
-          <MobileQrExport onClose={() => setMode(null)} />
-        </Suspense>
+        <ViewErrorBoundary resetKey="qr-export">
+          <Suspense fallback={null}>
+            <MobileQrExport onClose={() => setMode(null)} />
+          </Suspense>
+        </ViewErrorBoundary>
       )}
       {mode === 'receive' && (
-        <Suspense fallback={null}>
-          <MobileQrImport onClose={() => setMode(null)} />
-        </Suspense>
+        <ViewErrorBoundary resetKey="qr-import">
+          <Suspense fallback={null}>
+            <MobileQrImport onClose={() => setMode(null)} />
+          </Suspense>
+        </ViewErrorBoundary>
       )}
     </>
   )
