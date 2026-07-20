@@ -402,6 +402,7 @@ export const en = {
   notifEmptyTitle: "You're all caught up",
   notifEmptyHint: 'Detected transactions and your budget & payment alerts will show up here.',
   notifHistorySection: 'History', notifHistoryEmpty: 'No recent notifications',
+  notifSubReview: '{n} to review', notifSubCaughtUp: "You're all caught up",
   deleteNotification: 'Delete notification',
   justNow: 'just now', minutesAgo: '{n} min ago', hoursAgo: '{n} h ago', daysAgo: '{n} d ago',
   // ── Settings: Legal / About ──

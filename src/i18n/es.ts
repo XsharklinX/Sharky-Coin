@@ -404,6 +404,7 @@ export const es: Record<LangKey, string> = {
   notifEmptyTitle: 'Todo al día',
   notifEmptyHint: 'Aquí verás las transacciones detectadas y los avisos de tus presupuestos y pagos.',
   notifHistorySection: 'Historial', notifHistoryEmpty: 'Sin avisos recientes',
+  notifSubReview: '{n} por revisar', notifSubCaughtUp: 'Todo al día',
   deleteNotification: 'Eliminar aviso',
   justNow: 'ahora mismo', minutesAgo: 'hace {n} min', hoursAgo: 'hace {n} h', daysAgo: 'hace {n} d',
   // ── Ajustes: Legal / Acerca de ──

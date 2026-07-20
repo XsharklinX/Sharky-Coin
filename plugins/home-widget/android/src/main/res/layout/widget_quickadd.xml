@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Acceso rapido 1x1 — que se sepa que hace.
+  Acceso rápido 1x1 — que se sepa que hace y que se vea de $harky.
 
-  Antes era un "+" pelado: nadie podia saber si agregaba un gasto o un ingreso.
-  Ahora lleva la palabra debajo. Sigue siendo del tamano de un icono normal.
+  Rediseño: antes era una caja azul plana con un "+" pelado. Ahora el "+" vive
+  en un halo circular (como el FAB de la app) sobre un fondo azul con
+  profundidad, y debajo va la palabra. Sigue cabiendo en una celda 1x1.
+
+  IMPORTANTE: la raíz conserva el id `widget_quickadd_root` — el provider
+  (SharkyQuickAddWidgetProvider) le engancha ahí el PendingIntent del toque.
+  RemoteViews solo admite vistas @RemoteView: nada de <View>/<Space>; el halo
+  del "+" es un TextView con background, no una View suelta.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_quickadd_root"
@@ -12,27 +18,30 @@
     android:background="@drawable/widget_quickadd_bg"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="4dp">
+    android:padding="6dp">
 
     <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:background="@drawable/widget_quickadd_plus"
+        android:gravity="center"
         android:includeFontPadding="false"
         android:text="+"
         android:textColor="#FFFFFF"
-        android:textSize="24sp" />
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="1dp"
+        android:layout_marginTop="5dp"
         android:ellipsize="end"
         android:includeFontPadding="false"
-        android:letterSpacing="0.06"
+        android:letterSpacing="0.08"
         android:maxLines="1"
         android:text="@string/widget_quickadd_caption"
         android:textAllCaps="true"
-        android:textColor="#F0F4FF"
+        android:textColor="#EAF0FF"
         android:textSize="9sp"
         android:textStyle="bold" />
 

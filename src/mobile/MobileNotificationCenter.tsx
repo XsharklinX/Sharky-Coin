@@ -65,6 +65,9 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
   const history = useNotificationHistory(s => s.entries)
   const removeHistoryEntry = useNotificationHistory(s => s.remove)
   const historyTotal = total + history.length
+  // "Por revisar" = lo accionable (transacciones detectadas + avisos), no el
+  // historial ya pasado. Alimenta el subtítulo de la cabecera.
+  const reviewCount = suggestions.length + alerts.length
 
   const goToHistoryEntry = (type: NotificationTargetType) => {
     onGotoTarget(type)
@@ -96,12 +99,20 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
       <div className="mobile-detail-sheet mnc-wrap" role="dialog" aria-modal="true"
         aria-label={t('notificationsLabel')} onClick={onClose}>
         <div className="mnc-sheet" onClick={e => e.stopPropagation()}>
-          <div className="mnc-handle" aria-hidden="true" />
-          <header className="mnc-header">
-            <div className="mnc-header-icon"><Icon name="bell" size={17} /></div>
-            <span>{t('notificationsLabel')}</span>
-            <button className="mnc-close" aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
-          </header>
+          <div className="mnc-top">
+            <div className="mnc-handle" aria-hidden="true" />
+            <header className="mnc-header">
+              <div className="mnc-header-icon">
+                <Icon name="bell" size={18} />
+                {reviewCount > 0 && <span className="mnc-header-icon-dot" />}
+              </div>
+              <div className="mnc-header-text">
+                <span>{t('notificationsLabel')}</span>
+                <small>{reviewCount > 0 ? t('notifSubReview').replace('{n}', String(reviewCount)) : t('notifSubCaughtUp')}</small>
+              </div>
+              <button className="mnc-close" aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
+            </header>
+          </div>
 
           <div className="mnc-body">
             {historyTotal === 0 ? (

@@ -1984,57 +1984,81 @@
     display: flex;
     flex-direction: column;
     max-height: min(92dvh, 880px);
-    min-height: 60dvh;
+    min-height: 62dvh;
     overflow: hidden;
     padding: 0;
     width: 100%;
   }
-  .mnc-handle {
-    background: var(--m-border);
-    border-radius: 999px;
+  /* Cabecera con gradiente de marca (misma familia que el héroe del Perfil):
+     una banda oscura permanente con glow, que le da identidad al panel en vez
+     de una fila plana. Por eso su texto usa blancos fijos, no los tokens de
+     tema (el fondo es siempre oscuro, sin importar tema claro/oscuro). */
+  .mnc-top {
+    background:
+      radial-gradient(circle at 88% -20%, color-mix(in oklab, var(--m-primary) 26%, transparent), transparent 60%),
+      linear-gradient(150deg, #16294d 0%, #0e1c34 55%, #0a1220 100%);
     flex-shrink: 0;
+    position: relative;
+  }
+  .mnc-handle {
+    background: rgba(255, 255, 255, .28);
+    border-radius: 999px;
     height: 4px;
-    margin: 10px auto 2px;
+    margin: 10px auto 0;
     width: 36px;
   }
   .mnc-header {
     align-items: center;
     display: flex;
-    flex-shrink: 0;
-    gap: 10px;
-    padding: 12px 18px 14px;
+    gap: 12px;
+    padding: 14px 16px 16px;
+    position: relative;
   }
   .mnc-header-icon {
     align-items: center;
-    background: color-mix(in oklab, var(--m-primary) 16%, transparent);
-    border-radius: 11px;
-    color: var(--m-primary);
+    background: rgba(255, 255, 255, .12);
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 13px;
+    box-shadow: 0 0 18px color-mix(in oklab, var(--m-primary) 30%, transparent);
+    color: #fff;
     display: flex;
     flex-shrink: 0;
-    height: 34px;
+    height: 40px;
     justify-content: center;
-    width: 34px;
+    position: relative;
+    width: 40px;
   }
-  .mnc-header > span {
-    color: var(--m-text);
-    flex: 1;
+  .mnc-header-icon-dot {
+    background: #ff5470;
+    border: 2px solid #12233f;
+    border-radius: 999px;
+    height: 11px;
+    position: absolute;
+    right: -2px;
+    top: -2px;
+    width: 11px;
+  }
+  .mnc-header-text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+  .mnc-header-text span {
+    color: #fff;
     font-size: 18px;
     font-weight: 850;
     letter-spacing: -.02em;
   }
+  .mnc-header-text small { color: rgba(255, 255, 255, .6); font-size: 12.5px; font-weight: 650; }
   .mnc-close {
     align-items: center;
-    background: color-mix(in oklab, var(--m-text) 8%, transparent);
+    background: rgba(255, 255, 255, .1);
     border: 0;
     border-radius: 999px;
-    color: var(--m-text);
+    color: #fff;
     display: flex;
     flex-shrink: 0;
-    height: 34px;
+    height: 36px;
     justify-content: center;
-    width: 34px;
+    width: 36px;
   }
-  .mnc-close:active { background: color-mix(in oklab, var(--m-text) 14%, transparent); }
+  .mnc-close:active { background: rgba(255, 255, 255, .2); }
   .mnc-body {
     display: flex;
     flex-direction: column;
@@ -2042,7 +2066,7 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 4px 18px calc(24px + env(safe-area-inset-bottom));
+    padding: 16px 18px calc(24px + env(safe-area-inset-bottom));
   }
   .mnc-group-title {
     align-items: center;
