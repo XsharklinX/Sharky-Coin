@@ -117,6 +117,30 @@
     border-radius: 18px;
     overflow: hidden;
   }
+  /* Tarjeta de salud de la copia: el punto de color responde «¿estoy a salvo?»
+     antes de leer nada. Es un botón: lleva directo a exportar. */
+  .mset-backup-health {
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text);
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    text-align: left;
+    width: 100%;
+  }
+  .mset-backup-health-dot {
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px color-mix(in oklab, currentColor 0%, transparent);
+    flex: none;
+    height: 10px;
+    width: 10px;
+  }
+  .mset-backup-health-text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+  .mset-backup-health-text strong { font-size: 14.5px; font-weight: 800; }
+  .mset-backup-health-text small { color: var(--text-dim); font-size: 12.5px; }
   /* Separador sutil que arranca DESPUÉS del icono, no de borde a borde —
      alinea la línea con el texto, se ve más pulido. */
   .mset-card > .mset-row:not(:last-child)::after {

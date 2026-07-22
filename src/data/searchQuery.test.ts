@@ -94,3 +94,34 @@ describe('matchSynonymCategoryIds', () => {
     expect(matchSynonymCategoryIds('', [cat('cat_super')])).toEqual([])
   })
 })
+
+describe('parseSearchQuery — etiquetas', () => {
+  const now = new Date('2026-07-15T12:00:00')
+
+  it('extrae una etiqueta con # y la saca del texto libre', () => {
+    const result = parseSearchQuery('#viaje', now)
+    expect(result.tagFilters).toEqual(['viaje'])
+    expect(result.freeText).toBe('')
+  })
+
+  it('normaliza tildes y mayúsculas en la etiqueta', () => {
+    expect(parseSearchQuery('#Café', now).tagFilters).toEqual(['cafe'])
+  })
+
+  it('admite varias etiquetas y conserva el resto como texto libre', () => {
+    const result = parseSearchQuery('uber #viaje #trabajo', now)
+    expect(result.tagFilters.sort()).toEqual(['trabajo', 'viaje'])
+    expect(result.freeText).toBe('uber')
+  })
+
+  it('convive con filtros de monto y mes', () => {
+    const result = parseSearchQuery('#viaje mas de $500 en mayo', now)
+    expect(result.tagFilters).toEqual(['viaje'])
+    expect(result.amountFilter).toEqual({ op: 'gt', value: 500 })
+    expect(result.monthFilter).toEqual({ year: 2026, month: 5 })
+  })
+
+  it('sin # no produce etiquetas', () => {
+    expect(parseSearchQuery('viaje', now).tagFilters).toEqual([])
+  })
+})

@@ -1591,18 +1591,114 @@
     z-index: 2;
   }
   .mobile-tx-swipe.open .mobile-tx-row {
-    transform: translateX(-168px);
+    transform: translateX(-160px);
+  }
+  /* Con Duplicar son 3 acciones (gasto/ingreso); sin él, 2 (transferencia). */
+  .mobile-tx-swipe.has-dup.open .mobile-tx-row {
+    transform: translateX(-240px);
   }
   .mobile-row-actions {
     bottom: 0;
     display: grid;
-    grid-template-columns: 84px 84px;
+    grid-template-columns: repeat(2, 80px);
     position: absolute;
     right: 0;
     top: 0;
-    width: 168px;
+    width: 160px;
     z-index: 1;
   }
+  .mobile-tx-swipe.has-dup .mobile-row-actions {
+    grid-template-columns: repeat(3, 80px);
+    width: 240px;
+  }
+
+  /* ── Selección múltiple ── */
+  .mobile-tx-swipe.selected { background: color-mix(in oklab, var(--m-primary) 12%, transparent); }
+  .mobile-tx-check {
+    align-items: center;
+    background: var(--m-surface-2);
+    border: 2px solid color-mix(in oklab, var(--m-text) 26%, transparent);
+    border-radius: 50%;
+    color: var(--m-primary-text);
+    display: grid;
+    flex: 0 0 40px;
+    height: 40px;
+    justify-items: center;
+    place-items: center;
+    width: 40px;
+  }
+  .mobile-tx-check.on { background: var(--m-primary); border-color: transparent; }
+  .mobile-select-bar {
+    align-items: center;
+    background: var(--m-surface);
+    border-top: 1px solid var(--m-border);
+    bottom: 0;
+    box-shadow: 0 -8px 24px rgba(0,0,0,.18);
+    display: flex;
+    gap: 10px;
+    left: 0;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    z-index: 60;
+  }
+  .mobile-select-cancel {
+    align-items: center;
+    background: var(--m-surface-2);
+    border: 0;
+    border-radius: 999px;
+    color: var(--m-text);
+    display: grid;
+    height: 40px;
+    place-items: center;
+    width: 40px;
+  }
+  .mobile-select-count { color: var(--m-text); flex: 1; font-size: 14px; font-weight: 800; }
+  .mobile-select-action {
+    align-items: center;
+    background: var(--m-surface-2);
+    border: 0;
+    border-radius: 12px;
+    color: var(--m-text);
+    display: flex;
+    font-size: 13px;
+    font-weight: 800;
+    gap: 6px;
+    padding: 10px 14px;
+  }
+  .mobile-select-action.danger { background: color-mix(in oklab, var(--m-expense) 16%, var(--m-surface-2)); color: var(--m-expense); }
+  .mobile-select-action:disabled { opacity: .45; }
+  .mobile-bulk-cat {
+    background: var(--m-bg);
+    border-radius: 20px 20px 0 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mobile-bulk-cat header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 16px 8px;
+  }
+  .mobile-bulk-cat header span { font-size: 16px; font-weight: 850; }
+  .mobile-bulk-cat header button { background: none; border: 0; color: var(--m-muted); }
+  .mobile-bulk-cat-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 8px 16px 20px;
+  }
+  .mobile-bulk-cat-grid button {
+    align-items: center;
+    background: none;
+    border: 0;
+    color: var(--m-text);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mobile-bulk-cat-grid small { font-size: 11px; font-weight: 650; text-align: center; }
   .mobile-row-actions button {
     align-items: center;
     background: var(--m-surface-2);
@@ -1731,6 +1827,44 @@
   /* Botón "Limpiar" del encabezado de búsqueda (columna derecha del grid) */
   .mobile-search-clear { text-align: right !important; }
   .mobile-search-clear:disabled { color: var(--m-muted) !important; opacity: .5; }
+
+  /* Chips de etiquetas: fila que hace scroll horizontal sin empujar el cuerpo.
+     Son la puerta visible al filtro por #etiqueta. */
+  .mobile-search-tags {
+    display: flex;
+    gap: 7px;
+    margin: 0 0 12px;
+    overflow-x: auto;
+    padding: 0 16px 2px;
+    scrollbar-width: none;
+  }
+  .mobile-search-tags::-webkit-scrollbar { display: none; }
+  .mobile-search-tag {
+    align-items: center;
+    background: var(--m-surface-2);
+    border: 1px solid var(--m-border);
+    border-radius: 999px;
+    color: var(--m-text);
+    display: inline-flex;
+    flex: none;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 5px;
+    padding: 7px 13px;
+  }
+  .mobile-search-tag.on { background: var(--m-primary); border-color: transparent; color: var(--m-primary-text); }
+  .mobile-search-tagtotal {
+    align-items: center;
+    background: var(--m-surface-2);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    margin: 0 16px 14px;
+    padding: 11px 14px;
+  }
+  .mobile-search-tagtotal span { color: var(--m-muted); font-size: 12.5px; font-weight: 700; }
+  .mobile-search-tagtotal strong { font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 900; }
+  .mobile-search-tagtotal .expense { color: var(--m-expense); }
   /* Badge con nº de filtros activos sobre el chip de búsqueda */
   .mobile-search-chip.has-filters { border-color: var(--m-primary); color: var(--m-text); }
   .mobile-filter-badge {

@@ -351,6 +351,8 @@ export interface FinanceState {
   addAccount:    (account: Omit<Account, 'id'>) => void
   updateAccount: (id: string, fields: Partial<Omit<Account, 'id'>>) => void
   deleteAccount: (id: string) => void
+  /** Reinserta una cuenta borrada tal cual (mismo id) — para el «Deshacer». */
+  restoreAccount: (account: Account) => void
   // Concilia el saldo real (ej. el del banco) contra el calculado: si difieren,
   // crea un movimiento de ajuste visible en el libro (nunca sobreescribe el
   // saldo en silencio). Devuelve la diferencia aplicada (0 = ya cuadraba).
@@ -360,6 +362,8 @@ export interface FinanceState {
   addGoal:     (g: Omit<Goal, 'id'>) => void
   updateGoal:  (id: string, fields: Partial<Goal>) => void
   deleteGoal:  (id: string) => void
+  /** Reinserta una meta borrada junto con sus aportes (mismos ids) — «Deshacer». */
+  restoreGoal: (goal: Goal, contributions: GoalContribution[]) => void
   contribute:  (goalId: string, amount: number, fromAccountId: string, note?: string, date?: string) => void
 
   // Categorías
@@ -544,6 +548,13 @@ export const useFinance = create<FinanceState>()(
         return { accounts: s.accounts.filter(account => account.id !== id) }
       }),
 
+      // Solo se puede borrar una cuenta sin movimientos ni aportes (ver
+      // deleteAccount), así que restaurarla es reinsertar el objeto tal cual:
+      // no hay saldos que recalcular. Se ignora si ya existe otra con ese id,
+      // por si el usuario tocó «Deshacer» dos veces.
+      restoreAccount: (account) => set(s =>
+        s.accounts.some(a => a.id === account.id) ? s : { accounts: [...s.accounts, account] }),
+
       reconcileAccount: (id, balance) => {
         const s = get()
         const account = s.accounts.find(a => a.id === id)
@@ -587,6 +598,18 @@ export const useFinance = create<FinanceState>()(
         goals: s.goals.filter(g => g.id !== id),
         goalContributions: s.goalContributions.filter(contribution => contribution.goalId !== id),
       })),
+
+      // Borrar una meta se lleva también sus aportes (arriba), así que restaurar
+      // reinserta ambos. Los aportes no se re-suman a ningún saldo: al aportar
+      // ya se descontó de la cuenta y borrar la meta no lo devolvió, así que el
+      // dinero sigue igual — solo se recompone el historial de la meta.
+      restoreGoal: (goal, contributions) => set(s => {
+        if (s.goals.some(g => g.id === goal.id)) return s
+        return {
+          goals: [...s.goals, goal],
+          goalContributions: [...s.goalContributions, ...contributions],
+        }
+      }),
 
       contribute: (goalId, amount, fromAccountId, note, date) => set(s => {
         assertAvailableBalance(s.accounts, fromAccountId, amount)

@@ -515,6 +515,20 @@
     gap: 14px;
     padding: 16px 16px calc(26px + env(safe-area-inset-bottom));
   }
+  .mobile-editor-delete {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-expense) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-expense) 32%, transparent);
+    border-radius: 14px;
+    color: var(--m-expense);
+    display: flex;
+    font-size: 14px;
+    font-weight: 800;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 6px;
+    padding: 13px;
+  }
   .mobile-editor-body label {
     display: grid;
     gap: 8px;

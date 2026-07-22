@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { guessCategoryId } from '@/data/bankCsv'
 import { fmtCompact, visibleAccounts } from '@/data/helpers'
 import { useBankSuggestions, type BankSuggestion } from '@/store/bankSuggestions'
 import { useFinance } from '@/store/finance'
@@ -28,7 +29,7 @@ export const ACCT_ICONS: Record<AccountType, IconName> = {
  *  - `pickerNode`        → el sheet del selector (renderízalo una vez en el árbol).
  */
 export function useBankSuggestionActions() {
-  const { accounts, addTx, currency } = useFinance()
+  const { accounts, categories, addTx, currency } = useFinance()
   const bankStore = useBankSuggestions()
   const t = useT()
   const [pickerItem, setPickerItem] = useState<BankSuggestion | null>(null)
@@ -40,15 +41,23 @@ export function useBankSuggestionActions() {
   }
 
   const addFromSuggestion = (item: BankSuggestion, account: Account) => {
+    // Aplica las reglas de categoría aprendidas (o las de fábrica, tipo
+    // UBER→Transporte) a la nota del aviso. `allowFallback=false`: si ninguna
+    // regla encaja se deja SIN categoría en vez de meterla en la primera que
+    // haya — una categoría equivocada engaña más que una vacía. Y como al
+    // guardar categorizando la app aprende la regla, el siguiente aviso igual
+    // ya se clasifica solo.
+    const categoryId = guessCategoryId(item.note, categories, item.type, false)
     addTx({
       type: item.type,
       amount: item.amount,
       date: item.date,
       note: item.note,
       accountId: account.id,
+      categoryId,
     })
     bankStore.remove(item.id)
-    toast(t('movementAdded'), { icon: 'check', type: 'ok' })
+    toast(categoryId ? t('movementAddedCategorized') : t('movementAdded'), { icon: 'check', type: 'ok' })
   }
 
   const handleAdd = (item: BankSuggestion) => {

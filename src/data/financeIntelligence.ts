@@ -10,6 +10,24 @@ export interface SubscriptionInsight {
   confidence: number
   lastDate: string
   alreadyRecurring: boolean
+  /** Presente si el último cargo subió respecto al anterior — el aviso de «te subieron el precio». */
+  priceIncrease?: { from: number; to: number; pct: number }
+}
+
+/**
+ * Detecta si el cargo más reciente de una serie subió respecto al anterior.
+ * Umbral del 5% (y ≥1 en valor absoluto) para no marcar redondeos o pequeñas
+ * variaciones de cambio de divisa como una subida de precio real.
+ */
+function detectPriceIncrease(rows: { amount: number; date: string }[]): SubscriptionInsight['priceIncrease'] {
+  const byDate = [...rows].sort((a, b) => a.date.localeCompare(b.date))
+  const latest = byDate[byDate.length - 1]
+  const prev = byDate[byDate.length - 2]
+  if (!latest || !prev) return undefined
+  if (latest.amount > prev.amount * 1.05 && latest.amount - prev.amount >= 1) {
+    return { from: prev.amount, to: latest.amount, pct: Math.round((latest.amount / prev.amount - 1) * 100) }
+  }
+  return undefined
 }
 
 /**
@@ -106,8 +124,16 @@ export function detectSubscriptions(txns: Transaction[], mkey: string): Subscrip
     const distinctMonths = new Set(rows.map(tx => monthKey(tx.date)))
     const amounts = rows.map(tx => tx.amount)
     const avg = average(amounts)
-    const variance = avg ? standardDeviation(amounts) / avg : 1
     const recurringFlag = rows.some(tx => tx.recurring)
+    // La varianza sirve para descartar gasto irregular que no es suscripción.
+    // Pero una suscripción a la que le SUBIERON el precio también dispara la
+    // varianza — y es justo la que más interesa avisar. Por eso la varianza se
+    // mide sobre los cargos previos (sin el último): si el histórico era
+    // estable, un salto reciente no la descalifica, solo la marca como subida.
+    const byDate = [...rows].sort((a, b) => a.date.localeCompare(b.date))
+    const priorAmounts = byDate.length >= 3 ? byDate.slice(0, -1).map(tx => tx.amount) : amounts
+    const priorAvg = average(priorAmounts)
+    const variance = priorAvg ? standardDeviation(priorAmounts) / priorAvg : 1
     if (distinctMonths.size < 3 && !recurringFlag) return []
     if (variance > 0.18 && !recurringFlag) return []
     const [merchant, categoryId, accountId] = key.split('|')
@@ -120,6 +146,7 @@ export function detectSubscriptions(txns: Transaction[], mkey: string): Subscrip
       confidence: Math.min(98, Math.round((distinctMonths.size / 6) * 70 + (recurringFlag ? 25 : 0) + (1 - variance) * 20)),
       lastDate: rows.map(tx => tx.date).sort()[rows.length - 1] ?? '',
       alreadyRecurring: recurringFlag,
+      priceIncrease: detectPriceIncrease(rows),
     }]
   }).sort((a, b) => b.confidence - a.confidence || b.amount - a.amount).slice(0, 6)
 }

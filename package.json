@@ -1,6 +1,6 @@
 {
   "name": "sharky",
-  "version": "1.7.30",
+  "version": "1.8.3",
   "private": true,
   "type": "module",
   "scripts": {

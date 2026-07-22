@@ -1426,6 +1426,36 @@
 /* -- MobileSubscriptions ---------------------------------- */
   .msub-root { display: flex; flex-direction: column; gap: 12px; padding: 10px 0 calc(28px + env(safe-area-inset-bottom)); }
 
+  /* Aviso de subida de precio: banda ámbar arriba de todo. Ámbar (no rojo)
+     porque es algo a revisar, no un error. */
+  .msub-hikes { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 0; }
+  .msub-hike {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-warn, #f59e0b) 14%, var(--m-surface));
+    border: 1px solid color-mix(in oklab, var(--m-warn, #f59e0b) 40%, transparent);
+    border-radius: 14px;
+    display: flex;
+    gap: 11px;
+    padding: 11px 13px;
+  }
+  .msub-hike-icon {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-warn, #f59e0b) 22%, transparent);
+    border-radius: 9px;
+    color: var(--m-warn, #f59e0b);
+    display: grid;
+    flex: none;
+    height: 32px;
+    place-items: center;
+    width: 32px;
+  }
+  .msub-hike-text { flex: 1; min-width: 0; }
+  .msub-hike-text b { display: block; font-size: 13.5px; font-weight: 800; }
+  .msub-hike-text small { color: var(--m-muted); font-size: 12px; }
+  .msub-hike-dismiss {
+    background: none; border: 0; color: var(--m-muted); flex: none; padding: 4px;
+  }
+
   .msub-hero {
     align-items: center;
     background:
@@ -1590,6 +1620,19 @@
   }
   .msub-empty p { color: var(--m-text); font-size: 16px; font-weight: 600; margin: 0; }
   .msub-empty small { font-size: 13px; line-height: 1.5; }
+  .msub-empty-cta {
+    align-items: center;
+    background: var(--m-primary);
+    border: 0;
+    border-radius: 14px;
+    color: var(--m-primary-text);
+    display: inline-flex;
+    font-size: 14px;
+    font-weight: 900;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 12px 22px;
+  }
 
   /* Subscription action sheet */
   .msub-sheet {
@@ -2040,6 +2083,34 @@
     gap: 10px; line-height: 1.4; margin: 12px 16px 0; padding: 12px 14px;
   }
   .mcash-warning svg { color: var(--m-expense); flex-shrink: 0; }
+
+  /* Escenario «¿y si aprieto?»: convierte el saldo proyectado en algo con lo
+     que se puede jugar. El deslizador recalcula el cierre al vuelo. */
+  .mcash-scenario {
+    background: var(--m-surface-2);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 14px 16px 0;
+    padding: 14px 16px;
+  }
+  .mcash-scenario-pace,
+  .mcash-scenario-result {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mcash-scenario-pace small,
+  .mcash-scenario-result span { color: var(--m-muted); font-size: 13px; font-weight: 650; }
+  .mcash-scenario-pace b { font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 800; }
+  .mcash-scenario-result strong { font-size: 19px; font-variant-numeric: tabular-nums; font-weight: 900; }
+  .mcash-scenario-result { border-top: 1px solid var(--m-border); padding-top: 12px; }
+  .mcash-scenario-slider { display: flex; flex-direction: column; gap: 7px; }
+  .mcash-scenario-slider span { color: var(--m-text); font-size: 13px; font-weight: 750; }
+  .mcash-scenario-slider input { accent-color: var(--m-primary); width: 100%; }
+  .text-income { color: var(--m-income) !important; }
+
   .mcash-chart { margin: 10px 8px 0; }
   .mcash-summary-row { display: flex; gap: 10px; margin: 12px 16px 0; }
   .mcash-summary-item {

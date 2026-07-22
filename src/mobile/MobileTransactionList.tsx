@@ -4,10 +4,11 @@ import { sheetRoot } from './SheetPortal'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { Icon } from '@/components/ui/Icon'
-import { useDialogs } from '@/components/ui/DialogProvider'
-import { dateLocale, fmt, fmtCompact } from '@/data/helpers'
+import { dateLocale, fmt, fmtCompact, localToday } from '@/data/helpers'
 import { translateCategoryName, useT } from '@/i18n'
-import { playDeleteHaptic } from '@/lib/sound'
+import { playDeleteHaptic, playSoftHaptic } from '@/lib/sound'
+import { deleteWithUndo } from '@/lib/undoDelete'
+import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import type { Transaction } from '@/types'
@@ -77,9 +78,10 @@ export function MobileTransactionList({
   showSearch?: boolean
   className?: string
 }) {
-  const { accounts, categories, currency } = useFinance()
+  const { accounts, categories, currency, addTx } = useFinance()
+  const updateTx = useFinance(s => s.updateTx)
+  const storeDeleteTx = useFinance(s => s.deleteTx)
   const allTransactions = useFinance(s => s.transactions)
-  const { confirm } = useDialogs()
   const t = useT()
   const settings = useSettings()
   const { compactNumbers } = settings
@@ -95,6 +97,12 @@ export function MobileTransactionList({
   const [fTo, setFTo] = useState('')
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [openActionId, setOpenActionId] = useState<string | null>(null)
+  // Selección múltiple: entra con pulsación larga; en este modo tocar una fila
+  // la marca en vez de abrir su detalle, y aparece una barra de acciones en lote.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkCatOpen, setBulkCatOpen] = useState(false)
+  const longPressTimer = useRef(0)
   const containerRef = useRef<HTMLElement>(null)
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
@@ -220,28 +228,104 @@ export function MobileTransactionList({
 
   const showSearchChip = showSearch && !compact
 
+  // Duplica un movimiento: misma info, id nuevo, con la fecha de hoy (el caso
+  // típico de duplicar es «lo mismo que ayer, otra vez»). Solo gasto/ingreso;
+  // las transferencias mueven saldo entre cuentas y duplicarlas a ciegas es
+  // más peligroso que útil, así que ahí no se ofrece.
+  const duplicateTx = (tx: Transaction) => {
+    addTx({
+      type: tx.type,
+      amount: tx.amount,
+      note: tx.note,
+      date: localToday(),
+      accountId: tx.accountId,
+      categoryId: tx.categoryId,
+      tags: tx.tags,
+    })
+    playSoftHaptic()
+    toast(t('movementDuplicated'), { icon: 'check', type: 'ok' })
+  }
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const enterSelectMode = (id: string) => {
+    setSelectMode(true)
+    setSelectedIds(new Set([id]))
+    closeSwipe()
+    playSoftHaptic()
+  }
+
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()) }
+
+  // Borrado en lote con un solo «Deshacer» que repone TODOS. Se capturan los
+  // objetos antes de borrar; restaurar reusa addTx (preserva id y saldo).
+  const bulkDelete = () => {
+    const ids = [...selectedIds]
+    const snapshots = allTransactions.filter(tx => ids.includes(tx.id))
+    playDeleteHaptic()
+    deleteWithUndo({
+      message: t('nDeleted').replace('{n}', String(snapshots.length)),
+      onDelete: () => ids.forEach(id => storeDeleteTx(id)),
+      onRestore: () => snapshots.forEach(tx => addTx(tx)),
+    })
+    exitSelectMode()
+  }
+
+  const bulkRecategorize = (categoryId: string) => {
+    selectedIds.forEach(id => updateTx(id, { categoryId }))
+    setBulkCatOpen(false)
+    playSoftHaptic()
+    toast(t('nRecategorized').replace('{n}', String(selectedIds.size)), { icon: 'check', type: 'ok' })
+    exitSelectMode()
+  }
+
   const renderTxRow = (tx: Transaction) => {
     const category = mapGet(categoryMap, tx.categoryId)
     const account = mapGet(accountMap, tx.accountId)
     const income = tx.type === 'income'
     const opened = openActionId === tx.id
+    const isSelected = selectedIds.has(tx.id)
     const subtitle = tx.type === 'transfer'
       ? `${mapGet(accountMap, tx.fromAccount)?.name ?? t('origin')} -> ${mapGet(accountMap, tx.toAccount)?.name ?? t('destination')}`
       : `${category ? translateCategoryName(category, lang) : t('noCategoryLabel')} • ${account?.name ?? t('noAccountLabel')}`
 
+    // En modo selección la fila no se desliza ni abre detalle: solo marca.
     return (
       <div
-        className={`mobile-tx-swipe${opened ? ' open' : ''}`}
-        onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? 0 }}
-        onTouchEnd={event => {
+        className={`mobile-tx-swipe${opened ? ' open' : ''}${!selectMode && !compact && tx.type !== 'transfer' ? ' has-dup' : ''}${isSelected ? ' selected' : ''}`}
+        onTouchStart={selectMode ? undefined : event => { startX.current = event.touches[0]?.clientX ?? 0 }}
+        onTouchEnd={selectMode ? undefined : event => {
           const delta = (event.changedTouches[0]?.clientX ?? 0) - startX.current
           if (delta < -42) setOpenActionId(tx.id)
           if (delta > 42) closeSwipe()
         }}
         onClick={opened ? (event => { event.stopPropagation(); closeSwipe() }) : undefined}
       >
-        <button className="mobile-tx-row" onClick={() => { closeSwipe(); setSelected(tx) }}>
-          {tx.type === 'transfer'
+        <button
+          className="mobile-tx-row"
+          onClick={() => {
+            if (selectMode) { toggleSelected(tx.id); return }
+            closeSwipe(); setSelected(tx)
+          }}
+          onPointerDown={() => {
+            if (selectMode || compact) return
+            longPressTimer.current = window.setTimeout(() => enterSelectMode(tx.id), 500)
+          }}
+          onPointerUp={() => window.clearTimeout(longPressTimer.current)}
+          onPointerMove={() => window.clearTimeout(longPressTimer.current)}
+          onPointerCancel={() => window.clearTimeout(longPressTimer.current)}
+        >
+          {selectMode ? (
+            <span className={`mobile-tx-check${isSelected ? ' on' : ''}`}>
+              {isSelected && <Icon name="check" size={16} />}
+            </span>
+          ) : tx.type === 'transfer'
             ? <span className="mobile-transfer-icon"><Icon name="repeat" size={24} /></span>
             : <CatBadge category={category} size={40} />}
           <span>
@@ -264,23 +348,21 @@ export function MobileTransactionList({
               <Icon name="edit" size={17} />
               {t('edit')}
             </button>
+            {tx.type !== 'transfer' && (
+              <button onClick={() => { duplicateTx(tx); closeSwipe() }}>
+                <Icon name="repeat" size={17} />
+                {t('duplicate')}
+              </button>
+            )}
             {onDelete && (
               <button
                 className="danger"
                 onClick={() => {
-                  const label = tx.note || (tx.type === 'transfer' ? t('transfer') : t('movementLabel'))
+                  // Borrado directo con «Deshacer» (5 s), como el resto de la
+                  // app — ya no hace falta el diálogo de «no se puede deshacer».
                   closeSwipe()
-                  void confirm({
-                    title: t('deleteQuotedConfirm').replace('{name}', label),
-                    description: t('actionCannotBeUndone'),
-                    confirmLabel: t('delete'),
-                    icon: 'trash',
-                  }).then(ok => {
-                    if (ok) {
-                      playDeleteHaptic()
-                      onDelete(tx.id)
-                    }
-                  })
+                  playDeleteHaptic()
+                  onDelete(tx.id)
                 }}
               >
                 <Icon name="trash" size={17} />
@@ -470,12 +552,61 @@ export function MobileTransactionList({
 
             <div className="mobile-detail-actions">
               <button onClick={() => { onEdit(selected); setSelected(null) }}><Icon name="edit" size={18} />{t('edit')}</button>
+              {selected.type !== 'transfer' && (
+                <button onClick={() => { duplicateTx(selected); setSelected(null) }}><Icon name="repeat" size={18} />{t('duplicate')}</button>
+              )}
               {onDelete && <button className="danger" onClick={() => {
                 const id = selected.id
                 setSelected(null)
                 playDeleteHaptic()
                 requestAnimationFrame(() => onDelete(id))
               }}><Icon name="trash" size={18} />{t('delete')}</button>}
+            </div>
+          </section>
+        </div>,
+        sheetRoot(),
+      )}
+
+      {selectMode && createPortal(
+        <div className="mobile-select-bar" role="toolbar" aria-label={t('bulkActionsLabel')}>
+          <button className="mobile-select-cancel" onClick={exitSelectMode} aria-label={t('cancel')}>
+            <Icon name="close" size={18} />
+          </button>
+          <span className="mobile-select-count">{t('nSelected').replace('{n}', String(selectedIds.size))}</span>
+          <button
+            className="mobile-select-action"
+            disabled={selectedIds.size === 0}
+            onClick={() => setBulkCatOpen(true)}
+          >
+            <Icon name="tag" size={17} />
+            {t('categoryLabel')}
+          </button>
+          <button
+            className="mobile-select-action danger"
+            disabled={selectedIds.size === 0}
+            onClick={bulkDelete}
+          >
+            <Icon name="trash" size={17} />
+            {t('delete')}
+          </button>
+        </div>,
+        sheetRoot(),
+      )}
+
+      {bulkCatOpen && createPortal(
+        <div className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('categoryLabel')} onClick={() => setBulkCatOpen(false)}>
+          <section className="mobile-bulk-cat" onClick={e => e.stopPropagation()}>
+            <header>
+              <span>{t('recategorizeTo')}</span>
+              <button aria-label={t('close')} onClick={() => setBulkCatOpen(false)}><Icon name="close" size={18} /></button>
+            </header>
+            <div className="mobile-bulk-cat-grid">
+              {categories.filter(c => c.type === 'expense' || c.type === 'income').map(category => (
+                <button key={category.id} onClick={() => bulkRecategorize(category.id)}>
+                  <CatBadge category={category} size={38} />
+                  <small>{translateCategoryName(category, lang)}</small>
+                </button>
+              ))}
             </div>
           </section>
         </div>,

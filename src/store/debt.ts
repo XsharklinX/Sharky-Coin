@@ -97,6 +97,8 @@ interface DebtState {
   addDebt: (d: Omit<Debt, 'id'>) => void
   updateDebt: (id: string, d: Partial<Omit<Debt, 'id'>>) => void
   deleteDebt: (id: string) => void
+  /** Reinserta una deuda borrada tal cual (mismo id) — «Deshacer». */
+  restoreDebt: (debt: Debt) => void
   setExtraPayment: (v: number) => void
 }
 
@@ -108,6 +110,7 @@ export const useDebt = create<DebtState>()(
       addDebt: d => set(s => ({ debts: [...s.debts, { ...d, id: crypto.randomUUID() }] })),
       updateDebt: (id, d) => set(s => ({ debts: s.debts.map(debt => debt.id === id ? { ...debt, ...d } : debt) })),
       deleteDebt: id => set(s => ({ debts: s.debts.filter(d => d.id !== id) })),
+      restoreDebt: debt => set(s => s.debts.some(d => d.id === debt.id) ? s : { debts: [...s.debts, debt] }),
       setExtraPayment: extraPayment => set({ extraPayment }),
     }),
     { name: 'sharky-debts-v1', storage: createJSONStorage(() => localStorage) }

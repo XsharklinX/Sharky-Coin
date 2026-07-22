@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { useDialogs } from '@/components/ui/DialogProvider'
 import { isDuplicateTransaction } from '@/data/bankCsv'
 import { fmtCompact, localToday } from '@/data/helpers'
@@ -14,7 +15,8 @@ import { useSettings } from '@/store/settings'
 import { useNotes } from '@/store/notes'
 import { noteTotals } from '@/data/notes'
 import { translateCategoryName, useT } from '@/i18n'
-import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound } from '@/lib/sound'
+import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound, playSoftHaptic } from '@/lib/sound'
+import { parseQuickAdd } from '@/data/quickAddParse'
 import { openNativeScanner } from '@/lib/mlkitOcr'
 import { recognizeReceipt, type ReceiptOcrResult } from '@/lib/receiptOcr'
 import { MobileDatePicker } from './MobileDatePicker'
@@ -125,7 +127,7 @@ export function MobileCreateFlow({
   const settings = useSettings()
   const lang = (settings.language ?? 'es') as 'en' | 'es'
   const locale = dateLocale(lang)
-  const { accounts, categories, transactions, currency, addTx, transfer, addCategory } = useFinance()
+  const { accounts, categories, transactions, currency, addTx, transfer, addCategory, updateCategory, deleteCategory } = useFinance()
   const noteInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -138,6 +140,8 @@ export function MobileCreateFlow({
   const [note, setNote] = useState('')
   const [noteFocused, setNoteFocused] = useState(false)
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
+  // Categoría que se está editando (pulsación larga en la grilla). null = crear.
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const { submitting, beginSubmit, endSubmit } = useSubmitGuard()
   const [transferPicker, setTransferPicker] = useState<'from' | 'to' | null>(null)
   const [accountPicker, setAccountPicker] = useState(false)
@@ -496,13 +500,88 @@ export function MobileCreateFlow({
     }
   }
 
+  const closeCategoryEditor = () => { setCategoryEditorOpen(false); setEditingCategory(null) }
+
   const createCategory = (fields: { name: string; icon: IconName; color: string; budget: number }) => {
     const name = fields.name.trim()
     if (!name) { toast(t('enterCategoryName'), { icon: 'alert' }); return }
     addCategory({ name, icon: fields.icon, color: fields.color, budget: fields.budget, type: categoryType })
     toast(t('categoryCreated').replace('{name}', name), { icon: 'check', type: 'ok' })
-    setCategoryEditorOpen(false)
+    closeCategoryEditor()
   }
+
+  const saveCategory = (fields: { name: string; icon: IconName; color: string; budget: number }) => {
+    if (!editingCategory) return createCategory(fields)
+    const name = fields.name.trim()
+    if (!name) { toast(t('enterCategoryName'), { icon: 'alert' }); return }
+    updateCategory(editingCategory.id, { name, icon: fields.icon, color: fields.color, budget: fields.budget })
+    toast(t('categoryUpdated'), { icon: 'check', type: 'ok' })
+    closeCategoryEditor()
+  }
+
+  // Borrado desde el editor: usa el mismo «Deshacer» que el resto de la app.
+  // Si la categoría tiene movimientos, el store lo impide (no se puede dejar un
+  // gasto huérfano) y se avisa con el motivo en vez de fallar en silencio.
+  const removeCategory = (category: Category) => {
+    try {
+      const snapshot = category
+      deleteWithUndo({
+        message: t('categoryDeleted'),
+        onDelete: () => deleteCategory(snapshot.id),
+        onRestore: () => addCategory(snapshot),
+      })
+      if (categoryId === category.id) setCategoryId(null)
+      closeCategoryEditor()
+    } catch (error) {
+      toast(error instanceof Error ? error.message : t('couldNotSave'), { icon: 'alert' })
+    }
+  }
+
+  const openCategoryEditor = (category: Category) => { setEditingCategory(category); setCategoryEditorOpen(true) }
+
+  // Alta por lenguaje natural: «gasté 500 en el súper ayer» rellena tipo, monto,
+  // concepto, fecha y categoría de un tirón. Solo propone — el usuario ve el
+  // formulario ya lleno y confirma. Deja intactos los campos que la frase no
+  // menciona, para poder complementar en vez de sobrescribir.
+  const [smartText, setSmartText] = useState('')
+  const applySmartText = () => {
+    const phrase = smartText.trim()
+    if (!phrase) return
+    const parsed = parseQuickAdd(phrase, categories)
+    // switchMode resetea categoría/nota/cuenta, así que va PRIMERO; los setters
+    // de abajo, al ser llamadas de estado posteriores, ganan sobre ese reset.
+    if (parsed.type !== mode) switchMode(parsed.type)
+    if (parsed.amount !== null) setAmountText(String(parsed.amount))
+    if (parsed.note) setNote(parsed.note)
+    setDate(parsed.date)
+    if (parsed.categoryId) setCategoryId(parsed.categoryId)
+    setSmartText('')
+    playSoftHaptic()
+    toast(t('smartAddFilled'), { icon: 'check', type: 'ok' })
+  }
+
+  // Pulsación larga sobre una categoría → editarla. Se cancela si el dedo se
+  // mueve (>10px), para no dispararse durante un scroll. `fired` deja que el
+  // onClick sepa que ya se abrió el editor y no seleccione la categoría además.
+  const longPress = useRef<{ timer: number; fired: boolean; x: number; y: number }>({ timer: 0, fired: false, x: 0, y: 0 })
+  const categoryPressHandlers = (category: Category) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      longPress.current.fired = false
+      longPress.current.x = e.clientX
+      longPress.current.y = e.clientY
+      longPress.current.timer = window.setTimeout(() => {
+        longPress.current.fired = true
+        openCategoryEditor(category)
+      }, 500)
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (Math.hypot(e.clientX - longPress.current.x, e.clientY - longPress.current.y) > 10) {
+        window.clearTimeout(longPress.current.timer)
+      }
+    },
+    onPointerUp: () => window.clearTimeout(longPress.current.timer),
+    onPointerCancel: () => window.clearTimeout(longPress.current.timer),
+  })
 
   const amountColor = mode === 'income' ? '#35d0a2' : mode === 'transfer' ? '#ffdd3d' : '#f65574'
   const currencyPrefix = CURRENCIES[currency].symbol
@@ -601,12 +680,32 @@ export function MobileCreateFlow({
           ))}
         </div>
 
+        {mode !== 'transfer' && (
+          <div className="mobile-smart-add">
+            <Icon name="bolt" size={16} />
+            <input
+              type="text"
+              value={smartText}
+              placeholder={t('smartAddPlaceholder')}
+              enterKeyHint="done"
+              onChange={e => setSmartText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applySmartText() } }}
+            />
+            {smartText.trim() && (
+              <button className="mobile-smart-add-go" onClick={applySmartText} aria-label={t('smartAddApply')}>
+                <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
+              </button>
+            )}
+          </div>
+        )}
+
         {mode !== 'transfer' ? (
           <>
             {/* Category header */}
             <div className="mobile-create-section-header">
               <span>{t('category')}</span>
-              <button className="mobile-create-new-btn" onClick={() => setCategoryEditorOpen(true)}>
+              {visibleCategories.length > 0 && <em className="mobile-create-hint">{t('longPressToEditCategory')}</em>}
+              <button className="mobile-create-new-btn" onClick={() => { setEditingCategory(null); setCategoryEditorOpen(true) }}>
                 <Icon name="plus" size={12} /> {t('new')}
               </button>
             </div>
@@ -618,7 +717,12 @@ export function MobileCreateFlow({
                   const selected = activeCategory?.id === category.id
                   return (
                     <button key={category.id} className={selected ? 'on' : ''} aria-pressed={selected}
-                      onClick={() => { setCategoryId(category.id); setTriedSave(false) }}>
+                      {...categoryPressHandlers(category)}
+                      onClick={() => {
+                        // Si venía de una pulsación larga, ya se abrió el editor: no seleccionar.
+                        if (longPress.current.fired) return
+                        setCategoryId(category.id); setTriedSave(false)
+                      }}>
                       <span style={{ color: category.color, background: `color-mix(in oklab, ${category.color} 22%, transparent)` }}>
                         <Icon name={category.icon} size={20} />
                       </span>
@@ -626,7 +730,7 @@ export function MobileCreateFlow({
                     </button>
                   )
                 })}
-                <button className="mobile-category-add" onClick={() => setCategoryEditorOpen(true)}>
+                <button className="mobile-category-add" onClick={() => { setEditingCategory(null); setCategoryEditorOpen(true) }}>
                   <span><Icon name="plus" size={20} /></span>
                   <small>{t('new')}</small>
                 </button>
@@ -981,8 +1085,10 @@ export function MobileCreateFlow({
       {categoryEditorOpen && (
         <MobileCategoryEditor
           type={categoryType}
-          onClose={() => setCategoryEditorOpen(false)}
-          onSave={createCategory}
+          category={editingCategory}
+          onClose={closeCategoryEditor}
+          onSave={saveCategory}
+          onDelete={editingCategory ? () => removeCategory(editingCategory) : undefined}
         />
       )}
     </div>
@@ -993,18 +1099,24 @@ export type MobileCreateTarget = Transaction | 'new'
 
 function MobileCategoryEditor({
   type,
+  category,
   onClose,
   onSave,
+  onDelete,
 }: {
   type: Category['type']
+  /** Categoría a editar; null/undefined = crear una nueva. */
+  category?: Category | null
   onClose: () => void
   onSave: (fields: { name: string; icon: IconName; color: string; budget: number }) => void
+  onDelete?: () => void
 }) {
   const t = useT()
-  const [name, setName] = useState('')
-  const [icon, setIcon] = useState<IconName>(type === 'income' ? 'wallet' : 'cart')
-  const [color, setColor] = useState(type === 'income' ? '#35d0a2' : '#ffdd3d')
-  const [budget, setBudget] = useState('')
+  const editing = !!category
+  const [name, setName] = useState(category?.name ?? '')
+  const [icon, setIcon] = useState<IconName>(category?.icon ?? (type === 'income' ? 'wallet' : 'cart'))
+  const [color, setColor] = useState(category?.color ?? (type === 'income' ? '#35d0a2' : '#ffdd3d'))
+  const [budget, setBudget] = useState(category?.budget ? String(category.budget) : '')
 
   useMobileBackDismiss(true, onClose)
 
@@ -1012,8 +1124,8 @@ function MobileCategoryEditor({
     <div className="mobile-editor-screen" role="dialog" aria-modal="true">
       <header>
         <button onClick={onClose}>{t('cancel')}</button>
-        <strong>{t('newCategory')}</strong>
-        <button onClick={() => onSave({ name, icon, color, budget: Number(budget) || 0 })}>{t('create')}</button>
+        <strong>{editing ? t('editCategory') : t('newCategory')}</strong>
+        <button onClick={() => onSave({ name, icon, color, budget: Number(budget) || 0 })}>{editing ? t('save') : t('create')}</button>
       </header>
       <div className="mobile-editor-body">
         <label>
@@ -1056,6 +1168,11 @@ function MobileCategoryEditor({
             ))}
           </div>
         </div>
+        {onDelete && (
+          <button className="mobile-editor-delete" onClick={onDelete}>
+            <Icon name="trash" size={16} /> {t('deleteCategory')}
+          </button>
+        )}
       </div>
     </div>
   )

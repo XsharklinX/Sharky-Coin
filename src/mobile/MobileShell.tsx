@@ -8,14 +8,21 @@ import type { SharedReceipt } from '@/hooks/useTauri'
 import type { Transaction, ViewId, ViewProps } from '@/types'
 import type { BatchReceiptInput } from './MobileReceiptBatch'
 import { MobileBottomNav, type MobileRoute, type QuickAddMode } from './MobileBottomNav'
-import { MobileAccounts } from './MobileAccounts'
-import { MobileAnalytics, type AnalyticsPeriod } from './MobileAnalytics'
+import type { AnalyticsPeriod } from './MobileAnalytics'
 import { MobileCreateFlow } from './MobileCreateFlow'
 import { SheetPortal } from './SheetPortal'
 import { MobileMovements } from './MobileMovements'
-import { MobileProfile } from './MobileProfile'
 // Lazy: ninguna de estas pantallas se ve en el primer render (Movimientos).
 // Diferirlas achica el bundle que hay que parsear/hidratar al abrir la app.
+//
+// Las tres pestañas que NO son la inicial (Análisis, Cuentas, Perfil) también
+// van aquí: Análisis en particular arrastra recharts (~470 KB), que antes se
+// descargaba al abrir la app aunque nunca tocaras esa pestaña. Se precargan en
+// reposo (ver PREFETCH_TABS abajo) para que cambiar de pestaña siga siendo
+// instantáneo la primera vez.
+const MobileAnalytics = lazy(() => import('./MobileAnalytics').then(m => ({ default: m.MobileAnalytics })))
+const MobileAccounts = lazy(() => import('./MobileAccounts').then(m => ({ default: m.MobileAccounts })))
+const MobileProfile = lazy(() => import('./MobileProfile').then(m => ({ default: m.MobileProfile })))
 const MobileAnnual = lazy(() => import('./MobileAnnual').then(m => ({ default: m.MobileAnnual })))
 const MobileCalendar = lazy(() => import('./MobileCalendar').then(m => ({ default: m.MobileCalendar })))
 const MobileDebt = lazy(() => import('./MobileDebt').then(m => ({ default: m.MobileDebt })))
@@ -162,6 +169,28 @@ export function MobileShell({
     if (route === 'add' && !prevIsAdd.current) setCreateKey(k => k + 1)
     prevIsAdd.current = route === 'add'
   }, [route])
+
+  // Precarga en reposo las otras tres pestañas. La app arranca solo con
+  // Movimientos; sin esto, la PRIMERA vez que tocas Análisis/Cuentas/Perfil
+  // verías un esqueleto mientras baja su código. Precargarlas cuando el hilo
+  // está libre mantiene el arranque ligero Y el cambio de pestaña instantáneo.
+  // requestIdleCallback no existe en el WebView viejo de algunos Android, de
+  // ahí el fallback a un setTimeout corto.
+  useEffect(() => {
+    const warm = () => {
+      void import('./MobileAnalytics')
+      void import('./MobileAccounts')
+      void import('./MobileProfile')
+    }
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+    if (ric) {
+      const id = ric(warm)
+      const cancel = (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
+      return () => cancel?.(id)
+    }
+    const id = window.setTimeout(warm, 1200)
+    return () => window.clearTimeout(id)
+  }, [])
 
   useEffect(() => {
     if (route === 'home' && view !== 'transactions') {
@@ -328,7 +357,11 @@ export function MobileShell({
                   {goalsRenderer(viewProps)}
                 </ViewErrorBoundary>
               ))
-            : <MobileAccounts mkey={mkey} createRequest={viewProps.createRequest} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />}
+            : (
+              <Suspense fallback={<MobileSkeletonScreen />}>
+                <MobileAccounts mkey={mkey} createRequest={viewProps.createRequest} onEditTx={onEditTx} onDeleteTx={viewProps.onDeleteTx} />
+              </Suspense>
+            )}
         </div>
       </>
     )
@@ -389,7 +422,11 @@ export function MobileShell({
     }
 
     if (route === 'analysis') {
-      return <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} onImport={() => setCsvOpen(true)} onEditTx={onEditTx} initialPeriod={analyticsInitialPeriod} />
+      return (
+        <Suspense fallback={<MobileSkeletonScreen />}>
+          <MobileAnalytics mkey={mkey} onBudgets={() => gotoView('budgets')} onImport={() => setCsvOpen(true)} onEditTx={onEditTx} initialPeriod={analyticsInitialPeriod} />
+        </Suspense>
+      )
     }
 
     if (route === 'reports') {
@@ -453,10 +490,12 @@ export function MobileShell({
         )
       }
       return (
-        <MobileProfile
-          userName={userName}
-          goto={gotoView}
-        />
+        <Suspense fallback={<MobileSkeletonScreen />}>
+          <MobileProfile
+            userName={userName}
+            goto={gotoView}
+          />
+        </Suspense>
       )
     }
 

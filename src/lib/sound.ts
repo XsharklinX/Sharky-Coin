@@ -40,17 +40,13 @@ function volume(): number {
   return settings.soundVolume * profileGain
 }
 
+// La vibración se controla SOLO con hapticsEnabled, no con el sonido: en modo
+// silencio el háptico es lo que reemplaza al audio, así que apagar el sonido no
+// debe callarlo. Antes iba atado a soundsEnabled + perfil, y por eso «no
+// vibraba nada» para quien tenía el sonido apagado.
 function haptic(ms: number | number[]) {
-  const settings = useSettings.getState()
-  if (!enabled() || settings.soundProfile === 'silent') return
-  if (Array.isArray(ms)) {
-    const pattern = settings.soundProfile === 'full'
-      ? ms
-      : ms.map((value, index) => index % 2 === 0 ? Math.max(4, Math.round(value * 0.55)) : value)
-    navigator.vibrate?.(pattern)
-    return
-  }
-  navigator.vibrate?.(settings.soundProfile === 'full' ? ms : Math.max(4, Math.round(ms * 0.55)))
+  if (!useSettings.getState().hapticsEnabled) return
+  navigator.vibrate?.(ms)
 }
 
 export function playTapHaptic() {
@@ -138,6 +134,7 @@ function softNoise(duration: number, gain = 0.012, delay = 0) {
 
 function tapClick(freq: number, gain = 0.04, vibrateMs = 6) {
   haptic(vibrateMs)
+  if (!enabled()) return
 
   const audio = getCtx()
   if (!audio) return
@@ -162,59 +159,59 @@ function tapClick(freq: number, gain = 0.04, vibrateMs = 6) {
   softNoise(0.028, gain * 0.25)
 }
 
+// Sin guarda de sonido arriba: tapClick ya dispara el háptico (auto-gated) y
+// silencia el audio si el sonido está apagado. Así el teclado vibra aunque el
+// sonido esté en silencio.
 export function playKeySound() {
-  if (!enabled()) return
   tapClick(760, 0.04, 5)
 }
 
 export function playOperatorSound() {
-  if (!enabled()) return
   tapClick(610, 0.045, 7)
 }
 
 export function playBackspaceSound() {
-  if (!enabled()) return
   tapClick(480, 0.04, 9)
 }
 
 export function playDoneSound() {
-  if (!enabled()) return
   haptic(14)
+  if (!enabled()) return
   tone(660, 0.08, { type: 'triangle', gain: 0.045, endFreq: 720 })
   tone(990, 0.12, { type: 'sine', gain: 0.04, delay: 0.055, endFreq: 1120 })
 }
 
 export function playOpenSound() {
-  if (!enabled()) return
   haptic(10)
+  if (!enabled()) return
   tone(520, 0.06, { type: 'triangle', gain: 0.035, endFreq: 660 })
   tone(820, 0.08, { type: 'sine', gain: 0.028, delay: 0.045, endFreq: 920 })
 }
 
 export function playAccountsSound() {
-  if (!enabled()) return
   haptic(8)
+  if (!enabled()) return
   tone(560, 0.055, { type: 'triangle', gain: 0.034, endFreq: 640 })
   tone(760, 0.08, { type: 'triangle', gain: 0.028, delay: 0.04, endFreq: 820 })
 }
 
 export function playConfirmSound() {
-  if (!enabled()) return
   haptic(12)
+  if (!enabled()) return
   tone(600, 0.08, { type: 'triangle', gain: 0.042, endFreq: 700 })
   tone(880, 0.13, { type: 'sine', gain: 0.04, delay: 0.06, endFreq: 1040 })
 }
 
 export function playDeleteSound() {
-  if (!enabled()) return
   haptic(18)
+  if (!enabled()) return
   tone(360, 0.055, { type: 'triangle', gain: 0.04, endFreq: 300 })
   tone(240, 0.08, { type: 'sine', gain: 0.032, delay: 0.045, endFreq: 210 })
 }
 
 export function playAchievementSound() {
-  if (!enabled()) return
   haptic(22)
+  if (!enabled()) return
   tone(523.25, 0.09, { type: 'triangle', gain: 0.042 })
   tone(659.25, 0.09, { type: 'triangle', gain: 0.044, delay: 0.075 })
   tone(880, 0.16, { type: 'sine', gain: 0.045, delay: 0.15, endFreq: 990 })

@@ -87,6 +87,7 @@ export function MobileGlobalSearch({
       ? `${parsedQuery.monthFilter.year}-${String(parsedQuery.monthFilter.month).padStart(2, '0')}`
       : null
     const freeText = normalizeSearchText(parsedQuery.freeText)
+    const tagFilters = parsedQuery.tagFilters
 
     return transactions
       .filter(tx => {
@@ -95,6 +96,12 @@ export function MobileGlobalSearch({
           const { op, value } = parsedQuery.amountFilter
           if (op === 'gt' && !(tx.amount > value)) return false
           if (op === 'lt' && !(tx.amount < value)) return false
+        }
+        // Un filtro de etiqueta exige que el movimiento las tenga TODAS: `#viaje
+        // #comida` es la intersección, no la unión — así se acota, no se ensancha.
+        if (tagFilters.length) {
+          const txTags = (tx.tags ?? []).map(normalizeSearchText)
+          if (!tagFilters.every(tag => txTags.includes(tag))) return false
         }
         if (!freeText) return true
 
@@ -106,6 +113,7 @@ export function MobileGlobalSearch({
         const to = getAccount(tx.toAccount, accounts)
         const haystack = normalizeSearchText([
           tx.note, category?.name, category && translateCategoryName(category, lang), account?.name, from?.name, to?.name,
+          ...(tx.tags ?? []),
           String(tx.amount), tx.amount.toFixed(2), fmt(tx.amount, currency).replace(/,/g, ''),
         ]
           .filter(Boolean)
@@ -115,6 +123,35 @@ export function MobileGlobalSearch({
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, MAX_TX_RESULTS)
   }, [transactions, categories, accounts, q, parsedQuery, synonymCategoryIds, lang, currency])
+
+  // Etiquetas del usuario, por frecuencia — se ofrecen como chips para que el
+  // filtro por `#tag` sea descubrible en vez de un truco oculto. Es la potencia
+  // dormida del modelo: las etiquetas ya se guardan, solo faltaba dónde tocarlas.
+  const topTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const tx of transactions) {
+      for (const tag of tx.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag).slice(0, 12)
+  }, [transactions])
+
+  // Total de lo filtrado por etiqueta (gastos), para responder «¿cuánto llevo
+  // en esto?» de un vistazo — el ejemplo del roadmap.
+  const tagFilterTotal = useMemo(() => {
+    if (!parsedQuery?.tagFilters.length) return null
+    return matchedTx
+      .filter(tx => tx.type === 'expense')
+      .reduce((sum, tx) => sum + tx.amount, 0)
+  }, [matchedTx, parsedQuery])
+
+  const toggleTag = (tag: string) => {
+    const token = `#${tag}`
+    const has = parsedQuery?.tagFilters.includes(normalizeSearchText(tag))
+    setQuery(prev => {
+      if (has) return prev.replace(new RegExp(`#${tag}\\b`, 'i'), '').replace(/\s+/g, ' ').trim()
+      return `${prev} ${token}`.replace(/\s+/g, ' ').trim()
+    })
+  }
 
   const hasResults = matchedAccounts.length > 0 || matchedCategories.length > 0
     || matchedGoals.length > 0 || matchedTx.length > 0
@@ -135,6 +172,32 @@ export function MobileGlobalSearch({
           onChange={event => setQuery(event.target.value)}
         />
       </label>
+
+      {topTags.length > 0 && (
+        <div className="mobile-search-tags" role="group" aria-label={t('filterByTagLabel')}>
+          {topTags.map(tag => {
+            const active = parsedQuery?.tagFilters.includes(normalizeSearchText(tag)) ?? false
+            return (
+              <button
+                key={tag}
+                type="button"
+                className={`mobile-search-tag${active ? ' on' : ''}`}
+                aria-pressed={active}
+                onClick={() => toggleTag(tag)}
+              >
+                <Icon name="tag" size={12} /> {tag}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {tagFilterTotal !== null && matchedTx.length > 0 && (
+        <div className="mobile-search-tagtotal">
+          <span>{t('tagTotalLabel').replace('{n}', String(matchedTx.length))}</span>
+          <strong className="expense">{fmt(tagFilterTotal, currency)}</strong>
+        </div>
+      )}
 
       {!q && (
         <div className="mobile-empty-list">

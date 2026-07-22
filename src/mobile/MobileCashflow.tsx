@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Icon } from '@/components/ui/Icon'
 import { projectCashflow } from '@/data/cashflowProjection'
-import { dateLocale, fmtCompact, localToday } from '@/data/helpers'
+import { currentMonthKey, dateLocale, fmtCompact, localToday, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -45,6 +45,33 @@ export function MobileCashflow() {
 
   const delta = projection.endBalance - projection.startBalance
   const goesNegative = projection.minBalance < 0
+
+  const [cutPct, setCutPct] = useState(20)
+
+  // Escenario a partir de tu RITMO real de gasto discrecional. La proyección de
+  // arriba solo cuenta eventos programados (recibos, aportes), así que asume que
+  // no gastas nada más — optimista. Aquí se estima lo que seguirás gastando al
+  // ritmo de este mes y se deja simular un recorte, para responder «¿y si
+  // aprieto?» en vez de solo mostrar un número fijo.
+  const scenario = useMemo(() => {
+    const monthTx = txForMonth(transactions, currentMonthKey())
+    // Discrecional = gasto de este mes que NO viene de una plantilla recurrente
+    // (esos ya los cuenta la proyección). Solo hasta hoy, para medir el ritmo.
+    const spentSoFar = monthTx
+      .filter(tx => tx.type === 'expense' && !tx.generatedFrom && tx.date <= today)
+      .reduce((sum, tx) => sum + tx.amount, 0)
+    const dayOfMonth = new Date(`${today}T00:00:00`).getDate()
+    const avgDaily = spentSoFar / Math.max(1, dayOfMonth)
+
+    const horizon = horizonDate('month', today)
+    const daysLeft = Math.max(0, Math.round(
+      (new Date(`${horizon}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86_400_000,
+    ))
+    const remaining = avgDaily * daysLeft
+    const paceEnd = projection.endBalance - remaining
+    const scenarioEnd = paceEnd + remaining * (cutPct / 100)
+    return { remaining, paceEnd, scenarioEnd, daysLeft, hasData: remaining > 0 }
+  }, [transactions, today, projection.endBalance, cutPct])
   const chartData = projection.series.map(point => ({
     date: point.date,
     balance: Math.round(point.balance * 100) / 100,
@@ -76,6 +103,30 @@ export function MobileCashflow() {
           {delta >= 0 ? '+' : ''}{fmtCompact(delta, currency)} · {t('cashflowVsToday')}
         </span>
       </div>
+
+      {scenario.hasData && (
+        <div className="mcash-scenario">
+          <div className="mcash-scenario-pace">
+            <small>{t('cashflowAtPaceLabel')}</small>
+            <b className={scenario.paceEnd < 0 ? 'text-expense' : ''}>{fmtVal(scenario.paceEnd, currency)}</b>
+          </div>
+          <label className="mcash-scenario-slider">
+            <span>{t('cashflowCutLabel').replace('{pct}', String(cutPct))}</span>
+            <input
+              type="range" min={0} max={60} step={5}
+              value={cutPct}
+              aria-label={t('cashflowCutLabel').replace('{pct}', String(cutPct))}
+              onChange={e => setCutPct(Number(e.target.value))}
+            />
+          </label>
+          <div className="mcash-scenario-result">
+            <span>{t('cashflowScenarioResult').replace('{pct}', String(cutPct))}</span>
+            <strong className={scenario.scenarioEnd < 0 ? 'text-expense' : 'text-income'}>
+              {fmtVal(scenario.scenarioEnd, currency)}
+            </strong>
+          </div>
+        </div>
+      )}
 
       {goesNegative && (
         <div className="mcash-warning" role="alert">

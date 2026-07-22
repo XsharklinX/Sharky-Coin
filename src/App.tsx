@@ -5,7 +5,8 @@ import { flushPendingFeedback } from '@/data/feedback'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
 import { currentMonthKey, monthKeys } from '@/data/helpers'
-import { ToastHost, toast } from '@/components/ui/Toast'
+import { ToastHost } from '@/components/ui/Toast'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { DialogProvider } from '@/components/ui/DialogProvider'
 import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
 import { TransactionForm } from '@/modals/TransactionForm'
@@ -162,20 +163,10 @@ export default function App() {
   const handleDeleteTx = (id: string) => {
     const tx = transactions.find(t => t.id === id)
     if (!tx) return
-    deleteTx(id)
-    toast(t('movementDeleted'), {
-      icon: 'trash',
-      duration: 5000,
-      action: {
-        label: t('undo'),
-        onClick: () => {
-          try {
-            addTx(tx)
-          } catch (error) {
-            toast(error instanceof Error ? error.message : t('couldNotSave'), { icon: 'alert' })
-          }
-        },
-      },
+    deleteWithUndo({
+      message: t('movementDeleted'),
+      onDelete: () => deleteTx(id),
+      onRestore: () => addTx(tx),
     })
   }
 

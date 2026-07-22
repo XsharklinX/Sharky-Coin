@@ -19,6 +19,8 @@ interface NotesState {
   addNote: (input: NewNote) => string
   updateNote: (id: string, patch: Partial<Omit<Note, 'id' | 'createdAt'>>) => void
   deleteNote: (id: string) => void
+  /** Reinserta una lista borrada tal cual (mismo id, mismos ítems) — «Deshacer». */
+  restoreNote: (note: Note) => void
   addItem: (noteId: string, item: Pick<NoteItem, 'text'> & Partial<NoteItem>) => void
   updateItem: (noteId: string, itemId: string, patch: Partial<Omit<NoteItem, 'id'>>) => void
   toggleItem: (noteId: string, itemId: string) => void
@@ -61,6 +63,11 @@ export const useNotes = create<NotesState>()(
       })),
 
       deleteNote: (id) => set(s => ({ notes: s.notes.filter(n => n.id !== id) })),
+
+      // Reinserta al principio (como una lista recién creada) preservando id e
+      // ítems. Se ignora si ya existe, por si se toca «Deshacer» dos veces.
+      restoreNote: (note) => set(s =>
+        s.notes.some(n => n.id === note.id) ? s : { notes: [note, ...s.notes] }),
 
       addItem: (noteId, item) => set(s => ({
         notes: s.notes.map(n => n.id === noteId

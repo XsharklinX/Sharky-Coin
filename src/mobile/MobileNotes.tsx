@@ -5,6 +5,7 @@ import { useDialogs } from '@/components/ui/DialogProvider'
 import { localToday, transactionsForTotals, txForMonth } from '@/data/helpers'
 import { itemLineTotal, itemPriceLabel, noteProgress, noteShareText, noteTotals, orderedItems, type Note, type NoteItem, type NoteType } from '@/data/notes'
 import { useNotes } from '@/store/notes'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
 import { shareText } from '@/lib/nativeShare'
@@ -197,7 +198,7 @@ function NoteDetail({ note, money, spent, onClose }: {
   const t = useT()
   const finance = useFinance()
   const { confirm } = useDialogs()
-  const { updateNote, deleteNote, duplicateNote, addItem, updateItem, toggleItem, removeItem } = useNotes.getState()
+  const { updateNote, deleteNote, restoreNote, duplicateNote, addItem, updateItem, toggleItem, removeItem } = useNotes.getState()
   const [newText, setNewText] = useState('')
   const addItemRef = useRef<HTMLInputElement>(null)
   const [editingItem, setEditingItem] = useState<NoteItem | null>(null)
@@ -441,7 +442,14 @@ function NoteDetail({ note, money, spent, onClose }: {
               <span>{t('deleteListConfirm')}</span>
               <div>
                 <button onClick={() => setConfirmDel(false)}>{t('cancel')}</button>
-                <button className="danger" onClick={() => { deleteNote(note.id); onClose() }}>{t('delete')}</button>
+                <button className="danger" onClick={() => {
+                  deleteWithUndo({
+                    message: t('listDeleted'),
+                    onDelete: () => deleteNote(note.id),
+                    onRestore: () => restoreNote(note),
+                  })
+                  onClose()
+                }}>{t('delete')}</button>
               </div>
             </div>
           )}

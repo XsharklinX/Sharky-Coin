@@ -8,7 +8,7 @@ import { currentRate } from '@/data/fxAlerts'
 import { fmt } from '@/data/helpers'
 import { useResolvedTheme } from '@/hooks/useResolvedTheme'
 import { useT } from '@/i18n'
-import { playSoundPreview } from '@/lib/sound'
+import { playSoundPreview, playSuccessHaptic } from '@/lib/sound'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import type { CurrencyCode, DensityName, OverdraftPolicy, ThemeName } from '@/types'
@@ -270,6 +270,27 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose, only }: Sheet
               </button>
             </div>
           )}
+          <div className="mset-row">
+            <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+              <Icon name="bell" size={18} />
+            </span>
+            <div className="mset-row-text">
+              <b>{t('hapticsLabel')}</b>
+              <small>{t('hapticsDesc')}</small>
+            </div>
+            <label className="mset-toggle-wrap">
+              <input
+                type="checkbox"
+                className="mset-toggle-input"
+                checked={settings.hapticsEnabled}
+                onChange={e => {
+                  settings.setHapticsEnabled(e.target.checked)
+                  if (e.target.checked) playSuccessHaptic()
+                }}
+              />
+              <span className="mset-toggle" />
+            </label>
+          </div>
         </div>
       </div>
       )}

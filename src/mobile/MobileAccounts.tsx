@@ -10,6 +10,7 @@ import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
 import { playAccountsSound, playConfirmSound, playDeleteSound } from '@/lib/sound'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { translateCategoryName, useT } from '@/i18n'
 import { useDialogA11y } from './useDialogA11y'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -46,7 +47,7 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
   onEditTx: (transaction: Transaction) => void
   onDeleteTx?: (id: string) => void
 }) {
-  const { accounts, transactions, currency, addAccount, updateAccount, deleteAccount } = useFinance()
+  const { accounts, transactions, currency, addAccount, updateAccount, deleteAccount, restoreAccount } = useFinance()
   const lang = useSettings(s => s.language)
   const fmtVal = useFmt()
   const t = useT()
@@ -82,9 +83,12 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
 
   const deleteAcc = (account: Account) => {
     try {
-      deleteAccount(account.id)
+      deleteWithUndo({
+        message: t('accountDeleted'),
+        onDelete: () => deleteAccount(account.id),
+        onRestore: () => restoreAccount(account),
+      })
       playDeleteSound()
-      toast(t('accountDeleted'), { icon: 'trash', type: 'ok' })
       setEditingAccount(null)
       setSelectedId(null)
     } catch (error) {

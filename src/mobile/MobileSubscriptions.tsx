@@ -4,6 +4,7 @@ import { BrandLogo } from '@/components/ui/BrandLogo'
 import { toast } from '@/components/ui/Toast'
 import { currentMonthKey, dateLocale, fmt, localToday } from '@/data/helpers'
 import { detectSubscriptions, subscriptionInsightKey as insightKey, type SubscriptionInsight } from '@/data/financeIntelligence'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { CURRENCIES } from '@/data/seed'
 import { SUBSCRIPTION_CATALOG, suggestedCategoryId, type SubscriptionCatalogItem } from '@/data/subscriptionCatalog'
 import { initialRecurringDates } from '@/data/subscriptionSchedule'
@@ -127,10 +128,22 @@ export function MobileSubscriptions() {
   const dismissed = useDismissals(state => state.dismissed)
   const dismissSuggestion = useDismissals(state => state.dismiss)
 
+  const allInsights = useMemo(
+    () => detectSubscriptions(transactions, currentMonthKey()),
+    [transactions],
+  )
+
   const detected = useMemo(
-    () => detectSubscriptions(transactions, currentMonthKey())
-      .filter(s => !s.alreadyRecurring && !dismissed.includes(insightKey(s))),
-    [transactions, dismissed],
+    () => allInsights.filter(s => !s.alreadyRecurring && !dismissed.includes(insightKey(s))),
+    [allInsights, dismissed],
+  )
+
+  // Subidas de precio en cualquier suscripción (incluidas las que ya son
+  // recurrentes, que quedan fuera de `detected`) — es el aviso «te subieron el
+  // precio», el punto donde de verdad conviene enterarse.
+  const priceHikes = useMemo(
+    () => allInsights.filter(s => s.priceIncrease && !dismissed.includes(insightKey(s))),
+    [allInsights, dismissed],
   )
 
   const handleEnd = (tx: Transaction) => {
@@ -150,8 +163,11 @@ export function MobileSubscriptions() {
   }
 
   const handleDelete = (tx: Transaction) => {
-    deleteTx(tx.id)
-    toast(t('deletedToast').replace('{name}', tx.note), { icon: 'trash', type: 'ok' })
+    deleteWithUndo({
+      message: t('deletedToast').replace('{name}', tx.note),
+      onDelete: () => deleteTx(tx.id),
+      onRestore: () => addTx(tx),
+    })
     setSheet(null)
   }
 
@@ -201,15 +217,13 @@ export function MobileSubscriptions() {
   if (recurring.length === 0 && detected.length === 0) {
     return (
       <div className="msub-root">
-        <div className="msub-header-row">
-          <button className="msub-add-btn" onClick={() => setAdding(true)}>
-            <Icon name="plus" size={16} /> {t('addSubscriptionLabel')}
-          </button>
-        </div>
         <div className="msub-empty">
           <Icon name="repeat" size={40} style={{ opacity: .2 }} />
           <p>{t('noRecurringPayments')}</p>
           <small>{t('addRecurringHint')}</small>
+          <button className="msub-empty-cta" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={16} /> {t('addFirstSubscription')}
+          </button>
         </div>
         {adding && (
           <AddSubscriptionSheet dialogRef={addRef} categories={categories} accounts={accounts} currency={currency}
@@ -226,6 +240,28 @@ export function MobileSubscriptions() {
           <Icon name="plus" size={16} /> {t('addSubscriptionLabel')}
         </button>
       </div>
+
+      {priceHikes.length > 0 && (
+        <div className="msub-hikes">
+          {priceHikes.map(hike => (
+            <div key={insightKey(hike)} className="msub-hike" role="alert">
+              <span className="msub-hike-icon"><Icon name="arrowUp" size={16} /></span>
+              <div className="msub-hike-text">
+                <b>{t('priceIncreaseTitle').replace('{name}', titleCase(hike.merchant))}</b>
+                <small>
+                  {t('priceIncreaseText')
+                    .replace('{from}', fmt(hike.priceIncrease!.from, currency))
+                    .replace('{to}', fmt(hike.priceIncrease!.to, currency))
+                    .replace('{pct}', String(hike.priceIncrease!.pct))}
+                </small>
+              </div>
+              <button className="msub-hike-dismiss" aria-label={t('ignoreSuggestionLabel')} onClick={() => dismissSuggestion(insightKey(hike))}>
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Hero stat */}
       {recurring.length > 0 && (

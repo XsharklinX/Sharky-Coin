@@ -6,6 +6,7 @@ import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
 import { monthsLabel, useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
 import { playConfirmSound, playDeleteSound } from '@/lib/sound'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
@@ -19,7 +20,7 @@ export function MobileDebt() {
   const { currency } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
-  const { debts, extraPayment, addDebt, updateDebt, deleteDebt, setExtraPayment } = useDebt()
+  const { debts, extraPayment, addDebt, updateDebt, deleteDebt, restoreDebt, setExtraPayment } = useDebt()
   const [method, setMethod] = useState<PayoffMethod>('avalanche')
   const [editing, setEditing] = useState<Debt | 'new' | null>(null)
   const [extraSheet, setExtraSheet] = useState(false)
@@ -174,9 +175,13 @@ export function MobileDebt() {
             setEditing(null)
           }}
           onDelete={editing !== 'new' ? () => {
-            deleteDebt(editing.id)
+            const debt = editing
+            deleteWithUndo({
+              message: t('debtDeleted'),
+              onDelete: () => deleteDebt(debt.id),
+              onRestore: () => restoreDebt(debt),
+            })
             playDeleteSound()
-            toast(t('debtDeleted'), { icon: 'trash' })
             setEditing(null)
           } : undefined}
         />

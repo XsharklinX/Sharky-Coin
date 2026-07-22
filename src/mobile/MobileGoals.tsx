@@ -4,7 +4,7 @@ import { sheetRoot } from './SheetPortal'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useFinance } from '@/store/finance'
-import { useDialogs } from '@/components/ui/DialogProvider'
+import { deleteWithUndo } from '@/lib/undoDelete'
 import { useSettings } from '@/store/settings'
 import { dateLocale, fmt, localToday, savingsBalance } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
@@ -878,14 +878,22 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
 
 export function MobileGoals(_props: ViewProps) {
   const t = useT()
-  const { accounts, goals, addGoal, updateGoal, deleteGoal, currency } = useFinance()
-  const { confirm } = useDialogs()
+  const { accounts, goals, goalContributions, addGoal, updateGoal, deleteGoal, restoreGoal, currency } = useFinance()
   const [sheet, setSheet] = useState<Sheet>(null)
   const [contributeGoal, setContributeGoal] = useState<Goal | null>(null)
 
+  // Sin diálogo de confirmación: borra al momento y ofrece «Deshacer» 5 s. Se
+  // captura la meta y sus aportes antes de borrar para poder recomponerla
+  // entera — borrar una meta se lleva también su historial de aportes.
   const askDelete = (g: Goal) => {
-    void confirm({ title: t('deleteGoalConfirmTitle').replace('{name}', g.name), description: t('actionCannotBeUndone'), confirmLabel: t('delete'), icon: 'trash' })
-      .then(ok => { if (ok) { playDeleteSound(); deleteGoal(g.id); setSheet(null) } })
+    const contribs = goalContributions.filter(c => c.goalId === g.id)
+    playDeleteSound()
+    deleteWithUndo({
+      message: t('goalDeleted'),
+      onDelete: () => deleteGoal(g.id),
+      onRestore: () => restoreGoal(g, contribs),
+    })
+    setSheet(null)
   }
 
   const totalSaved  = goals.reduce((s, g) => s + g.saved, 0)

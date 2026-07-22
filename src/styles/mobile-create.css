@@ -57,6 +57,41 @@
     height: 34px;
     width: 34px;
   }
+  /* Barra de alta por lenguaje natural. El rayo la marca como "atajo mágico";
+     el fondo tintado con el acento la separa de un input normal. */
+  .mobile-smart-add {
+    align-items: center;
+    background: color-mix(in oklab, var(--m-primary) 9%, var(--m-surface));
+    border: 1px solid color-mix(in oklab, var(--m-primary) 26%, transparent);
+    border-radius: 14px;
+    display: flex;
+    gap: 9px;
+    margin: 12px 0 2px;
+    padding: 0 12px;
+  }
+  .mobile-smart-add > svg { color: var(--m-primary); flex: none; }
+  .mobile-smart-add input {
+    background: transparent;
+    border: 0;
+    color: var(--m-text);
+    flex: 1;
+    font-size: 14px;
+    min-height: 46px;
+    outline: 0;
+  }
+  .mobile-smart-add-go {
+    align-items: center;
+    background: var(--m-primary);
+    border: 0;
+    border-radius: 10px;
+    color: var(--m-primary-text);
+    display: flex;
+    flex: none;
+    height: 32px;
+    justify-content: center;
+    width: 32px;
+  }
+
   .mobile-create-section-header {
     align-items: center;
     display: flex;
@@ -68,6 +103,17 @@
     font-weight: 850;
     letter-spacing: .07em;
     text-transform: uppercase;
+  }
+  /* Pista de "mantén pulsado para editar": empujada a la derecha, junto al
+     botón Nueva, en un tono apagado para no competir con el título. */
+  .mobile-create-hint {
+    color: var(--m-muted);
+    font-size: 10.5px;
+    font-style: normal;
+    font-weight: 650;
+    margin-left: auto;
+    margin-right: 10px;
+    opacity: .8;
   }
   .mobile-create-new-btn {
     align-items: center;

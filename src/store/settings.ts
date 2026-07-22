@@ -28,6 +28,10 @@ interface SettingsState {
   soundsEnabled: boolean
   soundProfile: 'silent' | 'soft' | 'full'
   soundVolume: number
+  /** Vibración al tocar/confirmar/borrar. Independiente del sonido: en modo
+   *  silencio la vibración es justo lo que sustituye al audio, así que no debe
+   *  apagarse con él. */
+  hapticsEnabled: boolean
   compactNumbers: boolean
   dismissedAlerts: string[]
   /**
@@ -43,6 +47,9 @@ interface SettingsState {
   remindersEnabled: boolean
   quickAddNotification: boolean
   widgetAccountIds: string[]
+  /** Cuándo se guardó la última copia MANUAL (ISO). El backup semanal usa
+   *  lastWeeklyBackupAt; la tarjeta de estado toma la más reciente de las dos. */
+  lastManualBackupAt: string | null
   lastWeeklyBackupAt: string | null
   weeklyAutoBackupEnabled: boolean
   weeklyAutoBackupDay: number
@@ -75,6 +82,7 @@ interface SettingsState {
   setAppPattern: (v: string | null) => void
   setSoundsEnabled: (v: boolean) => void
   setSoundProfile: (v: SettingsState['soundProfile']) => void
+  setHapticsEnabled: (v: boolean) => void
   setSoundVolume: (v: number) => void
   setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
@@ -86,6 +94,7 @@ interface SettingsState {
   setQuickAddNotification: (v: boolean) => void
   setWidgetAccountIds: (ids: string[]) => void
   setLastWeeklyBackupAt: (v: string | null) => void
+  setLastManualBackupAt: (v: string | null) => void
   setWeeklyAutoBackupEnabled: (v: boolean) => void
   setWeeklyAutoBackupDay: (v: number) => void
   setWeeklyAutoBackupHour: (v: number) => void
@@ -119,6 +128,7 @@ export const useSettings = create<SettingsState>()(
       appPin: null,
       appPattern: null,
       soundsEnabled: true,
+      hapticsEnabled: true,
       soundProfile: 'soft',
       soundVolume: 0.55,
       compactNumbers: false,
@@ -129,6 +139,7 @@ export const useSettings = create<SettingsState>()(
       remindersEnabled: true,
       quickAddNotification: false,
       widgetAccountIds: [],
+      lastManualBackupAt: null,
       lastWeeklyBackupAt: null,
       weeklyAutoBackupEnabled: true,
       weeklyAutoBackupDay: 1,
@@ -175,6 +186,7 @@ export const useSettings = create<SettingsState>()(
         }
       }),
       setSoundsEnabled: (soundsEnabled) => set({ soundsEnabled }),
+      setHapticsEnabled: (hapticsEnabled) => set({ hapticsEnabled }),
       setSoundProfile: (soundProfile) => set({
         soundProfile,
         soundsEnabled: soundProfile !== 'silent',
@@ -197,6 +209,7 @@ export const useSettings = create<SettingsState>()(
       setQuickAddNotification: (quickAddNotification) => set({ quickAddNotification }),
       setWidgetAccountIds: (widgetAccountIds) => set({ widgetAccountIds }),
       setLastWeeklyBackupAt: (lastWeeklyBackupAt) => set({ lastWeeklyBackupAt }),
+      setLastManualBackupAt: (lastManualBackupAt) => set({ lastManualBackupAt }),
       setWeeklyAutoBackupEnabled: (weeklyAutoBackupEnabled) => set({ weeklyAutoBackupEnabled }),
       setWeeklyAutoBackupDay: (weeklyAutoBackupDay) => set({ weeklyAutoBackupDay: Math.max(0, Math.min(6, weeklyAutoBackupDay)) }),
       setWeeklyAutoBackupHour: (weeklyAutoBackupHour) => set({ weeklyAutoBackupHour: Math.max(0, Math.min(23, weeklyAutoBackupHour)) }),

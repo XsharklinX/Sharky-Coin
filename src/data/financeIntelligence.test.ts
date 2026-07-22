@@ -67,3 +67,29 @@ describe('finance intelligence', () => {
     expect(newTrend).toMatchObject({ previousAvg: 0, delta: 300, amount: 300 })
   })
 })
+
+describe('detectSubscriptions — subida de precio', () => {
+  const base = (amounts: number[]): Transaction[] =>
+    ['2026-01-08', '2026-02-08', '2026-03-08', '2026-04-08'].map((date, i) => ({
+      id: `spotify-${i}`, type: 'expense' as const, amount: amounts[i], date,
+      note: 'Spotify', categoryId: 'cat_serv', accountId: 'cash',
+    }))
+
+  it('marca priceIncrease cuando el último cargo sube >5%', () => {
+    const insight = detectSubscriptions(base([199, 199, 199, 299]), '2026-04')
+      .find(s => s.merchant === 'spotify')
+    expect(insight?.priceIncrease).toEqual({ from: 199, to: 299, pct: 50 })
+  })
+
+  it('ignora variaciones pequeñas (redondeo / cambio de divisa)', () => {
+    const insight = detectSubscriptions(base([199, 199, 199, 203]), '2026-04')
+      .find(s => s.merchant === 'spotify')
+    expect(insight?.priceIncrease).toBeUndefined()
+  })
+
+  it('no marca subida si el precio bajó', () => {
+    const insight = detectSubscriptions(base([299, 299, 299, 199]), '2026-04')
+      .find(s => s.merchant === 'spotify')
+    expect(insight?.priceIncrease).toBeUndefined()
+  })
+})

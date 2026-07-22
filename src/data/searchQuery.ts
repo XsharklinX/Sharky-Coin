@@ -57,6 +57,20 @@ export interface ParsedSearchQuery {
   freeText: string
   amountFilter?: AmountFilter
   monthFilter?: MonthFilter
+  /** Etiquetas escritas con `#` (ya normalizadas, sin el `#`). Vacío si no hay. */
+  tagFilters: string[]
+}
+
+// Etiquetas escritas como `#viaje`. Se aceptan letras, dígitos, guion y guion
+// bajo — mismo alfabeto con el que el formulario guarda una etiqueta. Se
+// extraen antes que nada para que su `#` no confunda al resto de filtros.
+function extractTagFilters(text: string): { text: string; tags: string[] } {
+  const tags: string[] = []
+  const stripped = text.replace(/#([\p{L}\p{N}_-]+)/gu, (_, tag: string) => {
+    tags.push(clean(tag))
+    return ' '
+  })
+  return { text: stripped.replace(/\s+/g, ' ').trim(), tags }
 }
 
 function extractAmountFilter(text: string): { text: string; filter?: AmountFilter } {
@@ -112,12 +126,14 @@ function extractMonthFilter(text: string, now: Date): { text: string; filter?: M
 
 export function parseSearchQuery(raw: string, now = new Date()): ParsedSearchQuery {
   const normalized = clean(raw).replace(/\s+/g, ' ')
-  const afterAmount = extractAmountFilter(normalized)
+  const afterTags = extractTagFilters(normalized)
+  const afterAmount = extractAmountFilter(afterTags.text)
   const afterMonth = extractMonthFilter(afterAmount.text, now)
   return {
     freeText: afterMonth.text.replace(/\s+/g, ' ').trim(),
     amountFilter: afterAmount.filter,
     monthFilter: afterMonth.filter,
+    tagFilters: afterTags.tags,
   }
 }
 

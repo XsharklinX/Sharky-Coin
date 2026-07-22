@@ -24,6 +24,8 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: Sh
   const health  = getDataHealthStatus(finance, auth.user?.id)
   const lang    = useSettings(s => s.language)
   const lastWeeklyBackupAt = useSettings(s => s.lastWeeklyBackupAt)
+  const lastManualBackupAt = useSettings(s => s.lastManualBackupAt)
+  const setLastManualBackupAt = useSettings(s => s.setLastManualBackupAt)
   const weeklyAutoBackupEnabled = useSettings(s => s.weeklyAutoBackupEnabled)
   const weeklyAutoBackupDay = useSettings(s => s.weeklyAutoBackupDay)
   const weeklyAutoBackupHour = useSettings(s => s.weeklyAutoBackupHour)
@@ -84,6 +86,29 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: Sh
     ? `${weekdayLabels[weeklyAutoBackupDay]} - ${String(weeklyAutoBackupHour).padStart(2, '0')}:00`
     : t('backupAutoDisabled')
 
+  // Salud de la copia: la más reciente entre la manual y la semanal. Se colorea
+  // por antigüedad para que «¿estoy a salvo?» se responda de un vistazo, que es
+  // justo lo que faltaba — antes la fecha estaba enterrada en una fila y solo
+  // para el backup semanal.
+  const backupDates = [lastManualBackupAt, lastWeeklyBackupAt]
+    .filter((v): v is string => !!v)
+    .sort()
+  const lastBackupAt = backupDates.length ? backupDates[backupDates.length - 1] : null
+  const backupHealth = (() => {
+    if (!lastBackupAt) return { level: 'never' as const, days: Infinity }
+    const days = Math.floor((Date.now() - new Date(lastBackupAt).getTime()) / 86_400_000)
+    const level = days <= 7 ? 'fresh' as const : days <= 30 ? 'stale' as const : 'old' as const
+    return { level, days }
+  })()
+  const backupHealthText = (() => {
+    if (backupHealth.level === 'never') return t('backupNever')
+    if (backupHealth.days <= 0) return t('backupToday')
+    if (backupHealth.days === 1) return t('backupYesterday')
+    return t('backupDaysAgo').replace('{n}', String(backupHealth.days))
+  })()
+  const backupHealthColor = backupHealth.level === 'fresh' ? '#35d0a2'
+    : backupHealth.level === 'stale' ? '#f59e0b' : '#ff6b8a'
+
   // Limpiar reset cuando el sheet se cierra
   useEffect(() => { if (activeSheet !== 'reset') setPendingReset(false) }, [activeSheet])
   useEffect(() => {
@@ -97,6 +122,10 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: Sh
       const json = JSON.stringify(createBackup(finance), null, 2)
       const payload = passphrase ? await encryptWithPassphrase(json, passphrase) : json
       const saved = await saveBackup(payload, weeklyBackupFolder)
+      // Solo se marca como respaldado si de verdad se guardó (en web el usuario
+      // pudo cancelar el selector de archivo) — si no, la tarjeta de estado
+      // mentiría diciendo que hay copia reciente cuando no la hay.
+      if (saved) setLastManualBackupAt(new Date().toISOString())
       if (saved && isTauri()) toast(t('backupSavedToFolder'), { icon: 'check', type: 'ok' })
       onClose()
     } catch (error) {
@@ -104,6 +133,25 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: Sh
       toast(error instanceof Error ? error.message : t('exportError'), { icon: 'alert' })
     } finally {
       setExporting(false)
+    }
+  }
+
+  // Verifica que los datos actuales se pueden respaldar Y volver a leer sin
+  // errores: crea la copia en memoria, la serializa y la vuelve a parsear con
+  // el MISMO validador que usa restaurar. Comprobar que los conteos calzan
+  // descarta una copia truncada. No toca nada — es una prueba en seco de que,
+  // si algún día tienes que restaurar, la copia servirá.
+  const verifyBackupIntegrity = () => {
+    try {
+      const json = JSON.stringify(createBackup(finance))
+      const parsed = parseBackup(json)
+      const intact = parsed.transactions.length === finance.transactions.length
+        && parsed.accounts.length === finance.accounts.length
+        && parsed.goals.length === finance.goals.length
+      if (!intact) throw new Error(t('verifyBackupMismatch'))
+      toast(t('verifyBackupOk'), { icon: 'check', type: 'ok' })
+    } catch (error) {
+      toast(error instanceof Error ? error.message : t('verifyBackupFailed'), { icon: 'alert' })
     }
   }
 
@@ -206,6 +254,18 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: Sh
 
   const cards = (
     <>
+      <button
+        className="mset-backup-health"
+        style={{ borderColor: `color-mix(in oklab, ${backupHealthColor} 45%, transparent)` }}
+        onClick={() => onOpen('export')}
+      >
+        <span className="mset-backup-health-dot" style={{ background: backupHealthColor }} />
+        <span className="mset-backup-health-text">
+          <strong>{t('backupHealthTitle')}</strong>
+          <small>{backupHealthText}{backupHealth.level === 'never' ? '' : ` · ${t('backupTapToUpdate')}`}</small>
+        </span>
+        <Icon name={backupHealth.level === 'fresh' ? 'check' : 'download'} size={18} style={{ color: backupHealthColor }} />
+      </button>
       <div className="mset-card">
         <div className="mset-stats">
           <div><strong>{health.transactions}</strong><small>{t('transactionsLabel')}</small></div>
@@ -273,6 +333,11 @@ export function SettingsData({ mkey, activeSheet, onOpen, onClose, grouped }: Sh
               <SettingsRow icon="download" iconColor="#a78bfa"
                 label={exportingPdf ? t('generatingPdf') : t('statementOfMonth').replace('{month}', monthLabel(mkey))}
                 onClick={() => { if (!exportingPdf) void handleExportPdf() }} />
+            </div>
+            <div className="mset-card" style={{ margin: 0 }}>
+              <SettingsRow icon="shield" iconColor="#35d0a2" label={t('verifyBackupLabel')}
+                sublabel={t('verifyBackupSub')}
+                onClick={verifyBackupIntegrity} />
             </div>
           </div>
         </SettingsSheet>
