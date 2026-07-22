@@ -30,6 +30,14 @@ interface SettingsState {
   soundVolume: number
   compactNumbers: boolean
   dismissedAlerts: string[]
+  /**
+   * Pagos recurrentes (ids de plantilla) que no deben volver a avisar NUNCA.
+   * Va aparte de `dismissedAlerts` porque aquel descarta por ocurrencia
+   * (`recurring:{id}:{fecha}`) y el aviso reaparecía al mes siguiente con id
+   * nueva — para un cargo que el usuario hace a mano y ya tiene controlado,
+   * eso es ruido permanente.
+   */
+  silencedRecurring: string[]
   notifiedAlerts: string[]
   hasSeenOnboarding: boolean
   remindersEnabled: boolean
@@ -70,6 +78,8 @@ interface SettingsState {
   setSoundVolume: (v: number) => void
   setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
+  silenceRecurring: (transactionId: string) => void
+  unsilenceRecurring: (transactionId: string) => void
   markAlertNotified: (id: string) => void
   markOnboardingSeen: () => void
   setRemindersEnabled: (v: boolean) => void
@@ -113,6 +123,7 @@ export const useSettings = create<SettingsState>()(
       soundVolume: 0.55,
       compactNumbers: false,
       dismissedAlerts: [],
+      silencedRecurring: [],
       notifiedAlerts: [],
       hasSeenOnboarding: false,
       remindersEnabled: true,
@@ -173,6 +184,12 @@ export const useSettings = create<SettingsState>()(
       setCompactNumbers: (compactNumbers) => set({ compactNumbers }),
       dismissAlert: (id) => set(state =>
         state.dismissedAlerts.includes(id) ? state : { dismissedAlerts: [...state.dismissedAlerts, id] }),
+      silenceRecurring: (transactionId) => set(state =>
+        state.silencedRecurring.includes(transactionId)
+          ? state
+          : { silencedRecurring: [...state.silencedRecurring, transactionId] }),
+      unsilenceRecurring: (transactionId) => set(state =>
+        ({ silencedRecurring: state.silencedRecurring.filter(id => id !== transactionId) })),
       markAlertNotified: (id) => set(state =>
         state.notifiedAlerts.includes(id) ? state : { notifiedAlerts: [...state.notifiedAlerts, id] }),
       markOnboardingSeen: () => set({ hasSeenOnboarding: true }),

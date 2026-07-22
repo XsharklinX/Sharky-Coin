@@ -12,6 +12,16 @@ export interface SubscriptionInsight {
   alreadyRecurring: boolean
 }
 
+/**
+ * Identidad estable de una sugerencia de suscripción, para recordar que el
+ * usuario ya la rechazó. Vive aquí y no en una vista porque la misma
+ * sugerencia se muestra en dos pantallas (Suscripciones y Análisis) y
+ * rechazarla en una debe valer para la otra.
+ */
+export function subscriptionInsightKey(item: Pick<SubscriptionInsight, 'merchant' | 'categoryId' | 'accountId'>): string {
+  return `${item.merchant}|${item.categoryId ?? ''}|${item.accountId ?? ''}`
+}
+
 export interface CashflowProjection {
   horizonDays: 30 | 60 | 90
   projectedNet: number

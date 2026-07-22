@@ -342,8 +342,8 @@
   /* ── Banner "¿es la compra de tu lista?" ── */
   .mobile-create-list-match {
     align-items: center;
-    background: color-mix(in oklab, #35d0a2 12%, var(--m-surface));
-    border: 1px solid color-mix(in oklab, #35d0a2 30%, transparent);
+    background: color-mix(in oklab, var(--m-income) 12%, var(--m-surface));
+    border: 1px solid color-mix(in oklab, var(--m-income) 30%, transparent);
     border-radius: 14px;
     display: flex;
     gap: 10px;
@@ -352,9 +352,9 @@
   }
   .mobile-create-list-match-icon {
     align-items: center;
-    background: color-mix(in oklab, #35d0a2 18%, transparent);
+    background: color-mix(in oklab, var(--m-income) 18%, transparent);
     border-radius: 9px;
-    color: #35d0a2;
+    color: var(--m-income);
     display: flex;
     flex-shrink: 0;
     height: 30px;
@@ -385,7 +385,7 @@
     padding: 0 12px;
   }
   .mobile-create-list-match-actions button.primary {
-    background: #35d0a2;
+    background: var(--m-income);
     color: #06121c;
   }
   /* Quick row above the keypad: account icon · note · date — all part of the bottom panel */
@@ -506,17 +506,17 @@
   }
   .mobile-back-button {
     align-items: center;
-    background: color-mix(in oklab, #ff6b8a 16%, var(--m-surface-2));
-    border: 1px solid color-mix(in oklab, #ff6b8a 28%, transparent);
+    background: color-mix(in oklab, var(--m-expense) 16%, var(--m-surface-2));
+    border: 1px solid color-mix(in oklab, var(--m-expense) 28%, transparent);
     border-radius: 12px;
-    color: #ff6b8a;
+    color: var(--m-expense);
     display: grid;
     min-height: 50px;
     place-items: center;
     transition: background .07s;
   }
   .mobile-back-button:active {
-    background: color-mix(in oklab, #ff6b8a 28%, var(--m-surface-2));
+    background: color-mix(in oklab, var(--m-expense) 28%, var(--m-surface-2));
     transform: scale(.96);
   }
   /* Account picker sheet */
@@ -901,7 +901,7 @@
   /* "Listo" — segunda celda de la columna de acciones, debajo de "borrar" */
   .mobile-done-button {
     align-items: center;
-    background: #35d0a2;
+    background: var(--m-income);
     border: 0;
     border-radius: 12px;
     box-shadow: 0 4px 14px rgba(53,208,162,.28);
@@ -974,7 +974,12 @@
      recurrentes, metas…). Debe quedar por encima de cualquiera de ellos —el
      editor de presupuestos usa z-index 260— o su numpad aparece atenuado detrás
      del backdrop del editor y los toques cierran el editor en vez de escribir. */
-  .mamt-overlay { z-index: 420; }
+  /* El numpad SIEMPRE se abre desde otro sheet (editar ítem de una lista, meta,
+     presupuesto…), así que debe quedar por encima de todos ellos. Estaba en 420
+     y el editor de ítem de Listas usa 440: el numpad abría pero se dibujaba
+     detrás, y parecía que el botón de precio "no hacía nada".
+     460 = sobre cualquier sheet (máx. 440) y bajo modales (500) y toasts (600). */
+  .mamt-overlay { z-index: 460; }
   .mamt-sheet {
     background: var(--m-bg, #0f0f10);
     border-radius: 28px 28px 0 0;
@@ -1034,9 +1039,9 @@
     padding: 6px 14px;
   }
   .mamt-sign-toggle.on {
-    background: color-mix(in oklab, var(--expense, #ff6b8a) 18%, transparent);
-    border-color: var(--expense, #ff6b8a);
-    color: var(--expense, #ff6b8a);
+    background: color-mix(in oklab, var(--expense, var(--m-expense)) 18%, transparent);
+    border-color: var(--expense, var(--m-expense));
+    color: var(--expense, var(--m-expense));
   }
   .mamt-keypad {
     padding: 4px 16px calc(20px + env(safe-area-inset-bottom));

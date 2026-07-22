@@ -29,12 +29,29 @@ class BankNotificationsPlugin(private val activity: Activity) : Plugin(activity)
         }
     }
 
+    /**
+     * Estado real de la captura. Distingue dos cosas que NO son lo mismo:
+     *  - `granted`   : el usuario concedió el acceso a notificaciones.
+     *  - `connected` : el sistema tiene el listener VINCULADO ahora mismo.
+     *
+     * Tras actualizar el APK, Android desvincula el listener y no lo revincula
+     * solo: quedaba `granted=true` pero `connected=false`, o sea, permiso OK y
+     * cero detecciones. Aquí, si detectamos ese estado, pedimos el re-vínculo
+     * para que se repare solo al abrir la app.
+     */
     @Command
     fun hasAccess(invoke: Invoke) {
         val granted = NotificationManagerCompat.getEnabledListenerPackages(activity)
             .contains(activity.packageName)
+        val connected = BankNotificationListenerService.isConnected
+
+        if (granted && !connected) {
+            BankNotificationListenerService.requestRebindNow(activity.applicationContext)
+        }
+
         val ret = JSObject()
         ret.put("granted", granted)
+        ret.put("connected", connected)
         invoke.resolve(ret)
     }
 

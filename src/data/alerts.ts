@@ -26,6 +26,7 @@ export function getMobileAlerts(
   todayStr = localToday(),
   locale = 'es-DO',
   dismissedAlerts: string[] = [],
+  silencedRecurring: string[] = [],
 ): MobileAlert[] {
   const mkey = currentMonthKey()
   const monthTx = txForMonth(transactions, mkey)
@@ -61,7 +62,11 @@ export function getMobileAlerts(
   limit.setDate(limit.getDate() + DUE_SOON_DAYS)
   const limitStr = localToday(limit)
 
-  transactions.filter(tx => tx.recurring).forEach(template => {
+  // El silenciado va por plantilla, no por ocurrencia: descartar el aviso de
+  // este mes no debe bastar para que no vuelva el mes que viene.
+  const silenced = new Set(silencedRecurring)
+
+  transactions.filter(tx => tx.recurring && !silenced.has(tx.id)).forEach(template => {
     const next = firstRecurrenceDate(template)
     if (next < todayStr || next > limitStr) return
     if (template.recurringEnd && next > template.recurringEnd) return

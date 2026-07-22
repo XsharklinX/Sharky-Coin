@@ -15,6 +15,5 @@
     <string name="widget_description">Saldo total de $harky y accesos rápidos</string>
     <string name="widget_empty_state">Abre $harky para sincronizar</string>
     <string name="widget_net_worth">Patrimonio total</string>
-    <string name="widget_quickadd_caption">Gasto</string>
     <string name="widget_quickadd_description">Acceso directo: agregar un gasto</string>
 </resources>

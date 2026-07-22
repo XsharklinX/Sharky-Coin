@@ -5,7 +5,8 @@ import { projectCashflow } from '@/data/cashflowProjection'
 import { accountBalanceInBase, localToday, totalBalanceInBase, visibleAccounts } from '@/data/helpers'
 import { useFmt } from '@/hooks/useFmt'
 import { useT, type LangKey } from '@/i18n'
-import { processAvatarPhoto } from '@/lib/avatarPhoto'
+import { AvatarCropper } from '@/components/AvatarCropper'
+import { canPickImageNative, pickImageNative } from '@/lib/nativeFiles'
 import { monthsLabel, simulatePayoff, useDebt } from '@/store/debt'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -49,28 +50,39 @@ export function MobileProfile({
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState(displayName || userName || '')
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false)
+  const [cropSource, setCropSource] = useState<File | string | null>(null)
 
   const effectiveName = displayName || userName || ''
   const initial = effectiveName ? effectiveName.slice(0, 1).toUpperCase() : '$'
 
-  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
-    try {
-      const dataUrl = await processAvatarPhoto(file)
-      setProfilePhoto(dataUrl)
-      toast(t('photoUpdatedToast'), { icon: 'check', type: 'ok' })
-    } catch {
-      toast(t('photoUpdateError'), { icon: 'alert' })
+    if (file) setCropSource(file)
+  }
+
+  // En Android se usa el selector nativo (menú de galerías); si no está
+  // disponible o falla, cae en silencio al <input type="file"> de siempre —
+  // avisar del fallo Y abrir otro selector a continuación solo confunde,
+  // porque el usuario igual acaba eligiendo su foto.
+  const openPhotoPicker = async () => {
+    if (canPickImageNative()) {
+      try {
+        const dataUrl = await pickImageNative({ chooserTitle: t('choosePhotoWith'), browseLabel: t('browseFilesLabel') })
+        if (dataUrl) setCropSource(dataUrl)
+        return
+      } catch {
+        // sin selector nativo — sigue al input de abajo
+      }
     }
+    photoInputRef.current?.click()
   }
 
   const handleAvatarClick = () => {
     if (profilePhoto) {
       setPhotoMenuOpen(v => !v)
     } else {
-      photoInputRef.current?.click()
+      void openPhotoPicker()
     }
   }
 
@@ -127,7 +139,7 @@ export function MobileProfile({
               <div className="mpr-photo-menu" role="menu">
                 <button
                   role="menuitem"
-                  onClick={() => { setPhotoMenuOpen(false); photoInputRef.current?.click() }}
+                  onClick={() => { setPhotoMenuOpen(false); void openPhotoPicker() }}
                 >
                   <Icon name="camera" size={14} /> {t('changePhotoLabel')}
                 </button>
@@ -151,8 +163,19 @@ export function MobileProfile({
           type="file"
           accept="image/*"
           style={{ display: 'none' }}
-          onChange={e => void handlePhotoChange(e)}
+          onChange={handlePhotoChange}
         />
+        {cropSource && (
+          <AvatarCropper
+            file={cropSource}
+            onCancel={() => setCropSource(null)}
+            onDone={dataUrl => {
+              setProfilePhoto(dataUrl)
+              setCropSource(null)
+              toast(t('photoUpdatedToast'), { icon: 'check', type: 'ok' })
+            }}
+          />
+        )}
 
         {editingName ? (
           <div className="mpr-name-editor">

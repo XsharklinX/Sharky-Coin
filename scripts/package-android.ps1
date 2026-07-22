@@ -41,6 +41,50 @@ Set-Location $repoRoot
 
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
+# Cargo cachea rutas ABSOLUTAS dentro de target/ (.fingerprint y el `output` de
+# cada build script). Si el repo se copia o mueve a otra ruta arrastrando esa
+# carpeta, el build script de tauri sigue apuntando a la ruta vieja y el build
+# revienta con "failed to read plugin permissions: ... (os error 3)" — a veces
+# solo en algunos ABIs, porque los demas se regeneraron por casualidad.
+# Se sella la ruta del repo y, si no coincide, se invalida el cache entero.
+function Assert-CargoTargetRoot {
+  param([string]$TargetDir)
+
+  if (!(Test-Path -LiteralPath $TargetDir)) { return }
+
+  $stampFile = Join-Path $TargetDir '.sharky-repo-root'
+  $stamped = if (Test-Path -LiteralPath $stampFile) {
+    (Get-Content -LiteralPath $stampFile -Raw).Trim()
+  } else {
+    ''
+  }
+
+  if ($stamped -ne "$repoRoot") {
+    if ($stamped) {
+      Write-Host "Cache de cargo generado en '$stamped' pero el repo esta en '$repoRoot'; se borra $TargetDir."
+    } else {
+      Write-Host "Cache de cargo sin sello de ruta; se borra $TargetDir por seguridad."
+    }
+    Remove-Item -LiteralPath $TargetDir -Recurse -Force
+  }
+}
+
+$cargoTargetDirs = @((Join-Path $repoRoot 'src-tauri\target')) +
+  @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'plugins') -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { Join-Path $_.FullName 'target' })
+
+foreach ($targetDir in $cargoTargetDirs) {
+  Assert-CargoTargetRoot -TargetDir $targetDir
+}
+
+function Write-CargoTargetStamps {
+  foreach ($targetDir in $cargoTargetDirs) {
+    if (Test-Path -LiteralPath $targetDir) {
+      Set-Content -LiteralPath (Join-Path $targetDir '.sharky-repo-root') -Value "$repoRoot" -NoNewline
+    }
+  }
+}
+
 function Get-TauriVersionProps {
   param([string]$Path)
 
@@ -130,10 +174,12 @@ if ($Mode -eq 'build') {
 switch ($Mode) {
   'dev' {
     npm run tauri -- android dev
+    Write-CargoTargetStamps
     exit $LASTEXITCODE
   }
   'run' {
     npm run tauri -- android run
+    Write-CargoTargetStamps
     exit $LASTEXITCODE
   }
   'build' {
@@ -144,9 +190,12 @@ switch ($Mode) {
     if ($Target -ne 'all') { $buildArgs += @('--target', $Target) }
     npm @buildArgs
     if ($LASTEXITCODE -ne 0) {
+      Write-CargoTargetStamps
       Restore-VersionedFiles
       exit $LASTEXITCODE
     }
+
+    Write-CargoTargetStamps
 
     Set-Content -LiteralPath $androidVersionStateFile -Value $env:SHARKY_ANDROID_VERSION_CODE -NoNewline
   }

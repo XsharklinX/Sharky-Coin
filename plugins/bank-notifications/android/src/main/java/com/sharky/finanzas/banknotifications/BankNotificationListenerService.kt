@@ -1,6 +1,8 @@
 package com.sharky.finanzas.banknotifications
 
 import android.app.Notification
+import android.content.ComponentName
+import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
@@ -35,6 +37,35 @@ class BankNotificationListenerService : NotificationListenerService() {
         internal val FILE_LOCK = Any()
         private const val MAX_PENDING = 60
 
+        /**
+         * ¿El sistema tiene el listener VINCULADO ahora mismo?
+         *
+         * Ojo: "permiso concedido" y "servicio vinculado" son cosas distintas.
+         * Al actualizar/reinstalar el APK, Android desvincula el listener y NO
+         * lo revincula solo, aunque el permiso siga concedido — el servicio deja
+         * de recibir avisos en silencio y Ajustes seguía diciendo "concedido".
+         * Esta bandera permite detectar ese estado y repararlo.
+         */
+        @Volatile
+        internal var isConnected: Boolean = false
+
+        /**
+         * Pide al sistema volver a vincular el listener (API 24+; minSdk = 24).
+         *
+         * Se llama al static de NotificationListenerService de forma explícita:
+         * sin cualificar, el nombre chocaría con esta misma función dentro del
+         * companion object.
+         */
+        internal fun requestRebindNow(context: Context) {
+            try {
+                NotificationListenerService.requestRebind(
+                    ComponentName(context, BankNotificationListenerService::class.java),
+                )
+            } catch (_: Exception) {
+                // Si el sistema lo rechaza, queda el camino manual (Ajustes).
+            }
+        }
+
         // Bancos, cooperativas y billeteras (RD) + wallets internacionales.
         private val BANK_HINTS = listOf(
             "banreservas", "reservas", "qik", "tpago", "popular", "bhd", "scotiabank",
@@ -57,6 +88,23 @@ class BankNotificationListenerService : NotificationListenerService() {
             if (BANK_HINTS.any { src.contains(it) }) return true
             return AMOUNT_RE.containsMatchIn(content)
         }
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        isConnected = true
+    }
+
+    /**
+     * Android desvincula el listener al actualizar el APK (y en algunas limpiezas
+     * del sistema). Sin pedir el re-vínculo aquí, el servicio queda muerto para
+     * siempre aunque el permiso siga concedido: ese era el motivo de que las
+     * transacciones dejaran de detectarse tras cada reinstalación.
+     */
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        isConnected = false
+        requestRebindNow(applicationContext)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {

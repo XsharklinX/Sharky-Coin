@@ -8,7 +8,6 @@
 
 .man-tabs {
   margin: 0 16px;
-  order: 1;
   position: static;
 }
 
@@ -23,17 +22,86 @@
 
 .man-hero {
   gap: 10px;
-  order: 4;
   padding: 14px 16px;
 }
 
-.man-panel-bars { order: 2; }
-.man-panel-distribution { order: 3; }
-.man-panel-trend { order: 4; }
-.man-panel-networth { order: 4; }
-.man-hero { order: 5; }
-.man-metrics { order: 6; }
-.man-panel-categories { order: 7; }
+/* El orden lo manda el DOM. Antes se reordenaba con `order:` de flexbox, lo
+   que dejaba la fuente diciendo una cosa y la pantalla mostrando otra —
+   además, la mitad de esas reglas apuntaba a paneles que ya no existen desde
+   que las secciones pasaron a ser plegables. */
+
+/* ── Secciones plegables ───────────────────────────────
+   Cerradas se leen como una fila de lista, no como una tarjeta vacía: así el
+   coste visual de una sección que no te interesa es una línea, no un bloque. */
+.man-fold {
+  background: var(--m-surface);
+  border-top: 1px solid var(--m-border);
+  border-bottom: 1px solid var(--m-border);
+}
+
+.man-fold-head {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: var(--m-text);
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.man-fold-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.man-fold-title small {
+  color: var(--m-muted);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.man-fold-head > .man-fold-title {
+  flex: 1;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+
+.man-fold-count {
+  background: color-mix(in oklab, var(--m-text) 9%, transparent);
+  border-radius: 999px;
+  color: var(--m-muted);
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 9px;
+}
+
+.man-fold-chevron {
+  color: var(--m-muted);
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform var(--m-duration-fast, 160ms) var(--m-ease, ease);
+}
+.man-fold.on .man-fold-chevron { transform: rotate(180deg); }
+
+.man-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 0 16px 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .man-fold-chevron { transition: none; }
+}
 
 .man-hero-head {
   align-items: center;
@@ -136,8 +204,8 @@
   letter-spacing: 0;
 }
 
-.man-hero-card strong.income { color: #35d0a2; }
-.man-hero-card strong.expense { color: #ff6b8a; }
+.man-hero-card strong.income { color: var(--m-income); }
+.man-hero-card strong.expense { color: var(--m-expense); }
 
 .man-hero-net {
   background: color-mix(in oklab, var(--m-primary) 7%, transparent);
@@ -191,8 +259,8 @@ button.man-quick-card {
   letter-spacing: -.03em;
 }
 
-.man-quick-value.income { color: #35d0a2; }
-.man-quick-value.expense { color: #ff6b8a; }
+.man-quick-value.income { color: var(--m-income); }
+.man-quick-value.expense { color: var(--m-expense); }
 .man-quick-value.warn { color: #f59e0b; }
 
 .man-quick-subtle {
@@ -375,7 +443,7 @@ button.man-quick-card {
 }
 
 .man-budget-chip.warn { background: rgba(245, 158, 11, .14); color: #f59e0b; }
-.man-budget-chip.over { background: rgba(255, 107, 138, .14); color: #ff6b8a; }
+.man-budget-chip.over { background: rgba(255, 107, 138, .14); color: var(--m-expense); }
 
 .man-insights {
   display: grid;
@@ -392,6 +460,21 @@ button.man-quick-card {
   padding: 12px 14px;
 }
 
+/* La X va al margen y en color apagado: quitar una tarjeta es una acción
+   secundaria, no debe competir con el botón de acción de la propia tarjeta. */
+.man-insight-hide {
+  align-items: center;
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--m-muted);
+  display: flex;
+  flex: 0 0 auto;
+  margin: -4px -4px 0 0;
+  padding: 4px;
+}
+.man-insight-hide:active { color: var(--m-text); }
+
 .man-insight-icon {
   align-items: center;
   background: color-mix(in oklab, var(--m-text) 8%, transparent);
@@ -404,9 +487,9 @@ button.man-quick-card {
   width: 36px;
 }
 
-.man-insight-icon.ok { background: rgba(53, 208, 162, .14); color: #35d0a2; }
+.man-insight-icon.ok { background: rgba(53, 208, 162, .14); color: var(--m-income); }
 .man-insight-icon.warn { background: rgba(245, 158, 11, .14); color: #f59e0b; }
-.man-insight-icon.danger { background: rgba(255, 107, 138, .14); color: #ff6b8a; }
+.man-insight-icon.danger { background: rgba(255, 107, 138, .14); color: var(--m-expense); }
 
 .man-insight-copy {
   display: grid;
@@ -474,8 +557,8 @@ button.man-quick-card {
   font-weight: 900;
 }
 
-.man-compare-main strong.income { color: #35d0a2; }
-.man-compare-main strong.expense { color: #ff6b8a; }
+.man-compare-main strong.income { color: var(--m-income); }
+.man-compare-main strong.expense { color: var(--m-expense); }
 
 .man-compare-side {
   align-items: end;
@@ -503,8 +586,8 @@ button.man-quick-card {
   padding: 3px 8px;
 }
 
-.man-compare-delta.ok { background: rgba(53, 208, 162, .14); color: #35d0a2; }
-.man-compare-delta.warn { background: rgba(255, 107, 138, .14); color: #ff6b8a; }
+.man-compare-delta.ok { background: rgba(53, 208, 162, .14); color: var(--m-income); }
+.man-compare-delta.warn { background: rgba(255, 107, 138, .14); color: var(--m-expense); }
 
 /* Comparativa por categoría (mayores cambios vs período anterior) */
 .man-catcompare-list {
@@ -558,8 +641,8 @@ button.man-quick-card {
   gap: 3px;
   padding: 3px 8px;
 }
-.man-catcompare-delta.ok { background: rgba(53, 208, 162, .14); color: #35d0a2; }
-.man-catcompare-delta.warn { background: rgba(255, 107, 138, .14); color: #ff6b8a; }
+.man-catcompare-delta.ok { background: rgba(53, 208, 162, .14); color: var(--m-income); }
+.man-catcompare-delta.warn { background: rgba(255, 107, 138, .14); color: var(--m-expense); }
 
 .man-networth-chart {
   display: flex;
@@ -593,7 +676,7 @@ button.man-quick-card {
   align-items: flex-end;
   text-align: right;
 }
-.man-networth-projected strong { color: #35d0a2; }
+.man-networth-projected strong { color: var(--m-income); }
 
 .man-bar-chart {
   align-items: end;
@@ -631,8 +714,8 @@ button.man-quick-card {
   transition: height var(--m-duration-slow, 220ms) var(--m-ease-out, ease);
 }
 
-.man-bar-income { background: #35d0a2; }
-.man-bar-expense { background: #ff6b8a; }
+.man-bar-income { background: var(--m-income); }
+.man-bar-expense { background: var(--m-expense); }
 
 .man-bar-label {
   font-size: 10px;
@@ -737,7 +820,7 @@ button.man-quick-card {
   font-weight: 750;
 }
 
-.man-cat-budget.over { color: #ff6b8a; }
+.man-cat-budget.over { color: var(--m-expense); }
 
 .man-empty {
   font-size: 13px;
@@ -782,7 +865,6 @@ button.man-quick-card {
   display: flex;
   gap: 8px;
   margin: 0 16px;
-  order: 8;
 }
 .man-export-btn {
   align-items: center;

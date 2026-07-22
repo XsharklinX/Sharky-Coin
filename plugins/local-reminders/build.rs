@@ -19,6 +19,11 @@ const COMMANDS: &[&str] = &[
     // implementa navigator.share() por su cuenta, así que sin esto el share
     // cae siempre a copiar al portapapeles.
     "share_text",
+    // Abrir un export ya guardado con la app que el usuario elija (FileProvider
+    // + ACTION_VIEW) y selector de imagen propio por SAF, que a diferencia del
+    // que levanta <input type="file"> deja navegar TODAS las carpetas.
+    "open_file",
+    "pick_image",
 ];
 
 fn main() {

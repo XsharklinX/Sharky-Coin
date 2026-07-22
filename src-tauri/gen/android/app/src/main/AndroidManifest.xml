@@ -33,6 +33,19 @@
         <intent>
             <action android:name="android.media.action.VIDEO_CAPTURE" />
         </intent>
+        <!-- Galerías instaladas: sin esto resolveActivity(ACTION_PICK) devuelve
+             null en Android 11+ aunque haya galerías, y el selector de foto de
+             perfil caería al explorador de archivos en vez de ofrecerlas. -->
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="image/*" />
+        </intent>
+        <!-- Apps capaces de abrir un export ya guardado (PDF, Excel, CSV...)
+             desde el aviso de "Exportación completada". -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="*/*" />
+        </intent>
     </queries>
 
     <!-- AndroidTV support -->

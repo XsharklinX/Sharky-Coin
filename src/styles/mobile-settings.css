@@ -142,7 +142,7 @@
     width: 100%;
   }
   .mset-row:active { background: color-mix(in oklab, var(--text) 5%, transparent); }
-  .mset-row.danger { color: #ff6b8a; }
+  .mset-row.danger { color: var(--m-expense); }
   .mset-icon {
     align-items: center;
     border-radius: 11px;
@@ -506,7 +506,7 @@
   }
   .mset-widget-badge svg { color: var(--bg); }
   .mset-widget-card.balance { color: #64d2ff; }
-  .mset-widget-card.budgets { color: #35d0a2; }
+  .mset-widget-card.budgets { color: var(--m-income); }
   .mset-widget-card.quickadd { color: #ffdd3d; }
   /* Conversor: banner horizontal a lo ancho debajo de los dos cuadrados. */
   .mset-widget-card.converter {
@@ -788,10 +788,10 @@
   }
   .mset-auth-confirm {
     align-items: flex-start;
-    background: color-mix(in oklab, #35d0a2 9%, transparent);
-    border: 1px solid color-mix(in oklab, #35d0a2 30%, transparent);
+    background: color-mix(in oklab, var(--m-income) 9%, transparent);
+    border: 1px solid color-mix(in oklab, var(--m-income) 30%, transparent);
     border-radius: 14px;
-    color: #35d0a2;
+    color: var(--m-income);
     display: flex;
     gap: 10px;
     padding: 14px;
@@ -828,17 +828,17 @@
   }
   .mset-google-logout {
     align-items: center;
-    background: color-mix(in oklab, #ff6b8a 15%, transparent);
+    background: color-mix(in oklab, var(--m-expense) 15%, transparent);
     border: 0;
     border-radius: 50%;
-    color: #ff6b8a;
+    color: var(--m-expense);
     display: grid;
     flex-shrink: 0;
     height: 38px;
     place-items: center;
     width: 38px;
   }
-  .mset-google-logout:active { background: color-mix(in oklab, #ff6b8a 26%, transparent); }
+  .mset-google-logout:active { background: color-mix(in oklab, var(--m-expense) 26%, transparent); }
   .mset-uid { font-size: 10px !important; opacity: .5; }
   /* Search hint in command palette */
   .cmd-hint { align-items: center; display: flex; flex-direction: column; gap: 8px; padding: 36px 24px; text-align: center; }
@@ -1084,7 +1084,7 @@
     background: rgba(255,107,138,.15);
     border: 1px solid rgba(255,107,138,.3);
     border-radius: 14px;
-    color: #ff6b8a;
+    color: var(--m-expense);
     display: flex;
     font-size: 15px;
     font-weight: 900;
@@ -1131,7 +1131,7 @@
     margin: 0;
     padding: 14px 16px;
   }
-  .mset-reset-warning strong { color: #ff6b8a; }
+  .mset-reset-warning strong { color: var(--m-expense); }
   /* Category settings */
   /* Categories tab selector */
   .mset-cat-tabs {
@@ -1296,7 +1296,7 @@
     align-items: center;
     background: transparent;
     border: 0;
-    color: #ff6b8a;
+    color: var(--m-expense);
     display: flex;
     font-size: 13.5px;
     font-weight: 700;

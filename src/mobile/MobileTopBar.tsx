@@ -60,22 +60,40 @@ export function MobileTopBar({
 
   return (
     <header className="mobile-topbar">
-      <div className={`mobile-topbar-row${route === 'home' && onMenu && !onBack ? ' mobile-topbar-row-home' : ''}`}>
-        <div className="mobile-topbar-title-wrap">
+      {/* Rejilla de 3 columnas con los lados a 1fr iguales: es lo que mantiene
+          el título ópticamente centrado aunque un lado tenga más iconos que el
+          otro. Con flex, el título se descentraba en cuanto los grupos dejaban
+          de pesar lo mismo. */}
+      <div className="mobile-topbar-row">
+        <div className="mobile-topbar-side mobile-topbar-left">
           {onBack ? (
             <button className="mobile-icon-btn mobile-topbar-back" aria-label={t('back')} onClick={onBack}>
               <Icon name="arrowUp" size={20} style={{ transform: 'rotate(-90deg)' }} />
             </button>
-          ) : route === 'home' && onMenu ? (
+          ) : onMenu ? (
             <button className="mobile-icon-btn mobile-topbar-menu" aria-label={t('toolsLabel')} onClick={onMenu}>
               <Icon name="list" size={22} />
             </button>
           ) : null}
-          <h1 className={route === 'home' && onMenu && !onBack ? 'mobile-topbar-home-title' : undefined}>
-            {title ?? TITLES[route]}
-          </h1>
+          {/* Izquierda: moverse y encontrar. */}
+          {!compactHeader && (
+            <>
+              <button className="mobile-icon-btn" aria-label={t('search')} onClick={onSearch}>
+                <Icon name="search" size={21} />
+              </button>
+              {onCalendar && (
+                <button className="mobile-icon-btn" aria-label={t('calendarLabel')} onClick={onCalendar}>
+                  <Icon name="calendar" size={21} />
+                </button>
+              )}
+            </>
+          )}
         </div>
-        <div className="mobile-topbar-right">
+
+        <h1 className="mobile-topbar-title">{title ?? TITLES[route]}</h1>
+
+        {/* Derecha: estado y configuración. */}
+        <div className="mobile-topbar-side mobile-topbar-right">
           {!compactHeader && (
             <>
               <MobileSyncBadge />
@@ -83,11 +101,6 @@ export function MobileTopBar({
                 <span className="mobile-currency-flag">{meta.flag}</span>
                 <span className="mobile-currency-code">{currency}</span>
               </button>
-              {onCalendar && (
-                <button className="mobile-icon-btn" aria-label={t('calendarLabel')} onClick={onCalendar}>
-                  <Icon name="calendar" size={21} />
-                </button>
-              )}
               {onBell && (
                 <button className="mobile-icon-btn mobile-bell-btn" aria-label={t('notificationsLabel')} onClick={onBell}>
                   <Icon name="bell" size={21} />
@@ -96,9 +109,6 @@ export function MobileTopBar({
                   )}
                 </button>
               )}
-              <button className="mobile-icon-btn" aria-label={t('search')} onClick={onSearch}>
-                <Icon name="search" size={21} />
-              </button>
               <button className="mobile-icon-btn" aria-label={t('settings')} onClick={onSettings}>
                 <Icon name="settings" size={21} />
               </button>

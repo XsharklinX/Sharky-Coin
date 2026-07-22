@@ -22,6 +22,16 @@
     --m-duration-slow: 220ms;
     --m-ease: cubic-bezier(.2, 0, 0, 1);
     --m-ease-out: cubic-bezier(.2, .8, .2, 1);
+    /* Banda de marca (héroe de Perfil y cabecera de Notificaciones). Antes el
+       degradado y sus blancos iban fijos "porque el fondo siempre es oscuro":
+       en tema claro eso dejaba dos bloques casi negros en medio de la pantalla.
+       Ahora la banda es un token y cada tema pone el suyo. */
+    --m-brand-band: linear-gradient(150deg, #16294d 0%, #0e1c34 55%, #0a1220 100%);
+    --m-brand-on: #ffffff;
+    --m-brand-on-dim: rgba(255,255,255,.58);
+    --m-brand-layer: rgba(255,255,255,.10);
+    --m-brand-layer-strong: rgba(255,255,255,.20);
+    --m-brand-line: rgba(255,255,255,.14);
     background: var(--m-bg);
     display: block;
     height: 100dvh;
@@ -32,6 +42,28 @@
     touch-action: pan-y pinch-zoom;
     width: 100%;
   }
+  /* ── Tema claro ────────────────────────────────────────
+     El móvil se diseñó dark-first y el tema claro solo heredaba los 6 tokens
+     de base.css, así que todo lo demás (verdes/rojos pensados para fondo
+     oscuro, sombras negras, bandas de marca) seguía siendo de tema oscuro.
+     Aquí van los ajustes que faltaban. */
+  .mobile-app[data-theme="light"] {
+    /* var(--m-income) y var(--m-expense) se quedan en ~2:1 sobre blanco — ilegibles para cifras.
+       Estos pasan AA (≥4.5:1) manteniendo el mismo tono. */
+    --m-income: #0d9268;
+    --m-expense: #d13350;
+    /* Sombras negras al 26% sobre fondo claro se ven como suciedad gris; la
+       elevación en claro se consigue con una sombra tenue y tintada. */
+    --m-elevation: 0 12px 32px rgba(23,32,51,.10);
+    --m-elevation-sm: 0 6px 18px rgba(23,32,51,.07);
+    --m-brand-band: linear-gradient(150deg, #dbe6fa 0%, #e9eff9 55%, #f2f5fb 100%);
+    --m-brand-on: #14203a;
+    --m-brand-on-dim: rgba(20,32,58,.62);
+    --m-brand-layer: rgba(20,32,58,.07);
+    --m-brand-layer-strong: rgba(20,32,58,.14);
+    --m-brand-line: rgba(20,32,58,.12);
+  }
+
   .app.mobile-app {
     display: block;
     grid-template-columns: none;
@@ -107,47 +139,36 @@
     top: 0;
     z-index: 30;
   }
+  /* Los lados a 1fr son iguales por definición, así que la columna del medio
+     queda centrada respecto a la pantalla sin importar cuántos iconos lleve
+     cada lado. `minmax(0,…)` en las tres permite que el título se recorte con
+     puntos suspensivos antes de empujar a los iconos fuera. */
   .mobile-topbar-row {
     align-items: center;
-    display: flex;
-    gap: 10px;
-    justify-content: space-between;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
     min-width: 0;
   }
-  .mobile-topbar-row-home {
+  .mobile-topbar-side {
     align-items: center;
     display: flex;
-    gap: 8px;
-    justify-content: space-between;
-  }
-  .mobile-topbar-row-home .mobile-topbar-title-wrap {
-    flex: 1 1 auto;
-  }
-  .mobile-topbar-row-home .mobile-topbar-right {
-    justify-content: flex-end;
-    margin-left: auto;
-  }
-  .mobile-topbar-title-wrap {
-    align-items: center;
-    display: flex;
-    flex: 1;
-    gap: 4px;
+    gap: 2px;
     min-width: 0;
   }
-  .mobile-topbar-home-title {
-    margin-left: 4px;
-    text-align: center;
-  }
+  .mobile-topbar-left { justify-self: start; }
+  .mobile-topbar-right { justify-self: end; }
   .mobile-topbar-menu {
     margin-left: -6px;
   }
-  .mobile-topbar h1 {
-    flex: 1;
+  .mobile-topbar-title {
     font-size: 19px;
     font-weight: 850;
     letter-spacing: -.03em;
     margin: 0;
+    min-width: 0;
     overflow: hidden;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -188,12 +209,6 @@
     font-variant-numeric: tabular-nums;
     pointer-events: none;
   }
-  .mobile-topbar-right {
-    align-items: center;
-    display: flex;
-    flex: none;
-    gap: 2px;
-  }
   .mobile-currency-btn {
     align-items: center;
     background: transparent;
@@ -224,12 +239,12 @@
   .mobile-sync-badge:active { background: color-mix(in oklab, var(--m-text) 10%, transparent); }
   .mobile-sync-badge.synced   { color: var(--m-muted); }
   .mobile-sync-badge.pending  { color: var(--m-primary); }
-  .mobile-sync-badge.conflict { color: #ff6b8a; }
+  .mobile-sync-badge.conflict { color: var(--m-expense); }
   .mobile-sync-badge.busy     { color: var(--m-primary); }
   .mobile-sync-badge.busy svg { animation: spin .7s linear infinite; }
   .mobile-sync-count {
     align-items: center;
-    background: #ff6b8a;
+    background: var(--m-expense);
     border-radius: 999px;
     color: #151515;
     display: flex;
@@ -254,7 +269,10 @@
   }
   @media (max-width: 360px) {
     .mobile-topbar { gap: 6px; }
-    .mobile-topbar h1 { font-size: 17px; }
+    .mobile-topbar-title { font-size: 17px; }
+    /* En pantallas estrechas los 44px de cada botón no caben con el título en
+       medio: se aprietan un poco antes que dejar que el título se recorte. */
+    .mobile-topbar .mobile-icon-btn { height: 40px; width: 38px; }
   }
   /* ── Currency sheet ── */
   .mcur-sheet {
@@ -1546,8 +1564,8 @@
     font-weight: 750;
     gap: 6px;
   }
-  .day-exp { color: #ff6b8a; }
-  .day-inc { color: #35d0a2; }
+  .day-exp { color: var(--m-expense); }
+  .day-inc { color: var(--m-income); }
   .mobile-tx-row {
     align-items: center;
     background: var(--m-surface);
@@ -1598,11 +1616,11 @@
     justify-content: center;
   }
   .mobile-row-actions button.danger {
-    background: color-mix(in oklab, #ff6b8a 15%, var(--m-surface-2));
-    color: #ff6b8a;
+    background: color-mix(in oklab, var(--m-expense) 15%, var(--m-surface-2));
+    color: var(--m-expense);
   }
   .mobile-row-actions button.danger.confirm {
-    background: #ff6b8a;
+    background: var(--m-expense);
     color: #1a0810;
     font-size: 10px;
   }
@@ -1630,7 +1648,7 @@
     font-variant-numeric: tabular-nums;
     font-weight: 900;
   }
-  .mobile-tx-row > strong.income { color: #35d0a2; }
+  .mobile-tx-row > strong.income { color: var(--m-income); }
   .mobile-list-card.compact .mobile-tx-row,
   .mobile-section-card .mobile-tx-row {
     background: var(--m-surface);
@@ -1893,9 +1911,9 @@
     color: var(--m-text, #f8fafc);
   }
   .mobile-transaction-sheet .mobile-detail-actions button.danger {
-    background: color-mix(in oklab, #ff6b8a 18%, transparent);
-    border-color: color-mix(in oklab, #ff6b8a 28%, transparent);
-    color: #ff6b8a;
+    background: color-mix(in oklab, var(--m-expense) 18%, transparent);
+    border-color: color-mix(in oklab, var(--m-expense) 28%, transparent);
+    color: var(--m-expense);
   }
   .mobile-detail-sheet header {
     align-items: center;
@@ -1942,7 +1960,7 @@
     letter-spacing: -.05em;
     margin-bottom: 18px;
   }
-  .mobile-detail-sheet > section > strong.income { color: #35d0a2; }
+  .mobile-detail-sheet > section > strong.income { color: var(--m-income); }
   .mobile-detail-sheet dl {
     display: grid;
     gap: 1px;
@@ -1990,18 +2008,18 @@
     width: 100%;
   }
   /* Cabecera con gradiente de marca (misma familia que el héroe del Perfil):
-     una banda oscura permanente con glow, que le da identidad al panel en vez
-     de una fila plana. Por eso su texto usa blancos fijos, no los tokens de
-     tema (el fondo es siempre oscuro, sin importar tema claro/oscuro). */
+     una banda con glow que le da identidad al panel en vez de una fila plana.
+     El degradado y sus capas salen de los tokens --m-brand-*, así que en tema
+     claro la banda es clara y el texto oscuro. */
   .mnc-top {
     background:
       radial-gradient(circle at 88% -20%, color-mix(in oklab, var(--m-primary) 26%, transparent), transparent 60%),
-      linear-gradient(150deg, #16294d 0%, #0e1c34 55%, #0a1220 100%);
+      var(--m-brand-band);
     flex-shrink: 0;
     position: relative;
   }
   .mnc-handle {
-    background: rgba(255, 255, 255, .28);
+    background: var(--m-brand-layer-strong);
     border-radius: 999px;
     height: 4px;
     margin: 10px auto 0;
@@ -2016,11 +2034,11 @@
   }
   .mnc-header-icon {
     align-items: center;
-    background: rgba(255, 255, 255, .12);
-    border: 1px solid rgba(255, 255, 255, .14);
+    background: var(--m-brand-layer);
+    border: 1px solid var(--m-brand-line);
     border-radius: 13px;
     box-shadow: 0 0 18px color-mix(in oklab, var(--m-primary) 30%, transparent);
-    color: #fff;
+    color: var(--m-brand-on);
     display: flex;
     flex-shrink: 0;
     height: 40px;
@@ -2030,7 +2048,9 @@
   }
   .mnc-header-icon-dot {
     background: #ff5470;
-    border: 2px solid #12233f;
+    /* El borde imita el fondo de la banda para que el punto parezca recortado
+       sobre ella; con un azul oscuro fijo, en tema claro salía un anillo negro. */
+    border: 2px solid color-mix(in oklab, var(--m-brand-on) 12%, var(--m-bg));
     border-radius: 999px;
     height: 11px;
     position: absolute;
@@ -2040,15 +2060,15 @@
   }
   .mnc-header-text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
   .mnc-header-text span {
-    color: #fff;
+    color: var(--m-brand-on);
     font-size: 18px;
     font-weight: 850;
     letter-spacing: -.02em;
   }
-  .mnc-header-text small { color: rgba(255, 255, 255, .6); font-size: 12.5px; font-weight: 650; }
+  .mnc-header-text small { color: var(--m-brand-on-dim); font-size: 12.5px; font-weight: 650; }
   .mnc-close {
     align-items: center;
-    background: rgba(255, 255, 255, .1);
+    background: var(--m-brand-layer);
     border: 0;
     border-radius: 999px;
     color: #fff;
@@ -2058,7 +2078,7 @@
     justify-content: center;
     width: 36px;
   }
-  .mnc-close:active { background: rgba(255, 255, 255, .2); }
+  .mnc-close:active { background: var(--m-brand-layer-strong); }
   .mnc-body {
     display: flex;
     flex-direction: column;
@@ -2147,8 +2167,8 @@
     font-weight: 800;
     padding-top: 1px;
   }
-  .mnc-card-amount.income { color: #35d0a2; }
-  .mnc-card-amount.expense { color: #ff6b8a; }
+  .mnc-card-amount.income { color: var(--m-income); }
+  .mnc-card-amount.expense { color: var(--m-expense); }
   .mnc-card-account {
     align-items: center;
     background: color-mix(in oklab, var(--m-text) 6%, transparent);
@@ -2257,6 +2277,49 @@
     padding: 0 14px;
   }
   .mnc-alert-dismiss:active { color: #ff5470; }
+
+  /* Elegir alcance al descartar un aviso de pago recurrente: "solo esta vez"
+     vs. no volver a avisar de ese pago. */
+  .mnc-choice-overlay {
+    align-items: flex-end;
+    background: rgba(0,0,0,.6);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    position: fixed;
+    z-index: 500;
+  }
+  .mnc-choice {
+    background: var(--m-bg, #0f0f10);
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 460px;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+  }
+  .mnc-choice strong { font-size: 15px; }
+  .mnc-choice small { color: var(--m-muted); font-size: 12px; margin-bottom: 6px; }
+  .mnc-choice-btn {
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-radius: 12px;
+    color: var(--m-text);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 13px;
+    text-align: left;
+  }
+  .mnc-choice-btn-strong { border-color: #ff5470; color: #ff5470; }
+  .mnc-choice-cancel {
+    background: none;
+    border: 0;
+    color: var(--m-muted);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px;
+  }
 
   /* ── Historial: avisos nativos ya disparados (semanal, fx, actividad...)
      que antes solo vivían en la bandeja de Android y desaparecían sin dejar
@@ -2486,7 +2549,7 @@
   }
   .mobile-detail-actions button.danger {
     background: #3a1820;
-    color: #ff6b8a;
+    color: var(--m-expense);
   }
   .mobile-bottom-nav {
     align-items: center;
@@ -2566,8 +2629,8 @@
     display: flex; font-size: 14px; font-weight: 800;
     gap: 8px; padding: 12px 20px; white-space: nowrap;
   }
-  .mobile-fab-menu button.expense { background: color-mix(in oklab, #ff6b8a 16%, transparent); color: #ff6b8a; }
-  .mobile-fab-menu button.income  { background: color-mix(in oklab, #35d0a2 16%, transparent); color: #35d0a2; }
+  .mobile-fab-menu button.expense { background: color-mix(in oklab, var(--m-expense) 16%, transparent); color: var(--m-expense); }
+  .mobile-fab-menu button.income  { background: color-mix(in oklab, var(--m-income) 16%, transparent); color: var(--m-income); }
   @keyframes mfab-pop {
     from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(.92); }
     to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }

@@ -1,5 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
+import { toast } from '@/components/ui/Toast'
+import type { MobileAlert } from '@/data/alerts'
 import { fmt, dateLocale } from '@/data/helpers'
 import { useBankSuggestions } from '@/store/bankSuggestions'
 import { useFinance } from '@/store/finance'
@@ -58,6 +60,9 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
   const t = useT()
   const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const dismissAlert = useSettings(s => s.dismissAlert)
+  const silenceRecurring = useSettings(s => s.silenceRecurring)
+  // Aviso cuyo descarte está esperando a que el usuario elija alcance.
+  const [dismissing, setDismissing] = useState<MobileAlert | null>(null)
   const { currency, transactions } = useFinance()
   const suggestionStore = useBankSuggestions()
   const { suggestions, alerts, total } = useNotificationFeed()
@@ -197,7 +202,13 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
                           <button
                             className="mnc-alert-dismiss"
                             aria-label={t('deleteNotification')}
-                            onClick={() => dismissAlert(alert.id)}
+                            onClick={() => {
+                              // Los de presupuesto se descartan directo: son de
+                              // este mes y no se repiten con id nueva, así que
+                              // no hay nada que elegir. Los de pago recurrente sí.
+                              if (alert.target.type === 'recurring') setDismissing(alert)
+                              else dismissAlert(alert.id)
+                            }}
                           >
                             <Icon name="trash" size={15} />
                           </button>
@@ -243,6 +254,42 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
         </div>
       </div>
       {pickerNode}
+
+      {dismissing && (
+        <div
+          className="mnc-choice-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('dismissAlertTitle')}
+          onClick={() => setDismissing(null)}
+        >
+          <div className="mnc-choice" onClick={e => e.stopPropagation()}>
+            <strong>{t('dismissAlertTitle')}</strong>
+            <small>{dismissing.title}</small>
+            <button
+              className="mnc-choice-btn"
+              onClick={() => { dismissAlert(dismissing.id); setDismissing(null) }}
+            >
+              {t('dismissAlertOnce')}
+            </button>
+            <button
+              className="mnc-choice-btn mnc-choice-btn-strong"
+              onClick={() => {
+                const target = dismissing.target
+                if (target.type === 'recurring') {
+                  silenceRecurring(target.transactionId)
+                  const template = transactions.find(tx => tx.id === target.transactionId)
+                  toast(t('recurringSilencedToast').replace('{name}', template?.note ?? ''), { icon: 'check', type: 'ok' })
+                }
+                setDismissing(null)
+              }}
+            >
+              {t('dismissAlertForever')}
+            </button>
+            <button className="mnc-choice-cancel" onClick={() => setDismissing(null)}>{t('cancel')}</button>
+          </div>
+        </div>
+      )}
     </SheetPortal>
   )
 }

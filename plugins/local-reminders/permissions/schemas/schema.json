@@ -367,6 +367,18 @@
           "markdownDescription": "Denies the get_backup_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the open_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-file",
+          "markdownDescription": "Enables the open_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-file",
+          "markdownDescription": "Denies the open_file command without any pre-configured scope."
+        },
+        {
           "description": "Enables the pick_backup_folder command without any pre-configured scope.",
           "type": "string",
           "const": "allow-pick-backup-folder",
@@ -389,6 +401,18 @@
           "type": "string",
           "const": "deny-pick-backup-folder",
           "markdownDescription": "Denies the pick_backup_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the pick_image command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-pick-image",
+          "markdownDescription": "Enables the pick_image command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the pick_image command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-pick-image",
+          "markdownDescription": "Denies the pick_image command without any pre-configured scope."
         },
         {
           "description": "Enables the run_backup_now command without any pre-configured scope.",
@@ -583,10 +607,10 @@
           "markdownDescription": "Denies the sync_snapshot command without any pre-configured scope."
         },
         {
-          "description": "Permite sincronizar el snapshot de datos, programar/cancelar recordatorios locales (WorkManager) y gestionar el backup semanal automatico (elegir carpeta SAF, programar, probar y consultar estado).\n#### This default permission set includes:\n\n- `allow-sync-snapshot`\n- `allow-schedule-reminders`\n- `allow-cancel-reminders`\n- `allow-sync-backup-snapshot`\n- `allow-pick-backup-folder`\n- `allow-schedule-weekly-backup`\n- `allow-cancel-weekly-backup`\n- `allow-run-backup-now`\n- `allow-get-backup-status`\n- `allow-set-system-bars`\n- `allow-set-quick-add-notification`\n- `allow-share-text`",
+          "description": "Permite sincronizar el snapshot de datos, programar/cancelar recordatorios locales (WorkManager) y gestionar el backup semanal automatico (elegir carpeta SAF, programar, probar y consultar estado).\n#### This default permission set includes:\n\n- `allow-sync-snapshot`\n- `allow-schedule-reminders`\n- `allow-cancel-reminders`\n- `allow-sync-backup-snapshot`\n- `allow-pick-backup-folder`\n- `allow-schedule-weekly-backup`\n- `allow-cancel-weekly-backup`\n- `allow-run-backup-now`\n- `allow-get-backup-status`\n- `allow-set-system-bars`\n- `allow-set-quick-add-notification`\n- `allow-share-text`\n- `allow-open-file`\n- `allow-pick-image`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Permite sincronizar el snapshot de datos, programar/cancelar recordatorios locales (WorkManager) y gestionar el backup semanal automatico (elegir carpeta SAF, programar, probar y consultar estado).\n#### This default permission set includes:\n\n- `allow-sync-snapshot`\n- `allow-schedule-reminders`\n- `allow-cancel-reminders`\n- `allow-sync-backup-snapshot`\n- `allow-pick-backup-folder`\n- `allow-schedule-weekly-backup`\n- `allow-cancel-weekly-backup`\n- `allow-run-backup-now`\n- `allow-get-backup-status`\n- `allow-set-system-bars`\n- `allow-set-quick-add-notification`\n- `allow-share-text`"
+          "markdownDescription": "Permite sincronizar el snapshot de datos, programar/cancelar recordatorios locales (WorkManager) y gestionar el backup semanal automatico (elegir carpeta SAF, programar, probar y consultar estado).\n#### This default permission set includes:\n\n- `allow-sync-snapshot`\n- `allow-schedule-reminders`\n- `allow-cancel-reminders`\n- `allow-sync-backup-snapshot`\n- `allow-pick-backup-folder`\n- `allow-schedule-weekly-backup`\n- `allow-cancel-weekly-backup`\n- `allow-run-backup-now`\n- `allow-get-backup-status`\n- `allow-set-system-bars`\n- `allow-set-quick-add-notification`\n- `allow-share-text`\n- `allow-open-file`\n- `allow-pick-image`"
         }
       ]
     }

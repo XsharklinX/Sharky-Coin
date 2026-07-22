@@ -15,6 +15,7 @@ export function useLocalReminders(): void {
   const currency = useFinance(s => s.currency)
   const language = useSettings(s => s.language)
   const dismissedAlerts = useSettings(s => s.dismissedAlerts)
+  const silencedRecurring = useSettings(s => s.silencedRecurring)
   const remindersEnabled = useSettings(s => s.remindersEnabled)
   const quickAddNotification = useSettings(s => s.quickAddNotification)
   const isFirstSync = useRef(true)
@@ -43,7 +44,7 @@ export function useLocalReminders(): void {
     isFirstSync.current = false
     const id = setTimeout(() => { void syncReminderSnapshot() }, delay)
     return () => clearTimeout(id)
-  }, [transactions, categories, currency, language, dismissedAlerts, remindersEnabled])
+  }, [transactions, categories, currency, language, dismissedAlerts, silencedRecurring, remindersEnabled])
 
   // Trae al store los avisos nativos ya disparados (semanal, fx, actividad...)
   // para que la campanita los muestre — al arrancar y cada vez que la app

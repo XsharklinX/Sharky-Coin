@@ -2,7 +2,8 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { isTauri } from '@/hooks/useTauri'
-import { processAvatarPhoto } from '@/lib/avatarPhoto'
+import { AvatarCropper } from '@/components/AvatarCropper'
+import { canPickImageNative, pickImageNative } from '@/lib/nativeFiles'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT, type LangKey } from '@/i18n'
@@ -146,17 +147,29 @@ export function MobileSettings({
   // dispara también el `open('name')` del botón que lo envuelve) — antes no
   // había NINGUNA forma de tocarla aquí, solo existía dentro de Perfil.
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const [cropSource, setCropSource] = useState<File | string | null>(null)
+
+  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
-    try {
-      const dataUrl = await processAvatarPhoto(file)
-      settings.setProfilePhoto(dataUrl)
-      toast(t('photoUpdatedToast'), { icon: 'check', type: 'ok' })
-    } catch {
-      toast(t('photoUpdateError'), { icon: 'alert' })
+    if (file) setCropSource(file)
+  }
+
+  // En Android se usa el selector nativo (menú de galerías); si no está
+  // disponible o falla, cae en silencio al <input type="file"> de siempre —
+  // avisar del fallo Y abrir otro selector a continuación solo confunde,
+  // porque el usuario igual acaba eligiendo su foto.
+  const openPhotoPicker = async () => {
+    if (canPickImageNative()) {
+      try {
+        const dataUrl = await pickImageNative({ chooserTitle: t('choosePhotoWith'), browseLabel: t('browseFilesLabel') })
+        if (dataUrl) setCropSource(dataUrl)
+        return
+      } catch {
+        // sin selector nativo — sigue al input de abajo
+      }
     }
+    photoInputRef.current?.click()
   }
 
   const results = useMemo(() => {
@@ -237,8 +250,8 @@ export function MobileSettings({
                     role="button"
                     tabIndex={0}
                     aria-label={settings.profilePhoto ? t('changePhotoLabel') : t('addPhotoLabel')}
-                    onClick={e => { e.stopPropagation(); photoInputRef.current?.click() }}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); photoInputRef.current?.click() } }}
+                    onClick={e => { e.stopPropagation(); void openPhotoPicker() }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); void openPhotoPicker() } }}
                   >
                     {settings.profilePhoto
                       ? <img src={settings.profilePhoto} alt="" className="mset-summary-avatar-img" />
@@ -250,7 +263,7 @@ export function MobileSettings({
                     type="file"
                     accept="image/*"
                     style={{ display: 'none' }}
-                    onChange={e => void handlePhotoChange(e)}
+                    onChange={handlePhotoChange}
                   />
                   <div className="mset-summary-body">
                     <strong>{profileName}</strong>
@@ -309,6 +322,18 @@ export function MobileSettings({
             <button className="mset-sheet-confirm" onClick={saveName}>{t('save')}</button>
           </div>
         </SettingsSheet>
+      )}
+
+      {cropSource && (
+        <AvatarCropper
+          file={cropSource}
+          onCancel={() => setCropSource(null)}
+          onDone={dataUrl => {
+            settings.setProfilePhoto(dataUrl)
+            setCropSource(null)
+            toast(t('photoUpdatedToast'), { icon: 'check', type: 'ok' })
+          }}
+        />
       )}
     </div>
   )

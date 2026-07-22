@@ -6,8 +6,39 @@ import { log } from '@/lib/logger'
 const tauriDismissStack: (() => void)[] = []
 let unlistenTauriBack: { unregister(): Promise<void> } | null = null
 let isRegistering = false
+
+// ── Camino navegador/PWA ────────────────────────────────────────────────────
+// UN solo listener `popstate` global + una pila de overlays (igual que el
+// camino de Tauri de arriba).
+//
+// Antes había un listener POR overlay y una sola bandera de supresión. Como un
+// `popstate` dispara TODOS los listeners registrados, solo el primero quedaba
+// suprimido y los demás ejecutaban su cierre: al abrir el numpad sobre el
+// editor de un ítem se cerraban el numpad Y la lista entera (el numpad ni
+// llegaba a verse). Con una pila, un `popstate` real cierra solo el overlay de
+// arriba, y los `history.back()` que provocamos nosotros se cuentan para no
+// confundirlos con el botón "atrás" del usuario.
+interface BrowserOverlay { id: number; dismiss: () => void }
+const browserDismissStack: BrowserOverlay[] = []
 let browserOverlayId = 0
-let suppressBrowserPop = false
+let programmaticBacks = 0
+let popStateBound = false
+
+function onBrowserPopState() {
+  // `history.back()` disparado por nosotros al desmontar un overlay: no es el
+  // usuario pulsando atrás, así que no debe cerrar nada.
+  if (programmaticBacks > 0) {
+    programmaticBacks -= 1
+    return
+  }
+  browserDismissStack.pop()?.dismiss()
+}
+
+function ensurePopStateBound() {
+  if (popStateBound || typeof window === 'undefined') return
+  window.addEventListener('popstate', onBrowserPopState)
+  popStateBound = true
+}
 
 async function updateTauriBackButtonListener() {
   if (tauriDismissStack.length > 0) {
@@ -61,22 +92,19 @@ export function useMobileBackDismiss(active: boolean, onDismiss: () => void) {
       }
     } else {
       // Browser PWA fallback using history state
+      ensurePopStateBound()
       const overlayId = ++browserOverlayId
+      const entry: BrowserOverlay = { id: overlayId, dismiss: () => dismissRef.current() }
+      browserDismissStack.push(entry)
       window.history.pushState({ sharkyOverlay: overlayId }, '')
 
-      const onPopState = () => {
-        if (suppressBrowserPop) {
-          suppressBrowserPop = false
-          return
-        }
-        dismissRef.current()
-      }
-
-      window.addEventListener('popstate', onPopState)
       return () => {
-        window.removeEventListener('popstate', onPopState)
+        const index = browserDismissStack.indexOf(entry)
+        if (index !== -1) browserDismissStack.splice(index, 1)
+        // Si nuestra entrada sigue siendo la actual, consumirla — contándola
+        // para que el listener no la tome por un "atrás" del usuario.
         if (window.history.state?.sharkyOverlay === overlayId) {
-          suppressBrowserPop = true
+          programmaticBacks += 1
           window.history.back()
         }
       }

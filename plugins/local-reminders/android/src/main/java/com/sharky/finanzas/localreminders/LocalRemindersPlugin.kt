@@ -4,15 +4,23 @@ import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LabeledIntent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
+import android.util.Base64
 import androidx.activity.result.ActivityResult
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import androidx.documentfile.provider.DocumentFile
+import java.io.ByteArrayOutputStream
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -66,6 +74,40 @@ class ShareTextArgs {
     var title: String? = null
 }
 
+@InvokeArg
+class OpenFileArgs {
+    lateinit var path: String
+    var mimeType: String? = null
+}
+
+@InvokeArg
+class PickImageArgs {
+    /** Lado maximo en px de la imagen devuelta; 0 = sin reducir. */
+    var maxSize: Int = 1600
+    /** Titulo del menu de "elegir foto con...", ya traducido por el lado JS. */
+    var chooserTitle: String? = null
+    /** Etiqueta de la entrada extra que abre el explorador de archivos. */
+    var browseLabel: String? = null
+}
+
+/**
+ * Tipo MIME a partir de la extension. Se resuelve a mano en vez de con
+ * `MimeTypeMap` porque este ultimo devuelve null para varias extensiones de
+ * Office segun el dispositivo, y un ACTION_VIEW sin tipo no lo abre nadie.
+ */
+private fun mimeForExtension(extension: String): String = when (extension.lowercase()) {
+    "pdf" -> "application/pdf"
+    "png" -> "image/png"
+    "jpg", "jpeg" -> "image/jpeg"
+    "webp" -> "image/webp"
+    "csv" -> "text/csv"
+    "json" -> "application/json"
+    "txt" -> "text/plain"
+    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    "xls" -> "application/vnd.ms-excel"
+    else -> "*/*"
+}
+
 @TauriPlugin
 class LocalRemindersPlugin(private val activity: Activity) : Plugin(activity) {
 
@@ -100,6 +142,156 @@ class LocalRemindersPlugin(private val activity: Activity) : Plugin(activity) {
         }
         activity.startActivity(chooser)
         invoke.resolve(JSObject())
+    }
+
+    /**
+     * Abre un archivo ya guardado (export de PDF/Excel/CSV/imagen) con la app
+     * que el usuario elija. Se entrega por FileProvider y no como `file://`:
+     * desde Android 7 pasar una URI `file://` a otra app lanza
+     * FileUriExposedException y la app se cae.
+     *
+     * `resolved = false` (en vez de un error) cuando no hay ninguna app capaz
+     * de abrir ese tipo — el llamador ya mostro donde quedo guardado, asi que
+     * eso no es un fallo del export y no debe verse como tal.
+     */
+    @Command
+    fun openFile(invoke: Invoke) {
+        val args = invoke.parseArgs(OpenFileArgs::class.java)
+        val file = File(args.path)
+        if (!file.exists()) {
+            invoke.reject("El archivo ya no existe: ${args.path}")
+            return
+        }
+        val uri = try {
+            FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+        } catch (e: IllegalArgumentException) {
+            invoke.reject("Ruta fuera de las carpetas compartibles: ${e.message}")
+            return
+        }
+        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, args.mimeType ?: mimeForExtension(file.extension))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(viewIntent, null).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            activity.startActivity(chooser)
+            invoke.resolve(JSObject().put("resolved", true))
+        } catch (_: ActivityNotFoundException) {
+            invoke.resolve(JSObject().put("resolved", false))
+        }
+    }
+
+    /**
+     * Selector de imagen propio, en vez del que el WebView levanta para
+     * `<input type="file">`: ese cae en ACTION_GET_CONTENT, que en muchos ROMs
+     * abre la galeria del fabricante y solo lista los albumes indexados por
+     * MediaStore (Camara, Descargas, Screenshots...) — de ahi que faltaran
+     * carpetas.
+     *
+     * Se muestra el menu de Android con TODAS las galerias instaladas, porque
+     * elegir una foto es una tarea de galeria: mandar al usuario al explorador
+     * de Documentos a buscar un archivo suelto es incomodo y poco natural. Como
+     * red de seguridad, "explorar archivos" (SAF) va como entrada extra dentro
+     * del mismo menu: es la unica via para una foto que la galeria no indexa
+     * (tarjeta SD, carpeta con .nomedia), pero no estorba a quien no la
+     * necesita.
+     *
+     * La imagen se reduce aqui (no en JS) porque cruzar una foto de 12 MP en
+     * base64 por el puente del WebView es lento y puede tumbar la pagina.
+     */
+    @Command
+    fun pickImage(invoke: Invoke) {
+        val args = invoke.parseArgs(PickImageArgs::class.java)
+
+        val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+            type = "image/*"
+        }
+        val browseIntent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*"))
+            putExtra(Intent.EXTRA_LOCAL_ONLY, false)
+            // Sin esto varios fabricantes ocultan la memoria interna en el menu
+            // lateral del explorador, que es justo donde estan las carpetas que
+            // no salian.
+            putExtra("android.provider.extra.SHOW_ADVANCED", true)
+        }
+
+        // Si no hay ninguna galeria (raro, pero pasa en ROMs muy pelados) el
+        // chooser saldria vacio: en ese caso se va directo al explorador.
+        if (galleryIntent.resolveActivity(activity.packageManager) == null) {
+            startActivityForResult(invoke, browseIntent, "onImagePicked")
+            return
+        }
+
+        val extras = mutableListOf<Intent>()
+        // El selector de fotos del sistema (Android 13+) se ofrece como una
+        // opcion mas: es el unico que muestra TODOS los albumes sin depender de
+        // lo que decida enseñar la galeria del fabricante.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            extras += Intent(MediaStore.ACTION_PICK_IMAGES).apply { type = "image/*" }
+        }
+        extras += LabeledIntent(browseIntent, activity.packageName, args.browseLabel ?: "Explorar archivos", 0)
+
+        val chooser = Intent.createChooser(galleryIntent, args.chooserTitle).apply {
+            putExtra(Intent.EXTRA_INITIAL_INTENTS, extras.toTypedArray())
+        }
+        startActivityForResult(invoke, chooser, "onImagePicked")
+    }
+
+    @ActivityCallback
+    fun onImagePicked(invoke: Invoke, result: ActivityResult) {
+        val uri = result.data?.data
+        if (uri == null) {
+            invoke.resolve(JSObject().put("cancelled", true))
+            return
+        }
+        val maxSize = try {
+            invoke.parseArgs(PickImageArgs::class.java).maxSize
+        } catch (_: Exception) {
+            1600
+        }
+        try {
+            val dataUrl = readImageAsDataUrl(uri, maxSize)
+            invoke.resolve(JSObject().put("cancelled", false).put("dataUrl", dataUrl))
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: "No se pudo leer la imagen")
+        }
+    }
+
+    /**
+     * Lee la imagen apuntada por `uri` y la devuelve como data URL, reducida a
+     * `maxSize` px de lado mayor. Se decodifica en dos pasadas (primero solo
+     * los limites con inJustDecodeBounds) para no cargar nunca el bitmap
+     * completo en memoria: una foto grande en un telefono de gama baja se
+     * lleva la app por delante con OutOfMemory.
+     */
+    private fun openStream(uri: Uri) = activity.contentResolver.openInputStream(uri)
+        ?: throw IllegalStateException("No se pudo abrir la imagen")
+
+    private fun readImageAsDataUrl(uri: Uri, maxSize: Int): String {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        openStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IllegalStateException("Imagen no valida")
+
+        val options = BitmapFactory.Options()
+        if (maxSize > 0) {
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= maxSize || bounds.outHeight / (sample * 2) >= maxSize) {
+                sample *= 2
+            }
+            options.inSampleSize = sample
+        }
+        val bitmap = openStream(uri).use {
+            BitmapFactory.decodeStream(it, null, options)
+        } ?: throw IllegalStateException("No se pudo decodificar la imagen")
+
+        val output = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output)
+        bitmap.recycle()
+        return "data:image/jpeg;base64,${Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)}"
     }
 
     @Command

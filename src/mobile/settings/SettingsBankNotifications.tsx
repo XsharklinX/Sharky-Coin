@@ -3,8 +3,9 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { fmt, dateLocale } from '@/data/helpers'
 import { isTauri } from '@/hooks/useTauri'
-import { hasNotificationAccess, openNotificationAccessSettings } from '@/lib/bankNotifications'
+import { getNotificationAccessStatus, openNotificationAccessSettings } from '@/lib/bankNotifications'
 import { useBankSuggestions } from '@/store/bankSuggestions'
+import { useDismissals } from '@/store/dismissals'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useT } from '@/i18n'
@@ -20,12 +21,27 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
   const settings = useSettings()
   const t = useT()
   const [granted, setGranted] = useState<boolean | null>(null)
+  // "Vinculado" se rastrea aparte de "concedido": tras actualizar el APK Android
+  // desvincula el listener y deja de detectar, aunque el permiso siga concedido.
+  const [connected, setConnected] = useState<boolean | null>(null)
   const { handleAdd, openPicker, resolveFor, pickerNode } = useBankSuggestionActions()
+  const dismissals = useDismissals()
+  const hiddenTotal = dismissals.dismissed.length
+    + dismissals.hiddenInsights.length
+    + dismissals.hiddenInsightTypes.length
+    + settings.silencedRecurring.length
+  const restoreAll = dismissals.restoreAll
 
   useEffect(() => {
     if (!isTauri()) return
     let cancelled = false
-    hasNotificationAccess().then(value => { if (!cancelled) setGranted(value) })
+    // Consultar el estado también PIDE el re-vínculo si hiciera falta, así que
+    // abrir esta pantalla repara la detección tras una reinstalación.
+    getNotificationAccessStatus().then(status => {
+      if (cancelled) return
+      setGranted(status.granted)
+      setConnected(status.connected)
+    })
     return () => { cancelled = true }
   }, [activeSheet])
 
@@ -40,7 +56,15 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
 
   if (!isTauri()) return null
 
-  const accessLabel = granted == null ? t('checking') : granted ? t('accessGranted') : t('accessNotGranted')
+  // Un "concedido" a secas era engañoso: el permiso puede estar dado y el
+  // servicio desvinculado (no detecta nada). Se muestran los dos estados.
+  const accessLabel = granted == null
+    ? t('checking')
+    : !granted
+      ? t('accessNotGranted')
+      : connected
+        ? t('accessGranted')
+        : t('accessGrantedNotBound')
 
   const card = (
     <div className="mset-card">
@@ -84,6 +108,22 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
           </label>
         </div>
       )}
+      {/* Ocultar avisos y tarjetas es permanente por diseño, así que tiene que
+          existir la vuelta atrás en algún sitio visible — si no, un toque mal
+          dado deja al usuario sin esa sugerencia para siempre. */}
+      <SettingsRow
+        icon="bell"
+        iconColor="#a78bfa"
+        label={t('hiddenSuggestionsTitle')}
+        sublabel={hiddenTotal > 0 ? t('hiddenSuggestionsDesc') : t('hiddenSuggestionsEmpty')}
+        value={hiddenTotal > 0 ? String(hiddenTotal) : undefined}
+        onClick={() => {
+          if (hiddenTotal === 0) return
+          restoreAll()
+          settings.silencedRecurring.forEach(id => settings.unsilenceRecurring(id))
+          toast(t('hiddenSuggestionsRestored'), { icon: 'check', type: 'ok' })
+        }}
+      />
       <SettingsRow icon="shield" iconColor="#5bc0ff" label={t('transactionDetection')}
         sublabel={t('transactionDetectionSub')}
         value={suggestions.items.length ? t('capturedCount').replace('{count}', String(suggestions.items.length)) : undefined}

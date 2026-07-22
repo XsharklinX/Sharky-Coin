@@ -15,6 +15,5 @@
     <string name="widget_description">$harky total balance and quick actions</string>
     <string name="widget_empty_state">Open $harky to sync</string>
     <string name="widget_net_worth">Net worth</string>
-    <string name="widget_quickadd_caption">Expense</string>
     <string name="widget_quickadd_description">Shortcut: add an expense</string>
 </resources>

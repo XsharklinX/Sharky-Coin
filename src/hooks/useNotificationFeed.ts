@@ -33,12 +33,13 @@ export function useNotificationFeed(): NotificationFeed {
   const seenIds = useNotificationCenter(s => s.seenIds)
   const markSeen = useNotificationCenter(s => s.markSeen)
   const dismissedAlerts = useSettings(s => s.dismissedAlerts)
+  const silencedRecurring = useSettings(s => s.silencedRecurring)
 
   const locale = lang === 'es' ? 'es-DO' : 'en-US'
 
   const alerts = useMemo(
-    () => getMobileAlerts(transactions, categories, currency, undefined, locale, dismissedAlerts),
-    [transactions, categories, currency, locale, dismissedAlerts],
+    () => getMobileAlerts(transactions, categories, currency, undefined, locale, dismissedAlerts, silencedRecurring),
+    [transactions, categories, currency, locale, dismissedAlerts, silencedRecurring],
   )
 
   const allIds = useMemo(

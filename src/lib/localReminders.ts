@@ -28,7 +28,7 @@ function lacksFunds(account: { type: string; balance: number; limit?: number }, 
 function buildReminderSnapshot(): string {
   const { transactions, accounts, categories, currency, goals } = useFinance.getState()
   const {
-    language, dismissedAlerts, fxAlertEnabled, fxAlertCurrency, fxAlertThreshold, fxAlertDirection,
+    language, dismissedAlerts, silencedRecurring, fxAlertEnabled, fxAlertCurrency, fxAlertThreshold, fxAlertDirection,
     anomalyAlertsEnabled, anomalySensitivity,
   } = useSettings.getState()
 
@@ -54,8 +54,13 @@ function buildReminderSnapshot(): string {
       }
     })
 
+  // Los silenciados se excluyen del snapshot y no solo del feed in-app: el
+  // worker nativo notifica con la app cerrada, así que dejarlos aquí haría que
+  // el aviso siguiera llegando al teléfono aunque en la campanita ya no esté.
+  const silenced = new Set(silencedRecurring)
+
   const recurringSnapshot = transactions
-    .filter(tx => tx.recurring)
+    .filter(tx => tx.recurring && !silenced.has(tx.id))
     .map(tx => {
       const next = firstRecurrenceDate(tx)
       const account = accounts.find(a => a.id === tx.accountId)

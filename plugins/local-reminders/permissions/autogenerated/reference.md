@@ -16,6 +16,8 @@ Permite sincronizar el snapshot de datos, programar/cancelar recordatorios local
 - `allow-set-system-bars`
 - `allow-set-quick-add-notification`
 - `allow-share-text`
+- `allow-open-file`
+- `allow-pick-image`
 
 ## Permission Table
 
@@ -185,6 +187,32 @@ Denies the get_backup_status command without any pre-configured scope.
 <tr>
 <td>
 
+`local-reminders:allow-open-file`
+
+</td>
+<td>
+
+Enables the open_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-reminders:deny-open-file`
+
+</td>
+<td>
+
+Denies the open_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `local-reminders:allow-pick-backup-folder`
 
 </td>
@@ -230,6 +258,32 @@ Enables the pick_backup_folder command without any pre-configured scope.
 <td>
 
 Denies the pick_backup_folder command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-reminders:allow-pick-image`
+
+</td>
+<td>
+
+Enables the pick_image command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-reminders:deny-pick-image`
+
+</td>
+<td>
+
+Denies the pick_image command without any pre-configured scope.
 
 </td>
 </tr>

@@ -125,7 +125,7 @@
     align-items: center; background: transparent; border: 2px solid color-mix(in oklab, var(--m-text) 26%, transparent);
     border-radius: 7px; color: #06121c; display: flex; flex-shrink: 0; height: 22px; justify-content: center; width: 22px;
   }
-  .mnote-cbox.on { background: #35d0a2; border-color: #35d0a2; }
+  .mnote-cbox.on { background: var(--m-income); border-color: var(--m-income); }
   .mnote-item-text { align-items: baseline; background: transparent; border: 0; color: var(--m-text); display: flex; flex: 1; gap: 10px; justify-content: space-between; min-width: 0; padding: 0; text-align: left; }
   .mnote-item-name { font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mnote-item.done .mnote-item-name { color: var(--m-muted); text-decoration: line-through; }
@@ -211,16 +211,16 @@
   .mnote-btn-primary, .mnote-btn-ghost {
     align-items: center; border-radius: 13px; display: flex; flex: 1; font-size: 13.5px; font-weight: 800; gap: 7px; justify-content: center; min-height: 50px; padding: 0 10px;
   }
-  .mnote-btn-primary { background: #35d0a2; border: 0; color: #06121c; }
+  .mnote-btn-primary { background: var(--m-income); border: 0; color: #06121c; }
   .mnote-btn-ghost { background: transparent; border: 1px solid var(--m-border); color: var(--m-text); flex: 0 0 auto; padding: 0 18px; }
 
-  .mnote-delete { align-items: center; background: transparent; border: 0; color: #ff6b8a; display: flex; font-size: 13px; font-weight: 700; gap: 7px; justify-content: center; min-height: 44px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); width: 100%; }
+  .mnote-delete { align-items: center; background: transparent; border: 0; color: var(--m-expense); display: flex; font-size: 13px; font-weight: 700; gap: 7px; justify-content: center; min-height: 44px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); width: 100%; }
   .mnote-confirm-del { padding: 8px 18px calc(14px + env(safe-area-inset-bottom)); text-align: center; }
   .mnote-confirm-del > span { color: var(--m-text); display: block; font-size: 13.5px; font-weight: 650; margin-bottom: 10px; }
   .mnote-confirm-del > div { display: flex; gap: 10px; }
   .mnote-confirm-del button { border: 0; border-radius: 12px; flex: 1; font-size: 14px; font-weight: 750; min-height: 46px; }
   .mnote-confirm-del button:first-child { background: color-mix(in oklab, var(--m-text) 8%, transparent); color: var(--m-text); }
-  .mnote-confirm-del button.danger { background: #ff6b8a; color: #2a0910; }
+  .mnote-confirm-del button.danger { background: var(--m-expense); color: #2a0910; }
 
   /* Item editor */
   .mnote-itemeditor-body { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; }
@@ -241,7 +241,7 @@
   .mnote-line-hint { color: var(--m-muted); font-size: 12.5px; margin: 0; text-align: center; }
   .mnote-line-hint b { color: var(--m-text); font-variant-numeric: tabular-nums; }
   .mnote-itemeditor-actions { display: flex; gap: 10px; padding: 6px 18px calc(16px + env(safe-area-inset-bottom)); }
-  .mnote-item-del { align-items: center; background: color-mix(in oklab, #ff6b8a 14%, transparent); border: 0; border-radius: 12px; color: #ff6b8a; display: flex; font-size: 14px; font-weight: 750; gap: 6px; justify-content: center; min-height: 48px; padding: 0 18px; }
+  .mnote-item-del { align-items: center; background: color-mix(in oklab, var(--m-expense) 14%, transparent); border: 0; border-radius: 12px; color: var(--m-expense); display: flex; font-size: 14px; font-weight: 750; gap: 6px; justify-content: center; min-height: 48px; padding: 0 18px; }
   .mnote-item-save { background: var(--accent); border: 0; border-radius: 12px; color: #06121c; flex: 1; font-size: 15px; font-weight: 800; min-height: 48px; }
 
   /* Picker */

@@ -44,8 +44,8 @@
     width: 52px;
   }
   .macc-spark-bar { border-radius: 2px 2px 0 0; flex: 1; min-height: 2px; }
-  .macc-spark-bar.pos { background: #35d0a2; }
-  .macc-spark-bar.neg { background: #ff6b8a; }
+  .macc-spark-bar.pos { background: var(--m-income); }
+  .macc-spark-bar.neg { background: var(--m-expense); }
 
 /* -- MobileAccounts: account detail sheet -------------------- */
   .macc-sheet { background: var(--m-surface); border-radius: 24px 24px 0 0; overflow: hidden; }
@@ -65,14 +65,14 @@
   .macc-trend-col { align-items: center; display: flex; flex: 1; flex-direction: column; gap: 6px; }
   .macc-trend-bars { align-items: flex-end; display: flex; flex: 1; gap: 3px; justify-content: center; width: 100%; }
   .macc-trend-bar { border-radius: 3px 3px 0 0; min-height: 2px; width: 8px; }
-  .macc-trend-bar.in { background: #35d0a2; }
-  .macc-trend-bar.out { background: #ff6b8a; }
+  .macc-trend-bar.in { background: var(--m-income); }
+  .macc-trend-bar.out { background: var(--m-expense); }
   .macc-trend-col small { color: var(--m-muted); font-size: 10px; }
   .macc-trend-legend { display: flex; gap: 16px; justify-content: center; margin-top: 10px; }
   .macc-trend-legend span { align-items: center; color: var(--m-muted); display: flex; font-size: 12px; gap: 6px; }
   .macc-dot { border-radius: 50%; display: inline-block; height: 8px; width: 8px; }
-  .macc-dot.in { background: #35d0a2; }
-  .macc-dot.out { background: #ff6b8a; }
+  .macc-dot.in { background: var(--m-income); }
+  .macc-dot.out { background: var(--m-expense); }
 
   /* Recent activity */
   .macc-recent-head { align-items: baseline; display: flex; justify-content: space-between; margin: 20px 4px 8px; }

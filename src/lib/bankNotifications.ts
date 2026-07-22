@@ -8,16 +8,37 @@ export interface RawBankNotification {
   postTime: number
 }
 
-/** True si la app tiene concedido el acceso especial de notificaciones. */
-export async function hasNotificationAccess(): Promise<boolean> {
-  if (!isTauri()) return false
+export interface NotificationAccessStatus {
+  /** El usuario concedió el acceso especial a notificaciones. */
+  granted: boolean
+  /**
+   * El sistema tiene el servicio de escucha VINCULADO ahora mismo. No es lo
+   * mismo que `granted`: al actualizar el APK, Android desvincula el listener y
+   * no lo revincula solo, así que quedaba permiso concedido pero cero
+   * detecciones. Consultar este estado pide además el re-vínculo al sistema.
+   */
+  connected: boolean
+}
+
+/**
+ * Estado real de la captura de notificaciones. Como efecto secundario, si el
+ * permiso está concedido pero el servicio quedó desvinculado, el lado nativo
+ * pide el re-vínculo — así se repara solo con solo abrir Ajustes.
+ */
+export async function getNotificationAccessStatus(): Promise<NotificationAccessStatus> {
+  if (!isTauri()) return { granted: false, connected: false }
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    const res = await invoke<{ granted: boolean }>('plugin:bank-notifications|has_access')
-    return res.granted
+    const res = await invoke<{ granted: boolean; connected?: boolean }>('plugin:bank-notifications|has_access')
+    return { granted: res.granted, connected: res.connected ?? false }
   } catch {
-    return false
+    return { granted: false, connected: false }
   }
+}
+
+/** True si la app tiene concedido el acceso especial de notificaciones. */
+export async function hasNotificationAccess(): Promise<boolean> {
+  return (await getNotificationAccessStatus()).granted
 }
 
 /** Abre los ajustes del sistema donde el usuario concede el acceso a notificaciones. */

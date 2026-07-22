@@ -195,7 +195,7 @@
   /* -- CreateFlow: error inline + shake -------------- */
   .mobile-create-error {
     align-items: center;
-    color: #ff6b8a;
+    color: var(--m-expense);
     display: flex;
     font-size: 13px;
     font-weight: 700;
@@ -336,7 +336,7 @@
   .mrep-hero-label { color: var(--m-muted); font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
   .mrep-hero-value { color: var(--m-text); display: block; font-size: 31px; font-weight: 900; letter-spacing: -.045em; line-height: 1.05; margin-top: 2px; }
   .mrep-hero-bar { background: color-mix(in oklab, var(--m-text) 9%, transparent); border-radius: 999px; height: 7px; margin: 2px 0; overflow: hidden; width: 100%; }
-  .mrep-hero-bar-fill { background: #35d0a2; border-radius: 6px; height: 100%; transition: width var(--m-duration-slow, 220ms) var(--m-ease-out, ease); }
+  .mrep-hero-bar-fill { background: var(--m-income); border-radius: 6px; height: 100%; transition: width var(--m-duration-slow, 220ms) var(--m-ease-out, ease); }
   .mrep-hero-row { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 2px; }
   .mrep-hero-stat {
     align-items: flex-start;
@@ -352,8 +352,8 @@
   .mrep-hero-stat small { color: var(--m-muted); font-size: 11px; font-weight: 700; }
   .mrep-hero-stat strong { color: var(--m-text); font-size: 14px; font-weight: 850; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mrep-hero-dot { border-radius: 50%; display: block; flex-shrink: 0; height: 10px; margin-top: 5px; width: 10px; }
-  .mrep-hero-dot.asset { background: #35d0a2; }
-  .mrep-hero-dot.debt  { background: #ff6b8a; }
+  .mrep-hero-dot.asset { background: var(--m-income); }
+  .mrep-hero-dot.debt  { background: var(--m-expense); }
   .mrep-allocation { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 18px; display: flex; flex-direction: column; gap: 10px; margin: 0 16px; padding: 14px; }
   .mrep-section-title { color: var(--m-muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
   .mrep-alloc-bar { border-radius: 8px; display: flex; height: 12px; overflow: hidden; width: 100%; }
@@ -391,7 +391,7 @@
   .mrep-empty { align-items: center; display: flex; flex-direction: column; gap: 10px; padding: 48px 24px; text-align: center; }
   .mrep-empty p { color: var(--m-muted); font-size: 14px; margin: 0; }
   /* utility text colors */
-  .text-expense { color: #ff6b8a !important; }
+  .text-expense { color: var(--m-expense) !important; }
   .text-warn    { color: #f59e0b !important; }
 
   /* --- MobileProfile ---------------------------- */
@@ -407,7 +407,7 @@
   .mpr-hero {
     background:
       radial-gradient(circle at 25% -10%, color-mix(in oklab, var(--m-primary) 30%, transparent), transparent 55%),
-      linear-gradient(160deg, #16294d 0%, #0b1526 60%, #070c18 100%);
+      var(--m-brand-band);
     border-radius: 24px;
     display: flex;
     flex-direction: column;
@@ -433,7 +433,7 @@
     align-items: center;
     background: var(--m-primary);
     border-radius: 50%;
-    box-shadow: 0 0 0 3px rgba(255,255,255,.10), 0 8px 20px rgba(0,0,0,.35);
+    box-shadow: 0 0 0 3px var(--m-brand-layer), var(--m-elevation-sm);
     color: #000;
     display: flex;
     font-size: 30px;
@@ -468,8 +468,8 @@
     z-index: 5;
   }
   .mpr-photo-menu {
-    background: #16294d;
-    border: 1px solid rgba(255,255,255,.14);
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
     border-radius: 14px;
     box-shadow: var(--m-elevation);
     display: flex;
@@ -494,11 +494,12 @@
     padding: 11px 14px;
     text-align: left;
   }
-  .mpr-photo-menu button:active { background: rgba(255,255,255,.08); }
-  .mpr-photo-menu-danger { color: #ff8fa3 !important; }
-  /* El fondo del héroe es siempre el degradado oscuro de marca, sin importar
-     el tema claro/oscuro de la app (como la tarjeta de un banco) — por eso
-     el texto usa blancos fijos, no los tokens --m-text que cambian con el tema. */
+  .mpr-photo-menu button:active { background: color-mix(in oklab, var(--m-text) 8%, transparent); }
+  .mpr-photo-menu-danger { color: var(--m-expense) !important; }
+  /* El héroe es la banda de marca (--m-brand-band) y su contenido usa los
+     tokens --m-brand-on / --m-brand-layer en vez de blancos fijos: la banda es
+     oscura en tema oscuro y clara en tema claro, así que el texto tiene que
+     seguirla o queda blanco sobre fondo claro. */
   .mpr-hero-identity {
     align-items: center;
     display: flex;
@@ -506,13 +507,13 @@
     position: relative;
     z-index: 1;
   }
-  .mpr-hero h2 { color: #fff; font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+  .mpr-hero h2 { color: var(--m-brand-on); font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
   .mpr-edit-name-btn {
     align-items: center;
-    background: rgba(255,255,255,.12);
+    background: var(--m-brand-layer);
     border: 0;
     border-radius: 999px;
-    color: rgba(255,255,255,.85);
+    color: var(--m-brand-on);
     display: flex;
     height: 24px;
     justify-content: center;
@@ -520,20 +521,20 @@
   }
   .mpr-name-editor { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; position: relative; width: 100%; z-index: 1; }
   .mpr-name-editor input {
-    background: rgba(255,255,255,.08);
-    border: 1.5px solid rgba(255,255,255,.16);
+    background: var(--m-brand-layer);
+    border: 1.5px solid var(--m-brand-line);
     border-radius: 12px;
-    color: #fff;
+    color: var(--m-brand-on);
     font-size: 16px;
     padding: 10px 14px;
     text-align: center;
     width: 100%;
   }
-  .mpr-name-editor input::placeholder { color: rgba(255,255,255,.4); }
+  .mpr-name-editor input::placeholder { color: var(--m-brand-on-dim); }
   .mpr-name-actions { display: flex; gap: 8px; }
   .mpr-name-actions button { border-radius: 12px; flex: 1; font-size: 14px; font-weight: 700; min-height: 42px; }
   .mpr-name-actions button.primary { background: var(--m-primary); border: 0; color: #000; }
-  .mpr-name-actions button:not(.primary) { background: rgba(255,255,255,.1); border: 0; color: rgba(255,255,255,.8); }
+  .mpr-name-actions button:not(.primary) { background: var(--m-brand-layer); border: 0; color: var(--m-brand-on); }
   .mpr-hero-balance {
     align-items: center;
     display: flex;
@@ -543,7 +544,7 @@
     position: relative;
     z-index: 1;
   }
-  .mpr-hero-balance small { color: rgba(255,255,255,.55); font-size: 12.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+  .mpr-hero-balance small { color: var(--m-brand-on-dim); font-size: 12.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
   .mpr-hero-balance strong { color: #fff; font-size: 34px; font-variant-numeric: tabular-nums; font-weight: 850; letter-spacing: -.02em; }
   .mpr-stats-grid {
     display: grid;
@@ -555,8 +556,8 @@
     z-index: 1;
   }
   .mpr-stat-card {
-    background: rgba(255,255,255,.07);
-    border: 1px solid rgba(255,255,255,.08);
+    background: var(--m-brand-layer);
+    border: 1px solid var(--m-brand-line);
     border-radius: 14px;
     display: flex;
     flex-direction: column;
@@ -566,13 +567,13 @@
     padding: 10px 8px;
   }
   .mpr-stat-card small {
-    color: rgba(255,255,255,.55);
+    color: var(--m-brand-on-dim);
     font-size: 11px;
     font-weight: 700;
     line-height: 1.2;
   }
   .mpr-stat-card strong {
-    color: #fff;
+    color: var(--m-brand-on);
     font-size: 19px;
     font-weight: 900;
     letter-spacing: -.03em;
@@ -1094,7 +1095,7 @@
     background: rgba(255,107,138,.06);
     border: 1px solid rgba(255,107,138,.18);
     border-radius: 12px;
-    color: #ff6b8a;
+    color: var(--m-expense);
     display: flex;
     font-size: 13px;
     font-weight: 700;
@@ -1117,7 +1118,7 @@
   .mpr-confirm-del > div { display: grid; gap: 6px; grid-template-columns: 1fr 1fr; }
   .mpr-confirm-del button { border-radius: 10px; font-size: 13px; font-weight: 800; min-height: 40px; }
   .mpr-confirm-del button:first-child { background: transparent; border: 1px solid var(--m-border); color: var(--m-muted); }
-  .mpr-confirm-del button.danger { align-items: center; background: rgba(255,107,138,.14); border: 1px solid rgba(255,107,138,.28); color: #ff6b8a; display: flex; gap: 5px; justify-content: center; }
+  .mpr-confirm-del button.danger { align-items: center; background: rgba(255,107,138,.14); border: 1px solid rgba(255,107,138,.28); color: var(--m-expense); display: flex; gap: 5px; justify-content: center; }
 
   /* Actions footer */
   .mpr-editor-actions {
@@ -1242,7 +1243,84 @@
     display: flex; font-size: 13px; font-weight: 750; gap: 5px; padding: 6px 4px;
   }
   .txf-split-remaining { color: #f59e0b; font-size: 12px; font-weight: 700; }
-  .txf-split-remaining.ok { color: #35d0a2; }
+  .txf-split-remaining.ok { color: var(--m-income); }
+
+  /* ── AvatarCropper ── */
+  .avc-overlay {
+    align-items: center;
+    background: rgba(0,0,0,.72);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 16px);
+    position: fixed;
+    z-index: 480;
+  }
+  .avc-sheet {
+    background: var(--m-bg, #0f0f10);
+    border: 1px solid var(--m-border);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 380px;
+    padding: 14px 16px 16px;
+    width: 100%;
+  }
+  .avc-head { align-items: center; display: flex; gap: 10px; }
+  .avc-head h2 { font-size: 15px; font-weight: 800; margin: 0; }
+  .avc-icon-btn {
+    align-items: center;
+    background: none;
+    border: 0;
+    color: var(--m-muted);
+    display: flex;
+    padding: 4px;
+  }
+  /* touch-action: none — sin esto el WebView se queda el gesto para hacer
+     scroll de la página y el arrastre del encuadre no llega a moverse. */
+  .avc-stage {
+    aspect-ratio: 1;
+    border-radius: 14px;
+    cursor: grab;
+    overflow: hidden;
+    position: relative;
+    touch-action: none;
+    user-select: none;
+    width: 100%;
+  }
+  .avc-img {
+    left: 50%;
+    max-width: none;
+    position: absolute;
+    top: 50%;
+    pointer-events: none;
+  }
+  /* La máscara solo muestra cómo se recorta; lo que se guarda es el cuadrado
+     completo, por eso es un box-shadow y no un clip real sobre la imagen. */
+  .avc-mask {
+    border-radius: 50%;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.55);
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+  .avc-hint { color: var(--m-muted); font-size: 12px; margin: 0; text-align: center; }
+  .avc-zoom { align-items: center; color: var(--m-muted); display: flex; gap: 10px; }
+  .avc-zoom input { accent-color: var(--m-primary); flex: 1; }
+  .avc-error { color: var(--m-muted); font-size: 13px; margin: 0; text-align: center; }
+  .avc-actions { display: flex; gap: 10px; }
+  .avc-btn {
+    border: 0;
+    border-radius: 12px;
+    flex: 1;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px;
+  }
+  .avc-btn-ghost { background: var(--m-surface-2); color: var(--m-text); }
+  .avc-btn-primary { background: var(--m-primary); color: var(--m-primary-text); }
+  .avc-btn-primary:disabled { opacity: .5; }
 
   /* ── MobileTextSheet ── */
   .mtxt-overlay {
@@ -1332,9 +1410,9 @@
   }
   .mdig-btn:active { background: var(--m-surface-2); transform: scale(.96); }
   .mdig-back {
-    background: color-mix(in oklab, #ff6b8a 14%, var(--m-surface-2));
-    border-color: color-mix(in oklab, #ff6b8a 22%, transparent);
-    color: #ff6b8a;
+    background: color-mix(in oklab, var(--m-expense) 14%, var(--m-surface-2));
+    border-color: color-mix(in oklab, var(--m-expense) 22%, transparent);
+    color: var(--m-expense);
   }
   .mdig-done {
     background: color-mix(in oklab, var(--m-primary, #ffdd3d) 20%, var(--m-surface-2));
@@ -1426,7 +1504,7 @@
   .msub-row-info b { display: block; font-size: 15.5px; font-weight: 850; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .msub-row-info small { color: var(--m-muted); font-size: 12px; }
   .msub-overdue { color: #f59e0b; }
-  .msub-lowfunds { color: #ff6b8a; font-weight: 700; }
+  .msub-lowfunds { color: var(--m-expense); font-weight: 700; }
   .msub-row-right strong { font-size: 15px; font-weight: 900; white-space: nowrap; }
   .msub-row-right small { color: var(--m-muted); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
@@ -1541,13 +1619,13 @@
   }
   .msub-action-btn { background: color-mix(in oklab, var(--m-text) 6%, transparent); color: var(--m-text); }
   .msub-action-btn.warn { background: color-mix(in oklab, #f59e0b 12%, transparent); color: #f59e0b; }
-  .msub-action-btn.danger { background: color-mix(in oklab, #ff6b8a 12%, transparent); color: #ff6b8a; }
+  .msub-action-btn.danger { background: color-mix(in oklab, var(--m-expense) 12%, transparent); color: var(--m-expense); }
 
-  .msub-confirm { background: color-mix(in oklab, #ff6b8a 8%, transparent); border-radius: 12px; padding: 16px; }
+  .msub-confirm { background: color-mix(in oklab, var(--m-expense) 8%, transparent); border-radius: 12px; padding: 16px; }
   .msub-confirm p { color: var(--m-text); font-size: 14px; line-height: 1.5; margin: 0 0 14px; }
   .msub-confirm-row { display: flex; gap: 10px; }
   .msub-confirm-row button { border-radius: 10px; flex: 1; font-size: 14px; font-weight: 600; padding: 12px; }
-  .msub-confirm-row button.danger { background: #ff6b8a; color: #fff; }
+  .msub-confirm-row button.danger { background: var(--m-expense); color: #fff; }
 
   /* Detected subscriptions */
   .msub-row-right { align-items: flex-end; display: flex; flex-direction: column; gap: 6px; }
@@ -1738,7 +1816,7 @@
     transition: background var(--m-duration-fast, 160ms) var(--m-ease, ease), border-color var(--m-duration-fast, 160ms) var(--m-ease, ease);
   }
   .mpin-dot.on { background: var(--accent, #ffdd3d); border-color: var(--accent, #ffdd3d); }
-  .mpin-dot.err { background: #ff6b8a; border-color: #ff6b8a; }
+  .mpin-dot.err { background: var(--m-expense); border-color: var(--m-expense); }
   .mpin-keypad {
     display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr);
     margin-top: 8px; width: 100%;
@@ -1781,7 +1859,7 @@
     background: var(--accent, #ffdd3d); border-color: var(--accent, #ffdd3d);
     transform: scale(1.25);
   }
-  .mpattern-dot.on.err::after { background: #ff6b8a; border-color: #ff6b8a; }
+  .mpattern-dot.on.err::after { background: var(--m-expense); border-color: var(--m-expense); }
   .mpattern-pad.err { animation: mpattern-shake .38s; }
 
   @keyframes mpattern-shake {
@@ -1795,16 +1873,16 @@
   .mhome-smart-insights { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
   .mhome-insight-chip { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-muted); display: flex; font-size: 13px; gap: 8px; padding: 10px 14px; }
   .mhome-insight-chip svg { flex-shrink: 0; }
-  .mhome-insight-chip.ok   { border-color: #35d0a244; color: #35d0a2; }
+  .mhome-insight-chip.ok   { border-color: var(--m-income)44; color: var(--m-income); }
   .mhome-insight-chip.warn { border-color: #f59e0b44; color: #f59e0b; }
 
 /* -- Avisos (usado por MobileMovements) ---------------------- */
   .mhome-alert { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 14px; display: flex; gap: 10px; padding: 12px 14px; }
   .mhome-alert.warn   { border-color: #f59e0b44; }
-  .mhome-alert.danger { border-color: #ff6b8a44; }
+  .mhome-alert.danger { border-color: var(--m-expense)44; }
   .mhome-alert-ico { align-items: center; border-radius: 10px; display: flex; flex-shrink: 0; height: 34px; justify-content: center; width: 34px; }
   .mhome-alert.warn   .mhome-alert-ico { background: #f59e0b29; color: #f59e0b; }
-  .mhome-alert.danger .mhome-alert-ico { background: #ff6b8a29; color: #ff6b8a; }
+  .mhome-alert.danger .mhome-alert-ico { background: var(--m-expense)29; color: var(--m-expense); }
   .mhome-alert p { color: var(--m-muted); flex: 1; font-size: 12.5px; line-height: 1.4; margin: 0; min-width: 0; }
   .mhome-alert p strong { color: var(--m-text); display: block; font-size: 13px; font-weight: 700; margin-bottom: 1px; }
   .mhome-alert > button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--m-muted); display: grid; flex-shrink: 0; height: 44px; margin: -7px -8px -7px 0; place-items: center; width: 44px; }
@@ -1845,7 +1923,7 @@
   .mdebt-result-lbl { color: var(--m-muted); font-size: 12px; margin-top: 2px; }
   .mdebt-result-sep { background: var(--m-border); width: 1px; }
   .mdebt-badge { border-radius: 8px; font-size: 13px; font-weight: 600; margin-top: 14px; padding: 8px 12px; text-align: center; }
-  .mdebt-badge.ok   { background: #35d0a222; color: #35d0a2; }
+  .mdebt-badge.ok   { background: var(--m-income)22; color: var(--m-income); }
   .mdebt-badge.warn { background: #f59e0b22; color: #f59e0b; }
   .mdebt-extra-card { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 12px 16px 0; padding: 16px 20px; }
   .mdebt-extra-label { color: var(--m-muted); font-size: 13px; }
@@ -1854,7 +1932,7 @@
   .mdebt-extra-tap:active { background: var(--m-surface); }
   .mdebt-extra-input { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-text); flex: 1; font-size: 18px; font-weight: 700; padding: 10px 14px; }
   .mdebt-extra-cur { color: var(--m-muted); font-size: 14px; font-weight: 600; }
-  .mdebt-extra-note { color: #35d0a2; display: block; font-size: 12px; margin-top: 6px; }
+  .mdebt-extra-note { color: var(--m-income); display: block; font-size: 12px; margin-top: 6px; }
   .mdebt-section-title { align-items: center; color: var(--m-muted); display: flex; font-size: 12px; font-weight: 700; gap: 8px; letter-spacing: .06em; margin: 20px 16px 8px; text-transform: uppercase; }
   .mdebt-add-inline { align-items: center; background: color-mix(in oklab, var(--m-primary) 15%, transparent); border-radius: 8px; color: var(--m-primary); display: flex; font-size: 12px; font-weight: 700; gap: 4px; margin-left: auto; padding: 4px 10px; }
   .mdebt-order-list { display: flex; flex-direction: column; gap: 2px; margin: 0 16px; }
@@ -1886,12 +1964,12 @@
   .mdebt-color-row { display: flex; gap: 10px; }
   .mdebt-color-dot { border-radius: 50%; height: 40px; opacity: .55; width: 40px; }
   .mdebt-color-dot.on { opacity: 1; outline: 3px solid var(--m-text); outline-offset: 2px; }
-  .mdebt-del-btn { align-items: center; border: 1px solid #ff6b8a44; border-radius: 10px; color: #ff6b8a; display: flex; font-size: 14px; font-weight: 600; gap: 6px; padding: 12px; }
-  .mdebt-confirm-del { background: #ff6b8a15; border-radius: 10px; padding: 14px; }
+  .mdebt-del-btn { align-items: center; border: 1px solid var(--m-expense)44; border-radius: 10px; color: var(--m-expense); display: flex; font-size: 14px; font-weight: 600; gap: 6px; padding: 12px; }
+  .mdebt-confirm-del { background: var(--m-expense)15; border-radius: 10px; padding: 14px; }
   .mdebt-confirm-del p { color: var(--m-text); font-size: 14px; margin: 0 0 12px; }
   .mdebt-confirm-del div { display: flex; gap: 8px; }
   .mdebt-confirm-del button { border-radius: 10px; flex: 1; font-size: 14px; font-weight: 600; padding: 11px; }
-  .mdebt-confirm-del button.danger { background: #ff6b8a; color: #fff; }
+  .mdebt-confirm-del button.danger { background: var(--m-expense); color: #fff; }
   .mdebt-sheet-actions { border-top: 1px solid var(--m-border); display: flex; gap: 10px; padding: 16px 20px; }
   .mdebt-btn-cancel { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 12px; color: var(--m-text); flex: 1; font-size: 15px; font-weight: 600; padding: 14px; }
   .mdebt-btn-save { border-radius: 12px; color: #000; flex: 2; font-size: 15px; font-weight: 700; padding: 14px; }
@@ -1933,8 +2011,8 @@
   .mcsv-preview-row { align-items: center; border-bottom: 1px solid var(--m-border); display: flex; font-size: 13px; gap: 8px; padding: 10px 14px; }
   .mcsv-preview-row:last-child { border-bottom: none; }
   .mcsv-preview-row.invalid { opacity: .45; }
-  .mcsv-income  { color: #35d0a2; font-weight: 700; white-space: nowrap; }
-  .mcsv-expense { color: #ff6b8a; font-weight: 700; white-space: nowrap; }
+  .mcsv-income  { color: var(--m-income); font-weight: 700; white-space: nowrap; }
+  .mcsv-expense { color: var(--m-expense); font-weight: 700; white-space: nowrap; }
   .mcsv-note { color: var(--m-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mcsv-date { color: var(--m-muted); white-space: nowrap; }
   .mcsv-next-btn { background: var(--m-primary); border-radius: 12px; color: #000; font-size: 15px; font-weight: 700; margin-top: 16px; padding: 16px; width: 100%; }
@@ -1954,14 +2032,14 @@
   .mcash-hero small { color: var(--m-muted); display: block; font-size: 13px; }
   .mcash-hero strong { color: var(--m-text); display: block; font-size: 34px; font-weight: 800; letter-spacing: -1px; margin: 4px 0 2px; }
   .mcash-delta { font-size: 13px; font-weight: 650; }
-  .mcash-delta.up   { color: #35d0a2; }
-  .mcash-delta.down { color: #ff6b8a; }
+  .mcash-delta.up   { color: var(--m-income); }
+  .mcash-delta.down { color: var(--m-expense); }
   .mcash-warning {
-    align-items: center; background: #ff6b8a18; border: 1px solid #ff6b8a44;
+    align-items: center; background: var(--m-expense)18; border: 1px solid var(--m-expense)44;
     border-radius: 14px; color: var(--m-text); display: flex; font-size: 13px;
     gap: 10px; line-height: 1.4; margin: 12px 16px 0; padding: 12px 14px;
   }
-  .mcash-warning svg { color: #ff6b8a; flex-shrink: 0; }
+  .mcash-warning svg { color: var(--m-expense); flex-shrink: 0; }
   .mcash-chart { margin: 10px 8px 0; }
   .mcash-summary-row { display: flex; gap: 10px; margin: 12px 16px 0; }
   .mcash-summary-item {
@@ -1989,12 +2067,12 @@
     align-items: center; border-radius: 9px; display: grid; flex-shrink: 0;
     height: 28px; place-items: center; width: 28px;
   }
-  .mcash-event-expense { background: #ff6b8a1f; color: #ff6b8a; }
-  .mcash-event-income  { background: #35d0a21f; color: #35d0a2; }
+  .mcash-event-expense { background: var(--m-expense)1f; color: var(--m-expense); }
+  .mcash-event-income  { background: var(--m-income)1f; color: var(--m-income); }
   .mcash-event-goal    { background: #a78bfa1f; color: #a78bfa; }
   .mcash-event-note { color: var(--m-text); flex: 1; font-size: 13.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mcash-event b { font-size: 13.5px; font-weight: 750; }
-  b.mcash-event-income { background: transparent; color: #35d0a2; }
+  b.mcash-event-income { background: transparent; color: var(--m-income); }
   .mcash-note {
     align-items: center; color: var(--m-muted); display: flex; font-size: 11.5px;
     gap: 5px; line-height: 1.4; margin: 0; padding: 14px 20px 0;

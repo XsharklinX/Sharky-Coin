@@ -3,14 +3,14 @@ import { Icon } from '@/components/ui/Icon'
 import { BrandLogo } from '@/components/ui/BrandLogo'
 import { toast } from '@/components/ui/Toast'
 import { currentMonthKey, dateLocale, fmt, localToday } from '@/data/helpers'
-import { detectSubscriptions, type SubscriptionInsight } from '@/data/financeIntelligence'
+import { detectSubscriptions, subscriptionInsightKey as insightKey, type SubscriptionInsight } from '@/data/financeIntelligence'
 import { CURRENCIES } from '@/data/seed'
 import { SUBSCRIPTION_CATALOG, suggestedCategoryId, type SubscriptionCatalogItem } from '@/data/subscriptionCatalog'
 import { initialRecurringDates } from '@/data/subscriptionSchedule'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useSubscriptionDismissals } from '@/store/subscriptionDismissals'
+import { useDismissals } from '@/store/dismissals'
 import { translateCategoryName, useT } from '@/i18n'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import { MobileTextSheet } from './MobileTextSheet'
@@ -98,10 +98,6 @@ function titleCase(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function insightKey(item: SubscriptionInsight): string {
-  return `${item.merchant}|${item.categoryId ?? ''}|${item.accountId ?? ''}`
-}
-
 type SheetMode = { tx: Transaction; confirm: boolean } | null
 
 export function MobileSubscriptions() {
@@ -128,8 +124,8 @@ export function MobileSubscriptions() {
   const totalAnnual = totalMonthly * 12
   const nextRecurring = [...recurring].sort((a, b) => (a.recurringNext ?? a.date).localeCompare(b.recurringNext ?? b.date))[0]
 
-  const dismissed = useSubscriptionDismissals(state => state.dismissed)
-  const dismissSuggestion = useSubscriptionDismissals(state => state.dismiss)
+  const dismissed = useDismissals(state => state.dismissed)
+  const dismissSuggestion = useDismissals(state => state.dismiss)
 
   const detected = useMemo(
     () => detectSubscriptions(transactions, currentMonthKey())

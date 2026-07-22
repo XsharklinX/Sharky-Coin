@@ -2,13 +2,15 @@ import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { toast } from '@/components/ui/Toast'
-import { generateFinancialIntelligence } from '@/data/financeIntelligence'
+import { generateFinancialIntelligence, subscriptionInsightKey } from '@/data/financeIntelligence'
 import { compareCategoryTotals } from '@/data/comparisons'
 import { exportCsv, exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { playConfirmSound } from '@/lib/sound'
 import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, shortMonth, totalBalanceInBase, totals, transactionsForTotals, txForMonth, type NetWorthPoint } from '@/data/helpers'
 import { projectNetWorth } from '@/data/netWorthProjection'
+import { useAnalyticsSections, type AnalyticsSectionId } from '@/store/analyticsSections'
+import { useDismissals } from '@/store/dismissals'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
@@ -19,6 +21,70 @@ import { SheetPortal } from './SheetPortal'
 import type { CurrencyCode, IconName, Transaction } from '@/types'
 
 export type AnalyticsPeriod = 'week' | 'month' | 'year'
+
+/**
+ * Sección plegable de Análisis. El contenido se monta solo cuando está abierta:
+ * varias de estas secciones llevan gráficos que recorren todas las
+ * transacciones, y montarlos todos de golpe era parte de por qué la pantalla
+ * iba pesada.
+ *
+ * `count` adelanta cuánto hay dentro — sin eso, plegar sí sería esconder: el
+ * usuario no tendría forma de saber si vale la pena abrir.
+ */
+function AnalyticsFold({
+  id,
+  title,
+  subtitle,
+  count,
+  children,
+}: {
+  id: AnalyticsSectionId
+  title: string
+  subtitle?: string
+  count?: number
+  children: React.ReactNode
+}) {
+  const open = useAnalyticsSections(s => s.open[id] === true)
+  const toggle = useAnalyticsSections(s => s.toggle)
+
+  return (
+    <section className={`man-fold${open ? ' on' : ''}`}>
+      <button
+        type="button"
+        className="man-fold-head"
+        aria-expanded={open}
+        aria-controls={`man-fold-${id}`}
+        onClick={() => toggle(id)}
+      >
+        <span className="man-fold-title">
+          {title}
+          {subtitle && <small>{subtitle}</small>}
+        </span>
+        {count !== undefined && count > 0 && <span className="man-fold-count">{count}</span>}
+        <Icon name="arrowUp" size={14} className="man-fold-chevron" />
+      </button>
+      {open && (
+        <div className="man-fold-body" id={`man-fold-${id}`}>
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
+interface InsightRow {
+  /** Tipo de tarjeta: lo que se oculta con "ocultar todas las de este tipo". */
+  id: string
+  /** Instancia concreta: lo que se oculta con "ocultar esta". */
+  dismissKey: string
+  /** Solo la tarjeta de suscripción: clave compartida con la pantalla de Suscripciones. */
+  subscriptionKey?: string
+  icon: IconName
+  tone: string
+  title: string
+  subtitle: string
+  action?: { label: string; onClick: () => void }
+}
 
 function getMonthsShort(t: ReturnType<typeof useT>) {
   return [
@@ -343,6 +409,15 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
   const netWorthProjected = useMemo(() => projectNetWorth(netWorthRolling, 6), [netWorthRolling])
   const netWorthSplit = useMemo(() => netWorthBreakdown(accounts, currency), [accounts, currency])
 
+  const hiddenInsights = useDismissals(s => s.hiddenInsights)
+  const hiddenInsightTypes = useDismissals(s => s.hiddenInsightTypes)
+  const dismissedSubscriptions = useDismissals(s => s.dismissed)
+  const hideInsight = useDismissals(s => s.hideInsight)
+  const hideInsightType = useDismissals(s => s.hideInsightType)
+  const dismissSubscription = useDismissals(s => s.dismiss)
+  // Tarjeta cuya ocultación espera a que el usuario elija el alcance.
+  const [hiding, setHiding] = useState<InsightRow | null>(null)
+
   // Convierte el gasto detectado como suscripción en un recurrente mensual real
   const makeSubscriptionRecurring = () => {
     if (!upcomingSubscription) return
@@ -362,10 +437,13 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     toast(t('insightRecurringCreated').replace('{name}', candidate.note), { icon: 'repeat', type: 'ok' })
   }
 
+  // `id` es el TIPO de tarjeta (ocultar todas las de este tipo) y `dismissKey`
+  // la instancia concreta (ocultar solo esta).
   const insightRows = [
     topCategory && topCategoryDelta > Math.max(500, topCategoryPrevious * 0.25)
       ? {
           id: 'category-cause',
+          dismissKey: `category-cause:${topCategory.category.id}`,
           icon: topCategory.category.icon,
           tone: 'warn',
           title: t('spentMoreByCategory')
@@ -378,6 +456,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     recentAnomaly
       ? {
           id: 'anomaly',
+          dismissKey: `anomaly:${recentAnomaly.tx.id}`,
           icon: 'alert' as IconName,
           tone: 'danger',
           title: t('anomalousExpenseTitle').replace('{note}', recentAnomaly.tx.note),
@@ -390,6 +469,11 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     upcomingSubscription
       ? {
           id: 'subscription',
+          dismissKey: `subscription:${upcomingSubscription.merchant}`,
+          // Ocultar esta tarjeta usa la MISMA clave que la pantalla de
+          // Suscripciones, así el usuario no tiene que rechazar dos veces la
+          // misma sugerencia en dos sitios distintos.
+          subscriptionKey: subscriptionInsightKey(upcomingSubscription),
           icon: 'repeat' as IconName,
           tone: upcomingSubscription.alreadyRecurring ? '' : 'warn',
           title: t('subscriptionInsightTitle').replace('{merchant}', upcomingSubscription.merchant),
@@ -404,6 +488,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     overBudgetCategory
       ? {
           id: 'budget-risk',
+          dismissKey: `budget-risk:${overBudgetCategory.category.id}`,
           icon: 'wallet' as IconName,
           tone: 'warn',
           title: t('budgetRiskTitle').replace('{category}', translateCategoryName(overBudgetCategory.category, lang)),
@@ -414,6 +499,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     showTrend && spendTrend !== null
       ? {
           id: 'trend',
+          dismissKey: 'trend',
           icon: spendTrend >= 0 ? 'arrowUp' : 'arrowDn',
           tone: spendTrend > 10 ? 'warn' : spendTrend < -10 ? 'ok' : '',
           title: (spendTrend >= 0 ? t('spendMoreThanLastMonth') : t('spendLessThanLastMonth')).replace('{pct}', String(Math.abs(spendTrend))),
@@ -423,6 +509,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     topTrend
       ? {
           id: 'top-trend',
+          dismissKey: `top-trend:${topTrend.label}`,
           icon: 'trend' as IconName,
           tone: 'warn',
           title: t('topTrendTitle').replace('{label}', topTrend.label).replace('{amount}', fmtVal(topTrend.amount, currency)),
@@ -433,6 +520,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     showTrend && projectedExpense > 0
       ? {
           id: 'projection',
+          dismissKey: 'projection',
           icon: 'trend',
           tone: projectedExpense > totalBudget && totalBudget > 0 ? 'warn' : 'ok',
           title: t('projectedAtClose').replace('{amount}', fmtVal(projectedExpense, currency)),
@@ -445,16 +533,21 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
     topCategory
       ? {
           id: 'top-category',
+          dismissKey: `top-category:${topCategory.category.id}`,
           icon: topCategory.category.icon,
           tone: '',
           title: `${translateCategoryName(topCategory.category, lang)} - ${fmtVal(topCategory.amount, currency)}`,
           subtitle: t('topExpenseOfPeriod'),
         }
       : null,
-  ].filter(Boolean) as Array<{
-    id: string; icon: IconName; tone: string; title: string; subtitle: string
-    action?: { label: string; onClick: () => void }
-  }>
+  ].filter(Boolean) as InsightRow[]
+
+  const visibleInsights = insightRows.filter(row =>
+    !hiddenInsightTypes.includes(row.id)
+    && !hiddenInsights.includes(row.dismissKey)
+    // La sugerencia de suscripción también se respeta si se rechazó desde la
+    // pantalla de Suscripciones — es la misma sugerencia, no dos distintas.
+    && !(row.subscriptionKey && dismissedSubscriptions.includes(row.subscriptionKey)))
 
   return (
     <div className="man-root">
@@ -493,71 +586,6 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
             <AnimatedMoney value={summary.net} compact={compactNumbers} />
           </strong>
         </article>
-      </section>
-
-      <section className="man-metrics">
-        <div className="man-panel-head">
-          <h3>{t('analyticsMetricsTitle')}</h3>
-          <p>{t('analyticsMetricsDesc')}</p>
-        </div>
-
-        <div className="man-quick-grid">
-          <article className="man-quick-card">
-            <span className="man-chip-label">{t('monthlyFlowMetric')}</span>
-            <strong className={`man-quick-value ${summary.net >= 0 ? 'income' : 'expense'}`}>
-              {fmtVal(summary.net, currency)}
-            </strong>
-            <span className="man-quick-subtle">{t('incomes')} / {t('expenses')}</span>
-          </article>
-
-        {period === 'month' && totalBudget > 0 && onBudgets ? (
-          <button className="man-quick-card" onClick={onBudgets}>
-            <span className="man-chip-label">{t('monthBudget')}</span>
-            <strong className={`man-quick-value ${budgetPct >= 100 ? 'expense' : budgetPct >= 80 ? 'warn' : ''}`}>{budgetPct}%</strong>
-            <div className="man-quick-track">
-              <span
-                style={{
-                  width: `${Math.min(100, budgetPct)}%`,
-                  background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : '#35d0a2',
-                }}
-              />
-            </div>
-          </button>
-        ) : (
-          <article className="man-quick-card">
-            <span className="man-chip-label">{t('savingsRateTitle')}</span>
-            <strong className="man-quick-value income">{Math.round(savingsRate)}%</strong>
-            <span className="man-quick-subtle">{fmtVal(savedAmount, currency)}</span>
-          </article>
-        )}
-
-        <article className="man-quick-card">
-          <span className="man-chip-label">{t('topCategoryLabel')}</span>
-          <strong className="man-quick-value">{topCategory ? translateCategoryName(topCategory.category, lang) : '—'}</strong>
-          <span className="man-quick-subtle">{topCategory ? fmtVal(topCategory.amount, currency) : t('noExpensesToAnalyze')}</span>
-        </article>
-
-        <article className="man-quick-card">
-          <span className="man-chip-label">{t('comparisonLabel')}</span>
-          <strong className={`man-quick-value ${compareNetDeltaPct >= 0 ? 'income' : 'expense'}`}>
-            {showCompare ? `${compareNetDeltaPct >= 0 ? '+' : ''}${compareNetDeltaPct}%` : '—'}
-          </strong>
-          <span className="man-quick-subtle">vs. {compareLabel}</span>
-        </article>
-          <article className="man-quick-card">
-            <span className="man-chip-label">{t('netWorthLabel')}</span>
-            <strong className={`man-quick-value ${currentNetWorth >= 0 ? 'income' : 'expense'}`}>
-              {fmtVal(netWorthPoint?.value ?? currentNetWorth, currency)}
-            </strong>
-            <span className="man-quick-subtle">
-              {netWorthSplit.liabilities > 0
-                ? t('netWorthBreakdownLabel')
-                    .replace('{assets}', fmtVal(netWorthSplit.assets, currency))
-                    .replace('{liabilities}', fmtVal(netWorthSplit.liabilities, currency))
-                : t('patrimonyScope')}
-            </span>
-          </article>
-        </div>
       </section>
 
       <section className="man-panel man-panel-distribution">
@@ -615,12 +643,74 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
         </div>
       </section>
 
-      {(showCompare || insightRows.length > 0) && (
-        <section className="man-panel man-panel-trend">
-          <div className="man-panel-head">
-            <h3>{t('quickReadTitle')}</h3>
-            <p>{t('quickReadDesc')}</p>
-          </div>
+      <AnalyticsFold id="metrics" title={t('analyticsMetricsTitle')} subtitle={t('analyticsMetricsDesc')}>
+        <div className="man-quick-grid">
+          <article className="man-quick-card">
+            <span className="man-chip-label">{t('monthlyFlowMetric')}</span>
+            <strong className={`man-quick-value ${summary.net >= 0 ? 'income' : 'expense'}`}>
+              {fmtVal(summary.net, currency)}
+            </strong>
+            <span className="man-quick-subtle">{t('incomes')} / {t('expenses')}</span>
+          </article>
+
+          {period === 'month' && totalBudget > 0 && onBudgets ? (
+            <button className="man-quick-card" onClick={onBudgets}>
+              <span className="man-chip-label">{t('monthBudget')}</span>
+              <strong className={`man-quick-value ${budgetPct >= 100 ? 'expense' : budgetPct >= 80 ? 'warn' : ''}`}>{budgetPct}%</strong>
+              <div className="man-quick-track">
+                <span
+                  style={{
+                    width: `${Math.min(100, budgetPct)}%`,
+                    background: budgetPct >= 100 ? '#ff6b8a' : budgetPct >= 80 ? '#f59e0b' : '#35d0a2',
+                  }}
+                />
+              </div>
+            </button>
+          ) : (
+            <article className="man-quick-card">
+              <span className="man-chip-label">{t('savingsRateTitle')}</span>
+              <strong className="man-quick-value income">{Math.round(savingsRate)}%</strong>
+              <span className="man-quick-subtle">{fmtVal(savedAmount, currency)}</span>
+            </article>
+          )}
+
+          <article className="man-quick-card">
+            <span className="man-chip-label">{t('topCategoryLabel')}</span>
+            <strong className="man-quick-value">{topCategory ? translateCategoryName(topCategory.category, lang) : '—'}</strong>
+            <span className="man-quick-subtle">{topCategory ? fmtVal(topCategory.amount, currency) : t('noExpensesToAnalyze')}</span>
+          </article>
+
+          <article className="man-quick-card">
+            <span className="man-chip-label">{t('comparisonLabel')}</span>
+            <strong className={`man-quick-value ${compareNetDeltaPct >= 0 ? 'income' : 'expense'}`}>
+              {showCompare ? `${compareNetDeltaPct >= 0 ? '+' : ''}${compareNetDeltaPct}%` : '—'}
+            </strong>
+            <span className="man-quick-subtle">vs. {compareLabel}</span>
+          </article>
+
+          <article className="man-quick-card">
+            <span className="man-chip-label">{t('netWorthLabel')}</span>
+            <strong className={`man-quick-value ${currentNetWorth >= 0 ? 'income' : 'expense'}`}>
+              {fmtVal(netWorthPoint?.value ?? currentNetWorth, currency)}
+            </strong>
+            <span className="man-quick-subtle">
+              {netWorthSplit.liabilities > 0
+                ? t('netWorthBreakdownLabel')
+                    .replace('{assets}', fmtVal(netWorthSplit.assets, currency))
+                    .replace('{liabilities}', fmtVal(netWorthSplit.liabilities, currency))
+                : t('patrimonyScope')}
+            </span>
+          </article>
+        </div>
+      </AnalyticsFold>
+
+      {(showCompare || visibleInsights.length > 0) && (
+        <AnalyticsFold
+          id="trends"
+          title={t('quickReadTitle')}
+          subtitle={t('quickReadDesc')}
+          count={visibleInsights.length + (showCompare ? categoryComparison.length : 0)}
+        >
 
           {showCompare && (
             <div className="man-compare-list">
@@ -673,9 +763,9 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
             </div>
           )}
 
-          {insightRows.length > 0 && (
+          {visibleInsights.length > 0 && (
             <div className="man-insights">
-              {insightRows.map(insight => (
+              {visibleInsights.map(insight => (
                 <div key={insight.id} className="man-insight-row">
                   <span className={`man-insight-icon ${insight.tone}`}>
                     <Icon name={insight.icon} size={16} />
@@ -689,28 +779,25 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
                       </button>
                     )}
                   </div>
+                  <button
+                    className="man-insight-hide"
+                    aria-label={t('hideInsightLabel')}
+                    onClick={() => setHiding(insight)}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
                 </div>
               ))}
             </div>
           )}
-        </section>
+        </AnalyticsFold>
       )}
 
-      {netWorthRolling.length >= 2 && (
-        <section className="man-panel man-panel-networth">
-          <div className="man-panel-head">
-            <h3>{t('netWorthTimelineTitle')}</h3>
-          </div>
-          <NetWorthHistoryChart history={netWorthRolling} projected={netWorthProjected} currency={currency} lang={lang} fmtAmount={fmtVal} />
-        </section>
-      )}
-
-      <section className="man-panel man-panel-bars">
-        <div className="man-panel-head">
-          <h3>{period === 'week' ? t('weeklyExpenses') : period === 'year' ? t('incomeVsExpense') : t('last6Months')}</h3>
-          <p>{period === 'week' ? `${weekWindow.start} - ${weekWindow.end}` : t('comparisonLabel')}</p>
-        </div>
-
+      <AnalyticsFold
+        id="evolution"
+        title={period === 'week' ? t('weeklyExpenses') : period === 'year' ? t('incomeVsExpense') : t('last6Months')}
+        subtitle={period === 'week' ? `${weekWindow.start} - ${weekWindow.end}` : t('comparisonLabel')}
+      >
         <div className="man-bar-chart">
           {barData.map(d => (
             <div key={d.label} className="man-bar-col">
@@ -739,14 +826,21 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
             <span><i style={{ background: '#ff6b8a' }} />{t('expenses')}</span>
           </div>
         )}
-      </section>
+      </AnalyticsFold>
+
+      {netWorthRolling.length >= 2 && (
+        <AnalyticsFold id="networth" title={t('netWorthTimelineTitle')}>
+          <NetWorthHistoryChart history={netWorthRolling} projected={netWorthProjected} currency={currency} lang={lang} fmtAmount={fmtVal} />
+        </AnalyticsFold>
+      )}
 
       {categoryRows.length > 0 && (
-        <section className="man-panel man-panel-categories">
-          <div className="man-panel-head">
-            <h3>{t('topCategoriesTitle')}</h3>
-            <p>{t('topExpenseOfPeriod')}</p>
-          </div>
+        <AnalyticsFold
+          id="categories"
+          title={t('topCategoriesTitle')}
+          subtitle={t('topExpenseOfPeriod')}
+          count={categoryRows.length}
+        >
           <div className="man-category-list">
             {categoryRows.map((row, index) => {
               const category = categories.find(item => item.id === row.category.id)
@@ -783,7 +877,7 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
               )
             })}
           </div>
-        </section>
+        </AnalyticsFold>
       )}
 
       {/* Exportar e importar — compacto, sin robar espacio al análisis */}
@@ -829,6 +923,47 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
                 </button>
               )}
             </section>
+          </div>
+        </SheetPortal>
+      )}
+
+      {hiding && (
+        <SheetPortal>
+          <div
+            className="mnc-choice-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('hideInsightTitle')}
+            onClick={() => setHiding(null)}
+          >
+            <div className="mnc-choice" onClick={e => e.stopPropagation()}>
+              <strong>{t('hideInsightTitle')}</strong>
+              <small>{hiding.title}</small>
+              <button
+                className="mnc-choice-btn"
+                onClick={() => {
+                  // La sugerencia de suscripción se rechaza por su clave
+                  // compartida, para que tampoco vuelva en Suscripciones.
+                  if (hiding.subscriptionKey) dismissSubscription(hiding.subscriptionKey)
+                  else hideInsight(hiding.dismissKey)
+                  setHiding(null)
+                  toast(t('insightHiddenToast'), { icon: 'check', type: 'ok' })
+                }}
+              >
+                {t('hideInsightOne')}
+              </button>
+              <button
+                className="mnc-choice-btn mnc-choice-btn-strong"
+                onClick={() => {
+                  hideInsightType(hiding.id)
+                  setHiding(null)
+                  toast(t('insightTypeHiddenToast'), { icon: 'check', type: 'ok' })
+                }}
+              >
+                {t('hideInsightType')}
+              </button>
+              <button className="mnc-choice-cancel" onClick={() => setHiding(null)}>{t('cancel')}</button>
+            </div>
           </div>
         </SheetPortal>
       )}

@@ -5,6 +5,10 @@
   "iluminado desde arriba" (claro arriba → azul de marca → azul profundo) más
   un borde translúcido que le da canto de vidrio. Es el mismo lenguaje del FAB
   "+" que vive dentro de la app, para que se reconozca como "agregar".
+
+  El radio (16dp sobre un cuadrado de 58dp, ~28%) imita el "squircle" con el
+  que los launchers recortan los iconos de apps. El 22dp anterior salía
+  demasiado redondo y lo delataba como algo ajeno a la rejilla de iconos.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <gradient
@@ -15,5 +19,5 @@
     <stroke
         android:width="1dp"
         android:color="#40FFFFFF" />
-    <corners android:radius="22dp" />
+    <corners android:radius="16dp" />
 </shape>

@@ -52,7 +52,11 @@
     --bg-glow: radial-gradient(1200px 600px at 78% -8%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 60%);
   }
   .app[data-theme="light"] {
-    --bg: #f4f7fb; --surface: #ffffff; --surface-2: #edf2f8;
+    /* El fondo baja a un gris azulado (#eef2f8) en vez de rozar el blanco: las
+       tarjetas siguen siendo blancas, así que la separación tarjeta/fondo se
+       ve de verdad y la pantalla deja de ser una sábana blanca que deslumbra.
+       Blanco puro solo en las superficies, nunca en el lienzo. */
+    --bg: #eef2f8; --surface: #ffffff; --surface-2: #e3eaf4;
     /* #5c6478 (no #667085): pasa AA (≥4.5:1) también sobre --surface-2, no solo sobre --surface */
     --text: #172033; --text-dim: #5c6478;
     --border: rgba(23,32,51,.10);
