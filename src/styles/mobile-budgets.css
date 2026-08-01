@@ -1,4 +1,4 @@
-﻿  /* ─── MobileBudgets ─────────────────────────────── */
+  /* --- MobileBudgets ------------------------------- */
   .mbud-root {
     display: flex;
     flex-direction: column;
@@ -390,7 +390,7 @@
     color: var(--text);
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 126px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(calc(100dvh / var(--fs, 1)) - 126px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     max-width: 440px;
     overflow: hidden;
     padding: 0;
@@ -618,7 +618,7 @@
     justify-content: center;
   }
 
-  /* ─── MobileDatePicker ──────────────────────────── */
+  /* --- MobileDatePicker ---------------------------- */
   .mdp-sheet {
     background: var(--surface);
     border-radius: 28px 28px 0 0;
@@ -722,7 +722,7 @@
   .mdp-quick button:active { background: color-mix(in oklab, var(--text) 12%, transparent); }
   .mdp-quick button:first-child { color: var(--accent); }
 
-  /* ─── Fase 3: Recurring in CreateFlow ──────────── */
+  /* --- Fase 3: Recurring in CreateFlow ------------ */
   .mobile-create-recurring-toggle {
     align-items: center;
     background: color-mix(in oklab, var(--text) 4%, transparent);
@@ -836,4 +836,18 @@
     margin-left: 5px;
     vertical-align: middle;
     width: 18px;
+  }
+  /* Badge "auto": marca los movimientos creados solos desde un aviso bancario,
+     para que el usuario los reconozca y los revise/deshaga con confianza. */
+  .mobile-auto-badge {
+    background: color-mix(in oklab, #5bc0ff 18%, transparent);
+    border-radius: 6px;
+    color: #5bc0ff;
+    font-size: 9.5px;
+    font-weight: 850;
+    letter-spacing: .04em;
+    margin-left: 6px;
+    padding: 1px 5px;
+    text-transform: uppercase;
+    vertical-align: middle;
   }

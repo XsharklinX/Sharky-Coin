@@ -7,6 +7,10 @@ import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import { SheetPortal } from './SheetPortal'
 
+// La app se distribuye por Google Play: "Actualizar" siempre lleva a la ficha,
+// sin importar la URL del manifest (así la actualización pasa por la Store).
+const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.sharky.miapp'
+
 export function MobileUpdateDialog({ update, onDismiss }: { update: AvailableUpdate; onDismiss: () => void }) {
   const t = useT()
 
@@ -14,11 +18,12 @@ export function MobileUpdateDialog({ update, onDismiss }: { update: AvailableUpd
   const dialogRef = useDialogA11y<HTMLDivElement>(onDismiss, true)
 
   const openStore = async () => {
+    const url = /play\.google\.com/.test(update.url) ? update.url : PLAY_URL
     if (isTauri()) {
       const { openUrl } = await import('@tauri-apps/plugin-opener')
-      await openUrl(update.url)
+      await openUrl(url)
     } else {
-      window.open(update.url, '_blank', 'noopener')
+      window.open(url, '_blank', 'noopener')
     }
     onDismiss()
   }

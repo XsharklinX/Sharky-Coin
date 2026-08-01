@@ -32,6 +32,9 @@ interface SettingsState {
    *  silencio la vibración es justo lo que sustituye al audio, así que no debe
    *  apagarse con él. */
   hapticsEnabled: boolean
+  /** Escala del tamaño de fuente / de toda la UI (1 = normal). Se aplica como
+   *  `zoom` en la raíz, así que agranda texto Y espaciado de forma uniforme. */
+  fontScale: number
   compactNumbers: boolean
   dismissedAlerts: string[]
   /**
@@ -46,10 +49,21 @@ interface SettingsState {
   hasSeenOnboarding: boolean
   remindersEnabled: boolean
   quickAddNotification: boolean
+  /** Muestra la fila de "Rápidos" en el formulario de crear. Hay quien prefiere
+   *  el formulario limpio; se puede apagar. */
+  quickAddsEnabled: boolean
+  /** Cómo tratar las cuentas marcadas como "no incluidas" (ocultas). El usuario
+   *  decide dónde aparecen: sus movimientos en la lista, su saldo en el balance
+   *  total y sus montos en el resumen de ingresos/gastos del mes. */
+  hiddenShowInMovements: boolean
+  hiddenCountInBalance: boolean
+  hiddenCountInSummary: boolean
   widgetAccountIds: string[]
   /** Cuándo se guardó la última copia MANUAL (ISO). El backup semanal usa
    *  lastWeeklyBackupAt; la tarjeta de estado toma la más reciente de las dos. */
   lastManualBackupAt: string | null
+  /** Colchón que se aparta del "seguro para gastar" en Flujo de caja. 0 = sin colchón. */
+  cashflowBuffer: number
   lastWeeklyBackupAt: string | null
   weeklyAutoBackupEnabled: boolean
   weeklyAutoBackupDay: number
@@ -83,6 +97,7 @@ interface SettingsState {
   setSoundsEnabled: (v: boolean) => void
   setSoundProfile: (v: SettingsState['soundProfile']) => void
   setHapticsEnabled: (v: boolean) => void
+  setFontScale: (v: number) => void
   setSoundVolume: (v: number) => void
   setCompactNumbers: (v: boolean) => void
   dismissAlert: (id: string) => void
@@ -92,9 +107,14 @@ interface SettingsState {
   markOnboardingSeen: () => void
   setRemindersEnabled: (v: boolean) => void
   setQuickAddNotification: (v: boolean) => void
+  setQuickAddsEnabled: (v: boolean) => void
+  setHiddenShowInMovements: (v: boolean) => void
+  setHiddenCountInBalance: (v: boolean) => void
+  setHiddenCountInSummary: (v: boolean) => void
   setWidgetAccountIds: (ids: string[]) => void
   setLastWeeklyBackupAt: (v: string | null) => void
   setLastManualBackupAt: (v: string | null) => void
+  setCashflowBuffer: (v: number) => void
   setWeeklyAutoBackupEnabled: (v: boolean) => void
   setWeeklyAutoBackupDay: (v: number) => void
   setWeeklyAutoBackupHour: (v: number) => void
@@ -129,6 +149,7 @@ export const useSettings = create<SettingsState>()(
       appPattern: null,
       soundsEnabled: true,
       hapticsEnabled: true,
+      fontScale: 1,
       soundProfile: 'soft',
       soundVolume: 0.55,
       compactNumbers: false,
@@ -138,8 +159,13 @@ export const useSettings = create<SettingsState>()(
       hasSeenOnboarding: false,
       remindersEnabled: true,
       quickAddNotification: false,
+      quickAddsEnabled: true,
+      hiddenShowInMovements: true,
+      hiddenCountInBalance: false,
+      hiddenCountInSummary: false,
       widgetAccountIds: [],
       lastManualBackupAt: null,
+      cashflowBuffer: 0,
       lastWeeklyBackupAt: null,
       weeklyAutoBackupEnabled: true,
       weeklyAutoBackupDay: 1,
@@ -187,6 +213,9 @@ export const useSettings = create<SettingsState>()(
       }),
       setSoundsEnabled: (soundsEnabled) => set({ soundsEnabled }),
       setHapticsEnabled: (hapticsEnabled) => set({ hapticsEnabled }),
+      // Se limita a un rango sensato: por debajo de 0.85 se vuelve ilegible, por
+      // encima de 1.35 empieza a apretar los controles fijos.
+      setFontScale: (fontScale) => set({ fontScale: Math.min(1.35, Math.max(0.85, Math.round(fontScale * 100) / 100)) }),
       setSoundProfile: (soundProfile) => set({
         soundProfile,
         soundsEnabled: soundProfile !== 'silent',
@@ -207,9 +236,14 @@ export const useSettings = create<SettingsState>()(
       markOnboardingSeen: () => set({ hasSeenOnboarding: true }),
       setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
       setQuickAddNotification: (quickAddNotification) => set({ quickAddNotification }),
+      setQuickAddsEnabled: (quickAddsEnabled) => set({ quickAddsEnabled }),
+      setHiddenShowInMovements: (hiddenShowInMovements) => set({ hiddenShowInMovements }),
+      setHiddenCountInBalance: (hiddenCountInBalance) => set({ hiddenCountInBalance }),
+      setHiddenCountInSummary: (hiddenCountInSummary) => set({ hiddenCountInSummary }),
       setWidgetAccountIds: (widgetAccountIds) => set({ widgetAccountIds }),
       setLastWeeklyBackupAt: (lastWeeklyBackupAt) => set({ lastWeeklyBackupAt }),
       setLastManualBackupAt: (lastManualBackupAt) => set({ lastManualBackupAt }),
+      setCashflowBuffer: (cashflowBuffer) => set({ cashflowBuffer: Math.max(0, cashflowBuffer) }),
       setWeeklyAutoBackupEnabled: (weeklyAutoBackupEnabled) => set({ weeklyAutoBackupEnabled }),
       setWeeklyAutoBackupDay: (weeklyAutoBackupDay) => set({ weeklyAutoBackupDay: Math.max(0, Math.min(6, weeklyAutoBackupDay)) }),
       setWeeklyAutoBackupHour: (weeklyAutoBackupHour) => set({ weeklyAutoBackupHour: Math.max(0, Math.min(23, weeklyAutoBackupHour)) }),

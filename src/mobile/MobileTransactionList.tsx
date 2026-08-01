@@ -334,6 +334,9 @@ export function MobileTransactionList({
               {tx.type !== 'transfer' && isRecurring(tx) && (
                 <i className="mobile-recur-dot" title={t('recurring')}><Icon name="repeat" size={11} /></i>
               )}
+              {tx.detectedFrom === 'notification' && (
+                <span className="mobile-auto-badge">{t('autoBadge')}</span>
+              )}
             </b>
             <small>{subtitle}</small>
           </span>

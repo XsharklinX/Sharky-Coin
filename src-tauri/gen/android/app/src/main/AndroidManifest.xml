@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
@@ -10,10 +11,16 @@
          NOTA: este directorio se regenera con `tauri android init` — si eso
          ocurre, hay que volver a agregar estos permisos. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Lectura de fotos para elegir un recibo desde la galería. READ_MEDIA_IMAGES
-         en Android 13+ (API 33); READ_EXTERNAL_STORAGE en versiones anteriores. -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- NO se piden READ_MEDIA_IMAGES / READ_MEDIA_VIDEO / READ_EXTERNAL_STORAGE:
+         elegir un recibo de la galería usa el selector del sistema del WebView
+         (<input type="file">), que entrega la foto vía content:// SIN permiso de
+         almacenamiento — lo que exige la política de Google Play.
+         `tools:node="remove"` los ELIMINA del manifest final aunque una librería
+         (CameraX, ML Kit u otra) intente declararlos al mergear. Blindaje: así el
+         permiso no puede reaparecer nunca en el AAB. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
     <!-- Vibración corta al auto-capturar en la cámara en vivo de recibos
          (Fase 4 del roadmap) — permiso "normal", sin diálogo al usuario. -->
     <uses-permission android:name="android.permission.VIBRATE" />

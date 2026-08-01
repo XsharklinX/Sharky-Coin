@@ -89,6 +89,28 @@ describe('capta transacciones que llegan por CORREO (remitente = banco)', () => 
   it('correo de Popular por Gmail', () => {
     expect(reason('com.google.android.gm', 'Banco Popular Dominicano', 'Compra por RD$999.99 en PRICESMART')).toBe('ok')
   })
+
+  // El caso real reportado: el correo llega por Gmail con asunto genérico
+  // ("notificaciones") y el banco SOLO aparece en el cuerpo. Antes se descartaba
+  // como "not-financial"; ahora se reconoce por el banco en el cuerpo Y/O por la
+  // tarjeta + verbo de consumo.
+  it('aviso de consumo Banreservas por Gmail (banco solo en el cuerpo)', () => {
+    const body = 'Notificaciones Banreservas\nNotificación de Consumo\nSu tarjeta ESTANDAR ••4500 presenta un consumo.\nMonto:\nDOP 100.00\nEstado:\nAPROBADO\nComercio:\nCLARO RECAR 8494016889 SANTO DOMINGO'
+    const t = tx('com.google.android.gm', 'notificaciones', body)
+    expect(t?.type).toBe('expense')
+    expect(t?.amount).toBe(100)
+    expect(t?.currency).toBe('DOP')
+    expect(t?.cardLast4).toBe('4500')
+  })
+
+  // Aunque el banco NO estuviera en la lista, un correo con tarjeta + verbo de
+  // consumo debe captarse: la cuenta y el monto bastan (lo que pidió el usuario).
+  it('correo de un banco desconocido con tarjeta + consumo → se capta', () => {
+    const t = tx('com.google.android.gm', 'notificaciones', 'Su tarjeta ••7788 presenta un consumo por DOP 250.00 en SUPERMERCADO')
+    expect(t?.type).toBe('expense')
+    expect(t?.amount).toBe(250)
+    expect(t?.cardLast4).toBe('7788')
+  })
 })
 
 describe('Qik y PayPal', () => {

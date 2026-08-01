@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { guessCategoryId } from '@/data/bankCsv'
+import { resolveDetectedAccount } from '@/data/bankIngest'
 import { fmtCompact, visibleAccounts } from '@/data/helpers'
 import { useBankSuggestions, type BankSuggestion } from '@/store/bankSuggestions'
 import { useFinance } from '@/store/finance'
-import { useT } from '@/i18n'
-import type { Account, AccountType, CurrencyCode, IconName } from '@/types'
+import { useSettings } from '@/store/settings'
+import { translateCategoryName, useT } from '@/i18n'
+import type { Account, AccountType, Category, CurrencyCode, IconName } from '@/types'
 import { SheetPortal } from '../SheetPortal'
 import { useDialogA11y } from '../useDialogA11y'
 import { useMobileBackDismiss } from '../useMobileBackDismiss'
@@ -29,25 +31,30 @@ export const ACCT_ICONS: Record<AccountType, IconName> = {
  *  - `pickerNode`        → el sheet del selector (renderízalo una vez en el árbol).
  */
 export function useBankSuggestionActions() {
-  const { accounts, categories, addTx, currency } = useFinance()
+  const { accounts, categories, addTx, updateAccount, currency } = useFinance()
   const bankStore = useBankSuggestions()
+  const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const t = useT()
   const [pickerItem, setPickerItem] = useState<BankSuggestion | null>(null)
+  const [catPickerItem, setCatPickerItem] = useState<BankSuggestion | null>(null)
+  // El usuario puede corregir la categoría sugerida antes de agregar; se recuerda
+  // por aviso hasta que se agrega o descarta.
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({})
 
-  const resolveFor = (item: BankSuggestion): Account | undefined => {
-    const mappedId = bankStore.packageAccountMap[item.pkg]
-    if (!mappedId) return undefined
-    return accounts.find(a => a.id === mappedId)
+  const resolveFor = (item: BankSuggestion): Account | undefined =>
+    resolveDetectedAccount(accounts, bankStore.packageAccountMap, item.cardLast4, item.pkg)
+
+  /** Categoría sugerida (o corregida) para un aviso, ya resuelta a un objeto. */
+  const categoryFor = (item: BankSuggestion): Category | undefined => {
+    const id = categoryOverrides[item.id] ?? guessCategoryId(item.note, categories, item.type, false)
+    return id ? categories.find(c => c.id === id) : undefined
   }
 
   const addFromSuggestion = (item: BankSuggestion, account: Account) => {
-    // Aplica las reglas de categoría aprendidas (o las de fábrica, tipo
-    // UBER→Transporte) a la nota del aviso. `allowFallback=false`: si ninguna
-    // regla encaja se deja SIN categoría en vez de meterla en la primera que
-    // haya — una categoría equivocada engaña más que una vacía. Y como al
-    // guardar categorizando la app aprende la regla, el siguiente aviso igual
-    // ya se clasifica solo.
-    const categoryId = guessCategoryId(item.note, categories, item.type, false)
+    // Categoría: la corrección del usuario manda; si no, la sugerida por comercio
+    // (`allowFallback=false`: sin coincidencia se deja SIN categoría en vez de
+    // adivinar mal). Al guardar categorizando, la app aprende la regla.
+    const categoryId = categoryOverrides[item.id] ?? guessCategoryId(item.note, categories, item.type, false)
     addTx({
       type: item.type,
       amount: item.amount,
@@ -57,6 +64,7 @@ export function useBankSuggestionActions() {
       categoryId,
     })
     bankStore.remove(item.id)
+    setCategoryOverrides(({ [item.id]: _drop, ...rest }) => rest)
     toast(categoryId ? t('movementAddedCategorized') : t('movementAdded'), { icon: 'check', type: 'ok' })
   }
 
@@ -70,26 +78,86 @@ export function useBankSuggestionActions() {
   }
 
   const openPicker = (item: BankSuggestion) => setPickerItem(item)
+  const openCategoryPicker = (item: BankSuggestion) => setCatPickerItem(item)
 
   const closePicker = () => setPickerItem(null)
 
   const chooseAccount = (item: BankSuggestion, account: Account) => {
-    // Recuerda el mapeo para que los próximos avisos de este banco se agreguen
-    // de un toque, sin volver a preguntar.
+    // Si el aviso traía los 4 dígitos y la cuenta elegida aún no los tiene, se
+    // los guardamos: a partir de ahí ese last4 la resuelve sola (es justo lo que
+    // pidió el usuario, "que funcione de una vez por todas"). No se sobreescribe
+    // un last4 ya puesto ni se toca si otra cuenta ya usa esos dígitos.
+    if (item.cardLast4 && !account.last4 && !accounts.some(a => a.last4 === item.cardLast4)) {
+      updateAccount(account.id, { last4: item.cardLast4 })
+    }
+    // Recuerda además el mapeo por app, como respaldo para avisos sin last4.
     bankStore.rememberAccountForPackage(item.pkg, account.id)
     addFromSuggestion(item, account)
     closePicker()
   }
 
-  const pickerNode = <AccountPickerSheet
-    item={pickerItem}
-    accounts={visibleAccounts(accounts)}
-    currency={currency as CurrencyCode}
-    onChoose={chooseAccount}
-    onClose={closePicker}
-  />
+  const chooseCategory = (item: BankSuggestion, category: Category) => {
+    setCategoryOverrides(prev => ({ ...prev, [item.id]: category.id }))
+    setCatPickerItem(null)
+  }
 
-  return { handleAdd, openPicker, resolveFor, pickerNode }
+  const pickerNode = (
+    <>
+      <AccountPickerSheet
+        item={pickerItem}
+        accounts={visibleAccounts(accounts)}
+        currency={currency as CurrencyCode}
+        onChoose={chooseAccount}
+        onClose={closePicker}
+      />
+      <CategoryPickerSheet
+        item={catPickerItem}
+        categories={categories.filter(c => c.type === (catPickerItem?.type ?? 'expense'))}
+        lang={lang}
+        onChoose={chooseCategory}
+        onClose={() => setCatPickerItem(null)}
+      />
+    </>
+  )
+
+  return { handleAdd, openPicker, openCategoryPicker, categoryFor, resolveFor, pickerNode }
+}
+
+function CategoryPickerSheet({ item, categories, lang, onChoose, onClose }: {
+  item: BankSuggestion | null
+  categories: Category[]
+  lang: 'en' | 'es'
+  onChoose: (item: BankSuggestion, category: Category) => void
+  onClose: () => void
+}) {
+  const t = useT()
+  const dialogRef = useDialogA11y<HTMLDivElement>(onClose, !!item, false)
+  useMobileBackDismiss(!!item, onClose)
+
+  if (!item) return null
+
+  return (
+    <SheetPortal>
+      <div ref={dialogRef} className="mobile-detail-sheet" style={{ zIndex: 440 }} role="dialog" aria-modal="true" onClick={onClose}>
+        <section onClick={e => e.stopPropagation()}>
+          <header>
+            <span>{t('selectCategory')}</span>
+            <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
+          </header>
+          <div className="mobile-picker-list">
+            {categories.map(category => (
+              <button key={category.id} className="mobile-picker-row" onClick={() => onChoose(item, category)}>
+                <span style={{ color: category.color }}>
+                  <Icon name={category.icon} size={22} />
+                </span>
+                <b>{translateCategoryName(category, lang)}</b>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </SheetPortal>
+  )
 }
 
 function AccountPickerSheet({ item, accounts, currency, onChoose, onClose }: {

@@ -2,7 +2,7 @@ import { isTauri } from '@/hooks/useTauri'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { firstRecurrenceDate } from '@/hooks/useRecurring'
-import { accountCurrency, amountForCategory, currentMonthKey, dateLocale, fmt, fmtCompact, localToday, rollingNetWorthSeries, totalBalanceInBase, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
+import { accountCurrency, amountForCategory, availableBalanceInBase, currentMonthKey, dateLocale, fmt, fmtCompact, localToday, rollingNetWorthSeries, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
 import { convertCurrency, getCurrencyMeta } from '@/data/currencies'
 import { getRatesFetchedAt } from '@/data/exchangeRates'
@@ -31,7 +31,8 @@ function buildWidgetSnapshot(): string {
   const monthTx = txForMonth(visTx, mkey)
   const locale = dateLocale(language)
 
-  const totalBalance = totalBalanceInBase(accounts, currency)
+  // Saldo del widget = dinero disponible (sin crédito), coherente con la app.
+  const totalBalance = availableBalanceInBase(accounts, currency)
 
   // Variación del patrimonio contra el cierre del mes pasado. Es la única cifra
   // que acompaña al saldo en el widget 2×2, así que tiene que ser explicable:

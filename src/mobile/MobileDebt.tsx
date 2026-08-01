@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
-import { fmt } from '@/data/helpers'
+import { dateLocale, fmt } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
+import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
-import { monthsLabel, useDebt, simulatePayoff, type Debt, type PayoffMethod } from '@/store/debt'
-import { playConfirmSound, playDeleteSound } from '@/lib/sound'
+import { useDebt, simulatePayoff, debtProgress, monthlyPaymentPlan, payoffTargetId, freedomDate, type Debt, type PayoffMethod } from '@/store/debt'
+import { playConfirmSound, playDeleteSound, playSuccessHaptic } from '@/lib/sound'
 import { deleteWithUndo } from '@/lib/undoDelete'
 import { useT } from '@/i18n'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -20,23 +21,38 @@ export function MobileDebt() {
   const { currency } = useFinance()
   const fmtVal = useFmt()
   const t = useT()
-  const { debts, extraPayment, addDebt, updateDebt, deleteDebt, restoreDebt, setExtraPayment } = useDebt()
+  const lang = useSettings(s => s.language)
+  const { debts, extraPayment, addDebt, updateDebt, deleteDebt, restoreDebt, registerPayment, setExtraPayment } = useDebt()
   const [method, setMethod] = useState<PayoffMethod>('avalanche')
   const [editing, setEditing] = useState<Debt | 'new' | null>(null)
-  const [extraSheet, setExtraSheet] = useState(false)
+  const [paying, setPaying] = useState<Debt | null>(null)
 
-  useMobileBackDismiss(!!editing || extraSheet, () => { setEditing(null); setExtraSheet(false) })
+  useMobileBackDismiss(!!editing || !!paying, () => { setEditing(null); setPaying(null) })
 
-  const snowball  = useMemo(() => simulatePayoff(debts, extraPayment, 'snowball'),  [debts, extraPayment])
-  const avalanche = useMemo(() => simulatePayoff(debts, extraPayment, 'avalanche'), [debts, extraPayment])
-  const active = method === 'snowball' ? snowball : avalanche
-  const other  = method === 'snowball' ? avalanche : snowball
-  const otherName = method === 'snowball' ? 'Avalanche' : 'Snowball'
+  const active = useMemo(() => simulatePayoff(debts, extraPayment, method), [debts, extraPayment, method])
+  // Meses SIN extra, para poder decir cuántos meses adelanta el extra.
+  const baseline = useMemo(() => simulatePayoff(debts, 0, method), [debts, method])
+  const plan = useMemo(() => monthlyPaymentPlan(debts, extraPayment, method), [debts, extraPayment, method])
+  const targetId = payoffTargetId(debts, method)
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0)
-  const totalMin  = debts.reduce((s, d) => s + d.minPayment, 0)
-  const interestSavings = other.totalInterest - active.totalInterest
-  const monthSavings    = other.months - active.months
+  const totalOriginal = debts.reduce((s, d) => s + (d.originalBalance ?? d.balance), 0)
+  const paidPct = totalOriginal > 0 ? Math.round((1 - totalDebt / totalOriginal) * 100) : 0
+  const totalMonthPay = plan.reduce((s, line) => s + line.amount, 0)
+  const monthsSaved = baseline.months - active.months
+  const freeAt = freedomDate(active.months)
+
+  const orderedDebts = useMemo(() => {
+    const ord = active.order
+    return [...debts].sort((a, b) => {
+      const ia = ord.indexOf(a.id), ib = ord.indexOf(b.id)
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
+    })
+  }, [debts, active.order])
+
+  // Tope del deslizador de extra: algo por encima del mínimo total, redondeado,
+  // para que arrastrar tenga rango útil sin llegar a cifras absurdas.
+  const extraMax = Math.max(10000, Math.ceil((debts.reduce((s, d) => s + d.minPayment, 0) * 3) / 1000) * 1000)
 
   if (debts.length === 0) return (
     <div className="mdebt-root">
@@ -58,109 +74,109 @@ export function MobileDebt() {
   return (
     <div className="mdebt-root">
 
-      {/* Hero */}
-      <div className="mdebt-hero">
-        <div className="mdebt-hero-label">{t('totalDebtLabel')}</div>
-        <div className="mdebt-hero-amount">{fmtVal(totalDebt, currency)}</div>
-        <div className="mdebt-hero-sub">{t('monthlyMinimumColon').replace('{amount}', fmt(totalMin, currency))}</div>
-      </div>
-
-      {/* Method toggle */}
-      <div className="mdebt-toggle">
-        <button className={method === 'snowball' ? 'on' : ''} onClick={() => setMethod('snowball')}>
-          ❄️ Snowball
-        </button>
-        <button className={method === 'avalanche' ? 'on' : ''} onClick={() => setMethod('avalanche')}>
-          🌋 Avalanche
-        </button>
-      </div>
-
-      <p className="mdebt-hint">
-        {method === 'snowball' ? t('snowballHint') : t('avalancheHint')}
-      </p>
-
-      {/* Result card */}
-      <div className="mdebt-result-card">
-        <div className="mdebt-result-row">
-          <div className="mdebt-result-item">
-            <div className="mdebt-result-val">{monthsLabel(active.months, t)}</div>
-            <div className="mdebt-result-lbl">{t('toPayOffLabel')}</div>
+      {/* Héroe: fecha de libertad + progreso */}
+      <div className="mdebt-free">
+        <span className="mdebt-free-label">{freeAt ? t('freeInLabel') : t('keepPayingLabel')}</span>
+        {freeAt && (
+          <div className="mdebt-free-date">
+            {new Date(`${freeAt}T00:00:00`).toLocaleDateString(dateLocale(lang), { month: 'long', year: 'numeric' })}
           </div>
-          <div className="mdebt-result-sep" />
-          <div className="mdebt-result-item">
-            <div className="mdebt-result-val">{fmtVal(active.totalInterest, currency)}</div>
-            <div className="mdebt-result-lbl">{t('totalInterestLabel')}</div>
-          </div>
+        )}
+        <div className="mdebt-free-owe">
+          {t('owedColon').replace('{amount}', fmtVal(totalDebt, currency))}
         </div>
-        {interestSavings > 0 && (
-          <div className="mdebt-badge ok">
-            {t('youSaveVsMethod').replace('{amount}', fmtVal(interestSavings, currency)).replace('{method}', otherName)}
-            {monthSavings > 0 && t('fewerMonthsSuffix').replace('{n}', String(monthSavings))}
-          </div>
-        )}
-        {interestSavings < 0 && (
-          <div className="mdebt-badge warn">
-            {t('methodWouldSaveMore').replace('{method}', otherName).replace('{amount}', fmtVal(-interestSavings, currency))}
-          </div>
-        )}
+        <div className="mdebt-free-bar"><i style={{ width: `${Math.max(3, paidPct)}%` }} /></div>
+        <div className="mdebt-free-meta">
+          {t('paidPctMonths').replace('{pct}', String(paidPct)).replace('{months}', String(active.months))}
+        </div>
       </div>
 
-      {/* Extra payment */}
-      <div className="mdebt-extra-card">
-        <span className="mdebt-extra-label">{t('extraMonthlyPayment')}</span>
-        <button className="mdebt-extra-row mdebt-extra-tap" onClick={() => setExtraSheet(true)}>
-          <span className={extraPayment > 0 ? 'mdebt-amt-set' : 'mdebt-amt-ph'}>
-            {extraPayment > 0 ? fmt(extraPayment, currency) : `+ ${t('add')}`}
-          </span>
-          <Icon name="arrowUp" size={12} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)' }} />
+      {/* Estrategia, sin jerga */}
+      <div className="mdebt-plan">
+        <button className={method === 'snowball' ? 'on' : ''} aria-pressed={method === 'snowball'} onClick={() => setMethod('snowball')}>
+          <b>{t('planImpulso')}</b><small>{t('planImpulsoDesc')}</small>
         </button>
-        {extraPayment > 0 && active.months < other.months + (method === 'snowball' ? 0 : 0) && (
-          <small className="mdebt-extra-note">
-            {other.months - active.months > 0 ? t('reducesByMonths').replace('{months}', String(other.months - active.months)) : t('reducesPaymentTime')}
-          </small>
-        )}
+        <button className={method === 'avalanche' ? 'on' : ''} aria-pressed={method === 'avalanche'} onClick={() => setMethod('avalanche')}>
+          <b>{t('planInteres')}</b><small>{t('planInteresDesc')}</small>
+        </button>
       </div>
 
-      {/* Payoff order */}
-      {active.order.length > 0 && (
-        <>
-          <div className="mdebt-section-title">{t('payoffOrderLabel')}</div>
-          <div className="mdebt-order-list">
-            {active.order.map((id, i) => {
-              const debt = debts.find(d => d.id === id)
-              if (!debt) return null
-              return (
-                <div key={id} className="mdebt-order-row">
-                  <span className="mdebt-order-num">{i + 1}</span>
-                  <span className="mdebt-order-dot" style={{ background: debt.color }} />
-                  <span className="mdebt-order-name">{debt.name}</span>
-                  <span className="mdebt-order-rate">{debt.rate}% APR</span>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
+      {/* Este mes paga */}
+      <div className="mdebt-card">
+        <div className="mdebt-card-title">{t('thisMonthPayLabel')}</div>
+        {plan.map(line => {
+          const debt = debts.find(d => d.id === line.id)
+          if (!debt) return null
+          return (
+            <div key={line.id} className="mdebt-pay-row">
+              <span className="mdebt-pay-dot" style={{ background: debt.color }} />
+              <span className="mdebt-pay-name">
+                {debt.name}
+                {line.isTarget && <span className="mdebt-pay-target">{t('targetTag')}</span>}
+              </span>
+              <span className="mdebt-pay-amt">
+                {fmt(line.amount, currency)}
+                <small>{line.isTarget && extraPayment > 0 ? t('minPlusExtra') : t('minOnly')}</small>
+              </span>
+            </div>
+          )
+        })}
+        <div className="mdebt-pay-total">
+          <span>{t('monthTotalLabel')}</span>
+          <b>{fmtVal(totalMonthPay, currency)}</b>
+        </div>
+      </div>
 
-      {/* Debt list */}
+      {/* Extra: deslizador que mueve la fecha */}
+      <div className="mdebt-card">
+        <div className="mdebt-card-title">{t('extraMonthlyPayment')}</div>
+        <div className="mdebt-extra">
+          <div className="mdebt-extra-top">
+            <span>{t('aboveMinimums')}</span>
+            <b>{fmt(extraPayment, currency)}</b>
+          </div>
+          <input
+            type="range" min={0} max={extraMax} step={500}
+            value={Math.min(extraPayment, extraMax)}
+            aria-label={t('extraMonthlyPayment')}
+            onChange={e => setExtraPayment(Number(e.target.value))}
+          />
+          <span className="mdebt-extra-note">
+            {monthsSaved > 0
+              ? t('extraFreesMonths').replace('{n}', String(monthsSaved))
+              : t('extraPromptHint')}
+          </span>
+        </div>
+      </div>
+
+      {/* Deudas con progreso, en orden de pago */}
       <div className="mdebt-section-title">
-        {t('debtsLabel')}
+        {t('yourDebtsInOrder')}
         <button className="mdebt-add-inline" onClick={() => setEditing('new')}>
           <Icon name="plus" size={14} /> {t('add')}
         </button>
       </div>
       <div className="mdebt-list">
-        {debts.map(debt => (
-          <button key={debt.id} className="mdebt-row" onClick={() => setEditing(debt)}>
-            <span className="mdebt-row-dot" style={{ background: debt.color }} />
-            <div className="mdebt-row-info">
-              <b>{debt.name}</b>
-              <small>{t('aprMinPerMonth').replace('{rate}', String(debt.rate)).replace('{amount}', fmt(debt.minPayment, currency))}</small>
+        {orderedDebts.map(debt => {
+          const prog = Math.round(debtProgress(debt) * 100)
+          return (
+            <div key={debt.id} className={`mdebt-debt${debt.id === targetId ? ' target' : ''}`}>
+              <button className="mdebt-debt-main" onClick={() => setEditing(debt)}>
+                <div className="mdebt-debt-top">
+                  <span className="mdebt-row-dot" style={{ background: debt.color }} />
+                  <b>{debt.name}</b>
+                  <span className="mdebt-debt-rate">{debt.rate}%</span>
+                  <strong>{fmtVal(debt.balance, currency)}</strong>
+                </div>
+                <div className="mdebt-debt-bar"><i style={{ width: `${Math.max(2, prog)}%`, background: debt.color }} /></div>
+                <div className="mdebt-debt-sub">{t('paidOfOriginal').replace('{pct}', String(prog))}</div>
+              </button>
+              <button className="mdebt-debt-pay" onClick={() => setPaying(debt)} aria-label={t('registerPaymentLabel')}>
+                <Icon name="check" size={15} /> {t('payLabel')}
+              </button>
             </div>
-            <strong>{fmtVal(debt.balance, currency)}</strong>
-            <Icon name="arrowUp" size={13} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
-          </button>
-        ))}
+          )
+        })}
       </div>
 
       {editing !== null && (
@@ -187,13 +203,20 @@ export function MobileDebt() {
         />
       )}
 
-      {extraSheet && (
+      {paying && (
         <MobileAmountSheet
-          title={t('extraMonthlyPayment')}
-          value={extraPayment}
+          title={t('registerPaymentFor').replace('{name}', paying.name)}
+          value={0}
           currency={currency}
-          onDone={v => { setExtraPayment(Math.max(0, v)); setExtraSheet(false) }}
-          onClose={() => setExtraSheet(false)}
+          onDone={v => {
+            if (v > 0) {
+              registerPayment(paying.id, v)
+              playSuccessHaptic()
+              toast(t('paymentRegisteredToast').replace('{amount}', fmt(v, currency)), { icon: 'check', type: 'ok' })
+            }
+            setPaying(null)
+          }}
+          onClose={() => setPaying(null)}
         />
       )}
     </div>

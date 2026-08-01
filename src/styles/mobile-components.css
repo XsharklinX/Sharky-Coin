@@ -4,7 +4,7 @@
     display: flex;
     flex-direction: column;
     gap: 0;
-    min-height: 100dvh;
+    min-height: calc(100dvh / var(--fs, 1));
     overflow-y: auto;
     padding: env(safe-area-inset-top, 20px) 24px env(safe-area-inset-bottom, 24px);
     justify-content: flex-start;
@@ -372,6 +372,28 @@
     display: flex; font: inherit; gap: 12px; min-height: 72px; padding: 14px 16px; text-align: left; width: 100%;
   }
   .mrep-account-row:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
+  /* La fila es el disparador; el desplegable vive dentro del mismo contenedor,
+     y su borde superior lo pone la fila, así que aquí se anula el doble borde. */
+  .macc-item.open .mrep-account-row { border-bottom: 0; }
+  .macc-expand {
+    background: color-mix(in oklab, var(--m-text) 3%, transparent);
+    border-top: 1px solid var(--m-border);
+    padding: 12px 16px 14px;
+  }
+  .macc-expand-stats { display: flex; gap: 10px; }
+  .macc-expand-stats > div {
+    background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 12px;
+    flex: 1; padding: 9px 11px;
+  }
+  .macc-expand-stats small { color: var(--m-muted); display: block; font-size: 10.5px; font-weight: 700; }
+  .macc-expand-stats b { font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 850; }
+  .macc-expand-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .macc-expand-actions button {
+    align-items: center; background: var(--m-surface); border: 1px solid var(--m-border);
+    border-radius: 11px; color: var(--m-text); display: flex; flex: 1; font-size: 12.5px;
+    font-weight: 750; gap: 6px; justify-content: center; padding: 10px;
+  }
+  .macc-expand-actions button:active { background: color-mix(in oklab, var(--m-text) 6%, transparent); }
   .mrep-account-icon { align-items: center; border-radius: 14px; display: flex; flex-shrink: 0; height: 44px; justify-content: center; width: 44px; }
   .mrep-account-info { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
   .mrep-account-info b { align-items: center; color: var(--m-text); display: flex; font-size: 15px; font-weight: 850; gap: 6px; min-width: 0; }
@@ -840,7 +862,7 @@
     border-radius: 24px;
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 126px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(calc(100dvh / var(--fs, 1)) - 126px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     max-width: 440px;
     overflow: hidden;
     padding: 0;
@@ -1538,6 +1560,30 @@
   .msub-row-right strong { font-size: 15px; font-weight: 900; white-space: nowrap; }
   .msub-row-right small { color: var(--m-muted); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+  /* Línea de próximos cobros: fila compacta con badge de fecha a la izquierda. */
+  .msub-timeline { display: flex; flex-direction: column; }
+  .msub-timeline-row {
+    align-items: center; background: var(--m-surface);
+    border-top: 1px solid var(--m-border);
+    display: flex; gap: 12px; min-height: 60px;
+    padding: 10px 16px; text-align: left; width: 100%;
+  }
+  .msub-timeline-row:last-child { border-bottom: 1px solid var(--m-border); }
+  .msub-timeline-row:active { opacity: .75; }
+  .msub-timeline-date {
+    align-items: center; background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    border-radius: 10px; display: flex; flex-direction: column;
+    flex-shrink: 0; justify-content: center; line-height: 1; min-width: 42px; padding: 6px 4px;
+  }
+  .msub-timeline-date b { font-size: 16px; font-weight: 900; }
+  .msub-timeline-date small { color: var(--m-muted); font-size: 10px; text-transform: uppercase; }
+  .msub-timeline-date.overdue { background: color-mix(in oklab, #f59e0b 18%, transparent); }
+  .msub-timeline-date.overdue b, .msub-timeline-date.overdue small { color: #f59e0b; }
+  .msub-timeline-info { flex: 1; min-width: 0; }
+  .msub-timeline-info b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msub-timeline-info small { color: var(--m-muted); font-size: 12px; }
+  .msub-timeline-row > strong { font-size: 15px; font-weight: 900; white-space: nowrap; }
+
   /* Baldosa de servicio unificada: cuadro del color de la marca + glifo blanco
      (logo real o icono genérico), con un borde interior sutil para dar cuerpo
      a los colores claros. Todos los iconos quedan parejos y profesionales. */
@@ -1951,46 +1997,68 @@
   .mdebt-empty p { color: var(--m-text); font-size: 17px; font-weight: 700; margin: 0; }
   .mdebt-empty small { color: var(--m-muted); font-size: 14px; line-height: 1.5; }
   .mdebt-add-btn { align-items: center; background: var(--m-primary); border-radius: 12px; color: #000; display: flex; font-size: 15px; font-weight: 700; gap: 6px; margin-top: 8px; padding: 14px 24px; }
-  .mdebt-hero { background: linear-gradient(160deg,#1a0520,#0a1525); border-radius: 0 0 20px 20px; margin-bottom: 4px; padding: 24px 20px 20px; text-align: center; }
-  .mdebt-hero-label { color: var(--m-muted); font-size: 13px; }
-  .mdebt-hero-amount { color: var(--m-text); font-size: 34px; font-weight: 800; letter-spacing: -1px; margin: 4px 0; }
-  .mdebt-hero-sub { color: var(--m-muted); font-size: 13px; }
-  .mdebt-toggle { background: var(--m-surface); border-radius: 12px; display: flex; gap: 4px; margin: 12px 16px 0; padding: 4px; }
-  .mdebt-toggle button { border-radius: 9px; color: var(--m-muted); flex: 1; font-size: 14px; font-weight: 600; padding: 10px; }
-  .mdebt-toggle button.on { background: var(--m-bg); color: var(--m-text); }
-  .mdebt-hint { color: var(--m-muted); font-size: 13px; line-height: 1.5; margin: 8px 16px 0; text-align: center; }
-  .mdebt-result-card { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 12px 16px 0; padding: 20px; }
-  .mdebt-result-row { display: flex; }
-  .mdebt-result-item { flex: 1; text-align: center; }
-  .mdebt-result-val { color: var(--m-text); font-size: 22px; font-weight: 800; }
-  .mdebt-result-lbl { color: var(--m-muted); font-size: 12px; margin-top: 2px; }
-  .mdebt-result-sep { background: var(--m-border); width: 1px; }
-  .mdebt-badge { border-radius: 8px; font-size: 13px; font-weight: 600; margin-top: 14px; padding: 8px 12px; text-align: center; }
-  .mdebt-badge.ok   { background: var(--m-income)22; color: var(--m-income); }
-  .mdebt-badge.warn { background: #f59e0b22; color: #f59e0b; }
-  .mdebt-extra-card { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 12px 16px 0; padding: 16px 20px; }
-  .mdebt-extra-label { color: var(--m-muted); font-size: 13px; }
-  .mdebt-extra-row { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
-  .mdebt-extra-tap { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 10px; justify-content: space-between; padding: 10px 14px; width: 100%; }
-  .mdebt-extra-tap:active { background: var(--m-surface); }
-  .mdebt-extra-input { background: var(--m-bg); border: 1px solid var(--m-border); border-radius: 10px; color: var(--m-text); flex: 1; font-size: 18px; font-weight: 700; padding: 10px 14px; }
-  .mdebt-extra-cur { color: var(--m-muted); font-size: 14px; font-weight: 600; }
-  .mdebt-extra-note { color: var(--m-income); display: block; font-size: 12px; margin-top: 6px; }
+  /* Héroe "Libre de deudas": banda tintada de verde-libertad, no un negro fijo,
+     para que funcione en tema claro. */
+  .mdebt-free {
+    background: linear-gradient(155deg, color-mix(in oklab, var(--m-income) 18%, var(--m-surface)), var(--m-surface));
+    border-bottom: 1px solid color-mix(in oklab, var(--m-income) 20%, var(--m-border));
+    padding: 22px 20px 20px; text-align: center;
+  }
+  .mdebt-free-label { color: var(--m-muted); font-size: 12.5px; font-weight: 700; }
+  .mdebt-free-date { color: var(--m-text); font-size: 27px; font-weight: 850; letter-spacing: -.02em; margin: 3px 0 4px; text-transform: capitalize; }
+  .mdebt-free-owe { color: var(--m-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .mdebt-free-bar { background: color-mix(in oklab, var(--m-text) 10%, transparent); border-radius: 999px; height: 9px; margin: 13px 0 5px; overflow: hidden; }
+  .mdebt-free-bar i { background: var(--m-income); border-radius: 999px; display: block; height: 100%; transition: width .4s cubic-bezier(.2,.8,.2,1); }
+  .mdebt-free-meta { color: var(--m-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+  /* Estrategia en cristiano */
+  .mdebt-plan { display: flex; gap: 8px; margin: 12px 16px 0; }
+  .mdebt-plan button { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 14px; color: var(--m-text); flex: 1; padding: 11px 10px; text-align: left; }
+  .mdebt-plan button.on { border-color: var(--m-primary); background: color-mix(in oklab, var(--m-primary) 10%, var(--m-surface)); }
+  .mdebt-plan b { display: block; font-size: 13px; font-weight: 800; }
+  .mdebt-plan small { color: var(--m-muted); font-size: 11px; line-height: 1.3; }
+
+  .mdebt-card { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 12px 16px 0; padding: 15px; }
+  .mdebt-card-title { color: var(--m-muted); font-size: 11px; font-weight: 800; letter-spacing: .07em; margin-bottom: 10px; text-transform: uppercase; }
+
+  /* Este mes paga */
+  .mdebt-pay-row { align-items: center; display: flex; gap: 10px; padding: 9px 0; }
+  .mdebt-pay-row + .mdebt-pay-row { border-top: 1px solid var(--m-border); }
+  .mdebt-pay-dot { border-radius: 50%; flex: none; height: 10px; width: 10px; }
+  .mdebt-pay-name { align-items: center; color: var(--m-text); display: flex; flex: 1; font-size: 13.5px; font-weight: 650; gap: 6px; }
+  .mdebt-pay-target { background: color-mix(in oklab, var(--m-primary) 18%, transparent); border-radius: 6px; color: var(--m-primary); font-size: 10px; font-weight: 800; padding: 1px 7px; text-transform: uppercase; }
+  .mdebt-pay-amt { color: var(--m-text); font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 800; text-align: right; }
+  .mdebt-pay-amt small { color: var(--m-muted); display: block; font-size: 10px; font-weight: 600; }
+  .mdebt-pay-total { align-items: center; border-top: 2px solid var(--m-border); display: flex; justify-content: space-between; margin-top: 4px; padding-top: 11px; }
+  .mdebt-pay-total span { color: var(--m-text); font-size: 13px; font-weight: 700; }
+  .mdebt-pay-total b { color: var(--m-text); font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 900; }
+
+  /* Extra con deslizador */
+  .mdebt-extra { display: flex; flex-direction: column; gap: 8px; }
+  .mdebt-extra-top { align-items: baseline; display: flex; justify-content: space-between; }
+  .mdebt-extra-top span { color: var(--m-muted); font-size: 12px; }
+  .mdebt-extra-top b { color: var(--m-text); font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 850; }
+  .mdebt-extra input { accent-color: var(--m-primary); width: 100%; }
+  .mdebt-extra-note { color: var(--m-income); font-size: 12px; font-weight: 700; }
+
   .mdebt-section-title { align-items: center; color: var(--m-muted); display: flex; font-size: 12px; font-weight: 700; gap: 8px; letter-spacing: .06em; margin: 20px 16px 8px; text-transform: uppercase; }
   .mdebt-add-inline { align-items: center; background: color-mix(in oklab, var(--m-primary) 15%, transparent); border-radius: 8px; color: var(--m-primary); display: flex; font-size: 12px; font-weight: 700; gap: 4px; margin-left: auto; padding: 4px 10px; }
-  .mdebt-order-list { display: flex; flex-direction: column; gap: 2px; margin: 0 16px; }
-  .mdebt-order-row { align-items: center; background: var(--m-surface); border-radius: 10px; display: flex; gap: 10px; padding: 12px 14px; }
-  .mdebt-order-num { align-items: center; background: var(--m-border); border-radius: 50%; color: var(--m-muted); display: flex; font-size: 12px; font-weight: 700; height: 22px; justify-content: center; width: 22px; }
-  .mdebt-order-dot { border-radius: 50%; flex-shrink: 0; height: 10px; width: 10px; }
-  .mdebt-order-name { color: var(--m-text); flex: 1; font-size: 14px; font-weight: 600; }
-  .mdebt-order-rate { color: var(--m-muted); font-size: 12px; }
-  .mdebt-list { display: flex; flex-direction: column; gap: 2px; margin: 0 16px; }
-  .mdebt-row { align-items: center; background: var(--m-surface); border-radius: 12px; display: flex; gap: 12px; padding: 14px 16px; }
-  .mdebt-row-dot { border-radius: 50%; flex-shrink: 0; height: 12px; width: 12px; }
-  .mdebt-row-info { flex: 1; text-align: left; }
-  .mdebt-row-info b { color: var(--m-text); display: block; font-size: 15px; }
-  .mdebt-row-info small { color: var(--m-muted); font-size: 12px; }
-  .mdebt-row strong { color: var(--m-text); font-size: 15px; font-weight: 700; }
+
+  /* Deudas con progreso */
+  .mdebt-list { display: flex; flex-direction: column; gap: 8px; margin: 0 16px; }
+  .mdebt-debt { align-items: stretch; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 14px; display: flex; overflow: hidden; }
+  .mdebt-debt.target { border-color: color-mix(in oklab, var(--m-primary) 45%, var(--m-border)); }
+  .mdebt-debt-main { flex: 1; min-width: 0; padding: 13px 14px; text-align: left; }
+  .mdebt-debt-top { align-items: center; display: flex; gap: 8px; }
+  .mdebt-row-dot { border-radius: 50%; flex-shrink: 0; height: 11px; width: 11px; }
+  .mdebt-debt-top b { color: var(--m-text); flex: 1; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mdebt-debt-rate { color: var(--m-muted); font-size: 11.5px; }
+  .mdebt-debt-top strong { color: var(--m-text); font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 800; }
+  .mdebt-debt-bar { background: color-mix(in oklab, var(--m-text) 9%, transparent); border-radius: 999px; height: 5px; margin: 8px 0 5px; overflow: hidden; }
+  .mdebt-debt-bar i { border-radius: 999px; display: block; height: 100%; transition: width .3s; }
+  .mdebt-debt-sub { color: var(--m-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .mdebt-debt-pay { align-items: center; background: color-mix(in oklab, var(--m-income) 12%, transparent); border-left: 1px solid var(--m-border); color: var(--m-income); display: flex; flex-direction: column; font-size: 11px; font-weight: 800; gap: 3px; justify-content: center; padding: 0 14px; }
+  .mdebt-debt-pay:active { background: color-mix(in oklab, var(--m-income) 22%, transparent); }
   .mdebt-sheet { background: var(--m-surface); border-radius: 24px 24px 0 0; overflow: hidden; }
   .mdebt-sheet header { align-items: center; border-bottom: 1px solid var(--m-border); display: flex; justify-content: space-between; padding: 18px 20px; }
   .mdebt-sheet header span { color: var(--m-text); font-size: 16px; font-weight: 700; }
@@ -2071,6 +2139,35 @@
 
 /* -- MobileCashflow ---------------------------------------- */
   .mcash-root { display: flex; flex-direction: column; gap: 0; padding-bottom: 32px; }
+
+  /* Héroe: seguro para gastar */
+  .mcash-safe {
+    background: linear-gradient(155deg, color-mix(in oklab, var(--m-primary) 15%, var(--m-surface)), var(--m-surface));
+    border-bottom: 1px solid color-mix(in oklab, var(--m-primary) 20%, var(--m-border));
+    padding: 22px 20px 18px; text-align: center;
+  }
+  .mcash-safe > small { color: var(--m-muted); display: block; font-size: 12.5px; font-weight: 700; }
+  .mcash-safe > strong { color: var(--m-primary); display: block; font-size: 36px; font-weight: 900; letter-spacing: -.03em; margin: 4px 0 3px; font-variant-numeric: tabular-nums; }
+  .mcash-safe.neg > strong { color: var(--m-expense); }
+  .mcash-safe-sub { align-items: center; background: none; border: 0; color: var(--m-muted); display: inline-flex; font-size: 12px; font-weight: 650; gap: 5px; justify-content: center; }
+  .mcash-safe-warn { color: var(--m-expense); font-size: 12px; font-weight: 750; margin-top: 8px; }
+
+  /* Pista de días */
+  .mcash-runway { display: flex; gap: 3px; margin: 14px 16px 0; }
+  .mcash-runway i { border-radius: 3px; flex: 1; height: 30px; }
+  .mcash-runway-cap { color: var(--m-muted); font-size: 11px; margin: 6px 16px 0; text-align: center; }
+
+  /* Antes de tu próximo ingreso */
+  .mcash-before { background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 16px; margin: 14px 16px 0; padding: 15px; }
+  .mcash-before-title { color: var(--m-muted); font-size: 11px; font-weight: 800; letter-spacing: .07em; margin-bottom: 8px; text-transform: uppercase; }
+  .mcash-before-row { align-items: center; display: flex; gap: 11px; padding: 9px 0; }
+  .mcash-before-row + .mcash-before-row { border-top: 1px solid var(--m-border); }
+  .mcash-before-row.income { border-top: 2px solid var(--m-border); margin-top: 2px; padding-top: 11px; }
+  .mcash-before-main { flex: 1; min-width: 0; }
+  .mcash-before-main b { color: var(--m-text); display: block; font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcash-before-main small { color: var(--m-muted); font-size: 11.5px; }
+  .mcash-before-row > b { font-size: 13.5px; font-variant-numeric: tabular-nums; font-weight: 800; }
+
   .mcash-hero { padding: 18px 20px 6px; text-align: center; }
   .mcash-hero small { color: var(--m-muted); display: block; font-size: 13px; }
   .mcash-hero strong { color: var(--m-text); display: block; font-size: 34px; font-weight: 800; letter-spacing: -1px; margin: 4px 0 2px; }

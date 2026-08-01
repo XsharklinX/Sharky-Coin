@@ -3,6 +3,7 @@ import { toast } from '@/components/ui/Toast'
 import { localToday } from '@/data/helpers'
 import { tt } from '@/i18n'
 import { useFinance } from '@/store/finance'
+import { nextMonthDayDate } from '@/data/goalPlans'
 import { advanceRecurrenceDate } from './useRecurring'
 
 /**
@@ -37,7 +38,10 @@ export function useGoalAutoContributions(): void {
         } catch {
           skipped++
         }
-        next = advanceRecurrenceDate(next, auto.frequency)
+        // Mensual con días fijos (1 o 2 al mes) recorre esos días; si no, cadencia normal.
+        next = auto.frequency === 'monthly' && auto.monthDays && auto.monthDays.length
+          ? nextMonthDayDate(next, auto.monthDays)
+          : advanceRecurrenceDate(next, auto.frequency)
         generated++
       }
       if (next !== auto.nextDate || amount !== auto.amount) {

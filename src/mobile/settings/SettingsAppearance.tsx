@@ -172,6 +172,31 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose, only }: Sheet
             sublabel={t('roundAmountsSub')}
             onClick={() => void handleRoundAmounts()} />
         </div>
+
+        {/* Cuentas ocultas ("no incluidas"): control de dónde aparecen. Solo se
+            muestra si el usuario tiene al menos una cuenta marcada así. */}
+        {finance.accounts.some(a => a.includeInTotal === false) && (
+          <>
+            {!only && <span className="mset-section-title">{t('hiddenAccountsTitle')}</span>}
+            <div className="mset-card">
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#5b9bff22', color: '#5b9bff' }}><Icon name="list" size={18} /></span>
+                <div className="mset-row-text"><b>{t('hiddenShowInMovementsLabel')}</b><small>{t('hiddenShowInMovementsDesc')}</small></div>
+                <label className="mset-toggle-wrap"><input type="checkbox" className="mset-toggle-input" checked={settings.hiddenShowInMovements} onChange={e => settings.setHiddenShowInMovements(e.target.checked)} /><span className="mset-toggle" /></label>
+              </div>
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}><Icon name="wallet" size={18} /></span>
+                <div className="mset-row-text"><b>{t('hiddenCountInBalanceLabel')}</b><small>{t('hiddenCountInBalanceDesc')}</small></div>
+                <label className="mset-toggle-wrap"><input type="checkbox" className="mset-toggle-input" checked={settings.hiddenCountInBalance} onChange={e => settings.setHiddenCountInBalance(e.target.checked)} /><span className="mset-toggle" /></label>
+              </div>
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#a78bfa22', color: '#a78bfa' }}><Icon name="chart" size={18} /></span>
+                <div className="mset-row-text"><b>{t('hiddenCountInSummaryLabel')}</b><small>{t('hiddenCountInSummaryDesc')}</small></div>
+                <label className="mset-toggle-wrap"><input type="checkbox" className="mset-toggle-input" checked={settings.hiddenCountInSummary} onChange={e => settings.setHiddenCountInSummary(e.target.checked)} /><span className="mset-toggle" /></label>
+              </div>
+            </div>
+          </>
+        )}
       </div>
       )}
 
@@ -230,6 +255,55 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose, only }: Sheet
               />
               <span className="mset-toggle" />
             </label>
+          </div>
+
+          <div className="mset-row">
+            <span className="mset-row-icon" style={{ background: '#ffdd3d22', color: '#ffdd3d' }}>
+              <Icon name="bolt" size={18} />
+            </span>
+            <div className="mset-row-text">
+              <b>{t('quickAddsToggleLabel')}</b>
+              <small>{t('quickAddsToggleDesc')}</small>
+            </div>
+            <label className="mset-toggle-wrap">
+              <input
+                type="checkbox"
+                className="mset-toggle-input"
+                checked={settings.quickAddsEnabled}
+                onChange={e => settings.setQuickAddsEnabled(e.target.checked)}
+              />
+              <span className="mset-toggle" />
+            </label>
+          </div>
+
+          {/* Tamaño de fuente / de toda la UI. El deslizador escala en vivo y se
+              acompaña de un botón para volver al 100% de un toque. */}
+          <div className="mset-row mset-row-fontsize">
+            <span className="mset-row-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
+              <Icon name="edit" size={18} />
+            </span>
+            <div className="mset-row-text">
+              <b>{t('fontSizeLabel')}</b>
+              <small>{t('fontSizeDesc')}</small>
+              <div className="mset-fontsize-slider">
+                <span className="mset-fontsize-a" aria-hidden="true">A</span>
+                <input
+                  type="range"
+                  min={85}
+                  max={135}
+                  step={5}
+                  value={Math.round(settings.fontScale * 100)}
+                  aria-label={t('fontSizeLabel')}
+                  onChange={e => settings.setFontScale(Number(e.target.value) / 100)}
+                />
+                <span className="mset-fontsize-a big" aria-hidden="true">A</span>
+              </div>
+            </div>
+            {Math.round(settings.fontScale * 100) !== 100 && (
+              <button className="mset-fontsize-reset" onClick={() => settings.setFontScale(1)}>
+                {t('resetLabel')}
+              </button>
+            )}
           </div>
 
         </div>

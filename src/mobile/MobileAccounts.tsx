@@ -56,6 +56,9 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
   // esta abierto (ej. al conciliar el saldo), `selected` se re-deriva del
   // store en cada render en vez de quedarse con una referencia vieja.
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Cuenta desplegada en la lista: al tocarla se abren sus cifras del mes y sus
+  // acciones, sin salir de la pantalla.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const selected = accounts.find(a => a.id === selectedId) ?? null
   const [activityAccount, setActivityAccount] = useState<Account | null>(null)
   const [editingAccount, setEditingAccount] = useState<Account | 'new' | null>(null)
@@ -107,8 +110,6 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
     return { assets, liabilities, net: assets - liabilities, cashCount, bankCount, creditCount, visibleCount: visible.length }
   }, [accounts, currency, TYPE_META, t])
 
-  const totalBalance = visibleAccounts(accounts).reduce((s, a) => s + accountBalanceInBase(a, currency), 0)
-
   const groups = [t('cash'), t('bankAccountsGroupLabel'), t('creditCardsGroupLabel')].map(group => ({
     group,
     accounts: accounts.filter(a => TYPE_META[a.type].group === group),
@@ -158,22 +159,9 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
         </button>
       </div>
 
-      {summary.visibleCount > 0 && (
-        <div className="macc-summary-strip">
-          <div className="macc-summary-pill">
-            <small>{t('accounts')}</small>
-            <strong>{summary.visibleCount}</strong>
-          </div>
-          <div className="macc-summary-pill">
-            <small>{t('bankAccountsGroupLabel')}</small>
-            <strong>{summary.bankCount}</strong>
-          </div>
-          <div className="macc-summary-pill">
-            <small>{t('creditCardsGroupLabel')}</small>
-            <strong>{summary.creditCount}</strong>
-          </div>
-        </div>
-      )}
+      {/* Las tres píldoras de conteo («3 cuentas · 2 bancarias · 1 tarjeta») se
+          quitaron: eran contadores, no dinero, y ocupaban el mejor espacio de la
+          pantalla. Lo que sí interesa por cuenta aparece ahora al tocarla. */}
 
       {accounts.length === 0 ? (
         <div className="mrep-empty">
@@ -183,33 +171,9 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
         </div>
       ) : (
         <>
-          {/* Allocation bar */}
-          {visibleAccounts(accounts).length > 1 && (
-            <div className="mrep-allocation">
-              <span className="mrep-section-title">{t('distributionLabel')}</span>
-              <div className="mrep-alloc-bar">
-                {visibleAccounts(accounts).map(a => (
-                  <div
-                    key={a.id}
-                    className="mrep-alloc-segment"
-                    style={{
-                      flex: Math.max(0, accountBalanceInBase(a, currency)) / Math.max(1, totalBalance),
-                      background: a.color,
-                    }}
-                    title={t('nameColonAmount').replace('{name}', a.name).replace('{amount}', fmtVal(a.balance, accountCurrency(a, currency)))}
-                  />
-                ))}
-              </div>
-              <div className="mrep-alloc-legend">
-                {visibleAccounts(accounts).map(a => (
-                  <div key={a.id} className="mrep-legend-item">
-                    <span style={{ background: a.color }} />
-                    <small>{a.short || a.name}</small>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* La barra de distribución con leyenda se quitó: era decorativa y con
+              4+ cuentas resultaba ilegible. El reparto ya se lee en los totales
+              por grupo y en el saldo de cada cuenta. */}
 
           {/* Groups */}
           {groups.map(({ group, accounts: accs, visibleTotal }) => (
@@ -224,7 +188,12 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
                 const series  = monthlyAccountSeries(transactions, a.id, mkey, dateLocale(lang))
                 const maxFlow = Math.max(1, ...series.map(s => Math.abs(s.inflow - s.outflow)))
                 return (
-                  <button key={a.id} className="mrep-account-row" onClick={() => setSelectedId(a.id)}>
+                  <div key={a.id} className={`macc-item${expandedId === a.id ? ' open' : ''}`}>
+                  <button
+                    className="mrep-account-row"
+                    aria-expanded={expandedId === a.id}
+                    onClick={() => setExpandedId(id => id === a.id ? null : a.id)}
+                  >
                     <span className="mrep-account-icon" style={{ background: a.color + '22', color: a.color }}>
                       <Icon name={TYPE_META[a.type].icon} size={20} />
                     </span>
@@ -269,8 +238,48 @@ export function MobileAccounts({ mkey, createRequest, onEditTx, onDeleteTx }: {
                     <strong className={accountKind(a) === 'debt' ? 'text-expense' : ''}>
                       {fmtVal(a.balance, accountCurrency(a, currency))}
                     </strong>
-                    <Icon name="arrowUp" size={14} style={{ transform: 'rotate(90deg)', color: 'var(--m-muted)', flexShrink: 0 }} />
+                    <Icon
+                      name="arrowUp"
+                      size={14}
+                      style={{
+                        transform: expandedId === a.id ? 'rotate(180deg)' : 'rotate(90deg)',
+                        color: 'var(--m-muted)', flexShrink: 0,
+                      }}
+                    />
                   </button>
+                  {expandedId === a.id && (() => {
+                    const month = series[series.length - 1]
+                    const moves = transactions.filter(tx =>
+                      tx.date.startsWith(mkey)
+                      && (tx.accountId === a.id || tx.fromAccount === a.id || tx.toAccount === a.id)).length
+                    return (
+                      <div className="macc-expand">
+                        <div className="macc-expand-stats">
+                          <div>
+                            <small>{t('movementsThisMonth')}</small>
+                            <b>{moves}</b>
+                          </div>
+                          <div>
+                            <small>{t('accountInflow')}</small>
+                            <b className="text-income">{fmtVal(month?.inflow ?? 0, currency)}</b>
+                          </div>
+                          <div>
+                            <small>{t('accountOutflow')}</small>
+                            <b className="text-expense">{fmtVal(month?.outflow ?? 0, currency)}</b>
+                          </div>
+                        </div>
+                        <div className="macc-expand-actions">
+                          <button onClick={() => setSelectedId(a.id)}>
+                            <Icon name="chart" size={15} /> {t('viewDetailLabel')}
+                          </button>
+                          <button onClick={() => setEditingAccount(a)}>
+                            <Icon name="edit" size={15} /> {t('edit')}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  </div>
                 )
               })}
             </div>

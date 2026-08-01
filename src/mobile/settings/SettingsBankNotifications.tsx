@@ -5,14 +5,39 @@ import { fmt, dateLocale } from '@/data/helpers'
 import { isTauri } from '@/hooks/useTauri'
 import { getNotificationAccessStatus, openNotificationAccessSettings } from '@/lib/bankNotifications'
 import { useBankSuggestions } from '@/store/bankSuggestions'
+import { useBankNotificationsDebug, type DebugVerdict } from '@/store/bankNotificationsDebug'
 import { useDismissals } from '@/store/dismissals'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
-import { useT } from '@/i18n'
+import { translateCategoryName, useT } from '@/i18n'
 import { SettingsRow, SettingsSheet, type SheetProps } from './shared'
 import { ACCT_ICONS, useBankSuggestionActions } from './bankSuggestionActions'
 
 const isAndroidTauri = isTauri() && /android/i.test(navigator.userAgent)
+
+/** "hace 3 min" / "hace 2 h" / "hace 1 d" a partir de un timestamp. */
+function relativeTime(ms: number, t: ReturnType<typeof useT>): string {
+  if (!ms) return '—'
+  const diff = Date.now() - ms
+  const min = Math.floor(diff / 60_000)
+  if (min < 1) return t('justNow')
+  if (min < 60) return t('minutesAgo').replace('{n}', String(min))
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return t('hoursAgo').replace('{n}', String(hours))
+  return t('daysAgo').replace('{n}', String(Math.floor(hours / 24)))
+}
+
+const VERDICT_LABEL_KEY: Record<DebugVerdict, string> = {
+  'added': 'verdictAdded',
+  'auto-added': 'verdictAutoAdded',
+  'duplicate': 'verdictDuplicate',
+  'no-amount': 'verdictNoAmount',
+  'otp': 'verdictOtp',
+  'promotional': 'verdictPromotional',
+  'telecom': 'verdictTelecom',
+  'not-financial': 'verdictNotFinancial',
+  'no-tx-signal': 'verdictNoTxSignal',
+}
 
 export function SettingsBankNotifications({ activeSheet, onOpen, onClose, grouped }: SheetProps & { grouped?: boolean }) {
   const suggestions = useBankSuggestions()
@@ -20,11 +45,13 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
   const lang = (useSettings(s => s.language) ?? 'es') as 'en' | 'es'
   const settings = useSettings()
   const t = useT()
+  const debug = useBankNotificationsDebug()
+  const [showDiag, setShowDiag] = useState(false)
   const [granted, setGranted] = useState<boolean | null>(null)
   // "Vinculado" se rastrea aparte de "concedido": tras actualizar el APK Android
   // desvincula el listener y deja de detectar, aunque el permiso siga concedido.
   const [connected, setConnected] = useState<boolean | null>(null)
-  const { handleAdd, openPicker, resolveFor, pickerNode } = useBankSuggestionActions()
+  const { handleAdd, openPicker, openCategoryPicker, categoryFor, resolveFor, pickerNode } = useBankSuggestionActions()
   const dismissals = useDismissals()
   const hiddenTotal = dismissals.dismissed.length
     + dismissals.hiddenInsights.length
@@ -65,6 +92,16 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
       : connected
         ? t('accessGranted')
         : t('accessGrantedNotBound')
+
+  // Estado de salud del servicio para el health card (color + título).
+  const health = granted == null ? 'checking' : connected ? 'ok' : granted ? 'warn' : 'bad'
+  const healthTitle = health === 'ok'
+    ? t('detectionServiceActive')
+    : health === 'warn'
+      ? t('detectionServiceIdle')
+      : health === 'bad'
+        ? t('detectionServiceNoAccess')
+        : t('checking')
 
   const card = (
     <div className="mset-card">
@@ -147,14 +184,18 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
               {t('bankNotificationsIntro')}
             </p>
 
-            <div className="mset-row">
-              <span className="mset-row-icon" style={{ background: '#5bc0ff22', color: '#5bc0ff' }}>
-                <Icon name="shield" size={18} />
-              </span>
-              <div className="mset-row-text">
-                <b>{t('notificationAccess')}</b>
-                <small>{accessLabel}</small>
+            {/* Health card: el estado del servicio de un vistazo — concedido +
+                vinculado + cuándo revisó por última vez. Antes había que abrir
+                el diagnóstico para saber si "estaba funcionando". */}
+            <div className={`mset-health ${health}`}>
+              <span className="mset-health-ico"><Icon name="shield" size={20} /></span>
+              <div className="mset-health-text">
+                <b>{healthTitle}</b>
+                <small>{debug.drainCount > 0
+                  ? `${relativeTime(debug.lastDrainAt, t)} · ${t('detectionDeliveredCount').replace('{n}', String(debug.lastPendingCount))}`
+                  : accessLabel}</small>
               </div>
+              <span className="mset-health-dot" />
             </div>
             <button className="mset-sheet-confirm" onClick={handleOpenSettings}>
               {t('openNotificationSettings')}
@@ -176,6 +217,24 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
               </label>
             </div>
 
+            {suggestions.enabled && (
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#35d0a222', color: '#35d0a2' }}>
+                  <Icon name="check" size={18} />
+                </span>
+                <div className="mset-row-text">
+                  <b>{t('autoCreateLabel')}</b>
+                  <small>{t('autoCreateDesc')}</small>
+                </div>
+                <label className="mset-toggle-wrap">
+                  <input type="checkbox" className="mset-toggle-input"
+                    checked={suggestions.autoCreate}
+                    onChange={e => suggestions.setAutoCreate(e.target.checked)} />
+                  <span className="mset-toggle" />
+                </label>
+              </div>
+            )}
+
             <p className="mset-section-label" style={{ marginTop: 16 }}>
               {t('suggestedMovements').replace('{count}', String(suggestions.items.length))}
             </p>
@@ -185,6 +244,7 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
               <div className="mset-card">
                 {suggestions.items.map(item => {
                   const resolvedAccount = resolveFor(item)
+                  const suggestedCat = categoryFor(item)
                   return (
                     <div key={item.id} className="mset-row">
                       <span className="mset-row-icon" style={{
@@ -195,11 +255,25 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
                       </span>
                       <div className="mset-row-text">
                         <b>{item.note}</b>
-                        <small>{new Date(item.date).toLocaleDateString(dateLocale(lang))} · {fmt(item.amount, item.currency ?? currency)}</small>
-                        <button className="mset-suggestion-account" onClick={() => openPicker(item)}>
-                          <Icon name={resolvedAccount ? ACCT_ICONS[resolvedAccount.type] : 'alert'} size={11} />
-                          {resolvedAccount ? resolvedAccount.name : t('chooseAccountLabel')}
-                        </button>
+                        <small>
+                          {new Date(item.date).toLocaleDateString(dateLocale(lang))} · {fmt(item.amount, item.currency ?? currency)}
+                          {item.cardLast4 && ` · ••${item.cardLast4}`}
+                        </small>
+                        <div className="mset-suggestion-chips">
+                          {/* Categoría sugerida por comercio (tócala para cambiarla). */}
+                          <button
+                            className="mset-suggestion-cat"
+                            style={suggestedCat ? { color: suggestedCat.color, borderColor: `color-mix(in oklab, ${suggestedCat.color} 40%, transparent)` } : undefined}
+                            onClick={() => openCategoryPicker(item)}
+                          >
+                            <Icon name={suggestedCat?.icon ?? 'tag'} size={11} />
+                            {suggestedCat ? translateCategoryName(suggestedCat, lang) : t('chooseCategoryChip')}
+                          </button>
+                          <button className="mset-suggestion-account" onClick={() => openPicker(item)}>
+                            <Icon name={resolvedAccount ? ACCT_ICONS[resolvedAccount.type] : 'alert'} size={11} />
+                            {resolvedAccount ? resolvedAccount.name : t('chooseAccountLabel')}
+                          </button>
+                        </div>
                       </div>
                       <button className="mset-suggestion-add" onClick={() => handleAdd(item)} aria-label={t('addMovement')}>
                         <Icon name="plus" size={16} />
@@ -217,6 +291,65 @@ export function SettingsBankNotifications({ activeSheet, onOpen, onClose, groupe
               <button className="mset-sheet-danger" onClick={handleDiscardAll}>
                 <Icon name="trash" size={16} /> {t('clearCaptures')}
               </button>
+            )}
+
+            {/* Diagnóstico: qué avisos entregó el sistema y qué se hizo con
+                cada uno. Es la respuesta a "no detecta nada" — deja ver si el
+                problema es que no llega nada (permiso/nativo) o que llega y se
+                descarta (clasificador). */}
+            <button className="mset-diag-toggle" onClick={() => setShowDiag(v => !v)}>
+              <Icon name="shield" size={14} />
+              {showDiag ? t('detectionDiagnosticsHide') : t('detectionDiagnosticsShow')}
+              {debug.totalCaptured > 0 && <span className="mset-diag-count">{debug.totalCaptured}</span>}
+            </button>
+
+            {showDiag && (
+              <div className="mset-diag">
+                <p className="mset-legal-intro">{t('detectionDiagnosticsIntro')}</p>
+
+                {/* Estado de las revisiones a la cola nativa. Es lo que separa
+                    "la app no revisa" de "revisa pero el sistema no entrega". */}
+                <div className="mset-diag-status">
+                  <div>
+                    <small>{t('detectionChecksLabel')}</small>
+                    <b>{debug.drainCount === 0 ? t('detectionNeverChecked') : `${debug.drainCount} · ${relativeTime(debug.lastDrainAt, t)}`}</b>
+                  </div>
+                  <div>
+                    <small>{t('detectionLastDeliveredLabel')}</small>
+                    <b>{debug.lastPendingCount}</b>
+                  </div>
+                </div>
+                {debug.drainCount > 0 && debug.totalCaptured === 0 && (
+                  <p className="mset-diag-warn">{t('detectionNativeSilent')}</p>
+                )}
+
+                <p className="mset-diag-total">
+                  {t('detectionCapturedTotal').replace('{count}', String(debug.totalCaptured))}
+                </p>
+                {debug.entries.length === 0 ? (
+                  <p className="mset-legal-intro">{t('detectionNothingCaptured')}</p>
+                ) : (
+                  <>
+                    <div className="mset-card">
+                      {debug.entries.map(entry => (
+                        <div key={entry.id} className={`mset-diag-row${entry.verdict === 'added' || entry.verdict === 'auto-added' ? ' ok' : entry.verdict === 'duplicate' ? ' dup' : ''}`}>
+                          <span className="mset-diag-verdict-dot" />
+                          <div className="mset-diag-text">
+                            <b>{entry.title || entry.pkg}</b>
+                            {entry.text && <small className="mset-diag-body">{entry.text}</small>}
+                            <small className="mset-diag-verdict">
+                              {new Date(entry.postTime).toLocaleString(dateLocale(lang))} · {t(VERDICT_LABEL_KEY[entry.verdict] as Parameters<typeof t>[0])}
+                            </small>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button className="mset-sheet-danger" onClick={() => { debug.clear(); toast(t('detectionLogCleared'), { icon: 'trash' }) }}>
+                      <Icon name="trash" size={16} /> {t('detectionClearLog')}
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </SettingsSheet>

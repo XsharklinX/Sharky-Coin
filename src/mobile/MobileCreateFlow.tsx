@@ -3,8 +3,9 @@ import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { deleteWithUndo } from '@/lib/undoDelete'
 import { useDialogs } from '@/components/ui/DialogProvider'
+import { OPERATORS, cleanAmount, evaluateExpression, lastOperatorIndex, lastSegment } from '@/data/amountExpression'
 import { isDuplicateTransaction } from '@/data/bankCsv'
-import { fmtCompact, localToday } from '@/data/helpers'
+import { fmt, fmtCompact, localToday } from '@/data/helpers'
 import { ACCENT_COLORS } from '@/constants'
 import { dateLocale } from '@/data/helpers'
 import { CURRENCIES } from '@/data/seed'
@@ -16,7 +17,8 @@ import { useNotes } from '@/store/notes'
 import { noteTotals } from '@/data/notes'
 import { translateCategoryName, useT } from '@/i18n'
 import { playBackspaceSound, playDoneSound, playKeySound, playOperatorSound, playSoftHaptic } from '@/lib/sound'
-import { parseQuickAdd } from '@/data/quickAddParse'
+import { deriveQuickAdds, type QuickAdd } from '@/data/quickAdds'
+import { useQuickAdds } from '@/store/quickAdds'
 import { openNativeScanner } from '@/lib/mlkitOcr'
 import { recognizeReceipt, type ReceiptOcrResult } from '@/lib/receiptOcr'
 import { MobileDatePicker } from './MobileDatePicker'
@@ -43,8 +45,29 @@ const keypad = [
 ] as const
 const MODE_ORDER: MobileTxMode[] = ['expense', 'income', 'transfer']
 const SWIPE_THRESHOLD = 48
-const OPERATORS = ['+', '−', '×', '÷'] as const
-type Operator = (typeof OPERATORS)[number]
+
+/**
+ * true si el gesto empieza dentro de un elemento que se desplaza en horizontal
+ * (la fila de "Rápidos", los chips…). Ahí un swipe lateral es para hacer scroll,
+ * NO para cambiar de pestaña Gasto/Ingreso/Transferencia — sin esto, deslizar
+ * los Rápidos cambiaba de modo, que es justo lo molesto que hay que evitar.
+ */
+function startsInHorizontalScroller(node: EventTarget | null): boolean {
+  const target = node instanceof HTMLElement ? node : null
+  if (!target) return false
+  // Scrollers horizontales conocidos del formulario (Rápidos, chips): un swipe
+  // ahí es para desplazarlos, NUNCA para cambiar de pestaña — aunque en ese
+  // momento haya pocos elementos y no lleguen a desbordar.
+  if (target.closest('.mobile-quickadds-row, .mobile-note-chips')) return true
+  // Genérico: cualquier ancestro que de hecho se desplace en horizontal.
+  let el: HTMLElement | null = target
+  while (el && !el.classList.contains('mobile-create-scroll')) {
+    const overflowX = getComputedStyle(el).overflowX
+    if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true
+    el = el.parentElement
+  }
+  return false
+}
 const CATEGORY_COLORS = ACCENT_COLORS
 const CATEGORY_ICONS: IconName[] = [
   'cart', 'food', 'car', 'bolt', 'heart', 'home',
@@ -60,49 +83,6 @@ const CATEGORY_ICONS: IconName[] = [
 
 const ACCT_ICONS: Record<string, IconName> = {
   cash: 'wallet', debit: 'cards', savings: 'piggy', credit: 'cards',
-}
-
-function cleanAmount(value: string): string {
-  const normalized = value.replace(',', '.').replace(/[^\d.]/g, '')
-  const [integer = '', ...rest] = normalized.split('.')
-  const decimal = rest.join('').slice(0, 2)
-  const safeInteger = integer.replace(/^0+(?=\d)/, '')
-  return rest.length ? `${safeInteger || '0'}.${decimal}` : safeInteger
-}
-
-function lastOperatorIndex(expr: string): number {
-  return Math.max(...OPERATORS.map(op => expr.lastIndexOf(op)))
-}
-
-function lastSegment(expr: string): string {
-  const cut = lastOperatorIndex(expr)
-  return cut === -1 ? expr : expr.slice(cut + 1)
-}
-
-// Evaluates a left-to-right expression with standard ×/÷ precedence over +/−.
-function evaluateExpression(expr: string): number {
-  const raw = expr.match(/[+−×÷]|[\d.]+/g)
-  if (!raw?.length) return 0
-  const tokens = (OPERATORS as readonly string[]).includes(raw[raw.length - 1]) ? raw.slice(0, -1) : raw
-  if (!tokens.length) return 0
-
-  const terms: number[] = []
-  const signs: ('+' | '−')[] = []
-  let acc = Number(tokens[0]) || 0
-  for (let i = 1; i < tokens.length; i += 2) {
-    const op = tokens[i] as Operator
-    const val = Number(tokens[i + 1]) || 0
-    if (op === '×') acc *= val
-    else if (op === '÷') acc = val !== 0 ? acc / val : acc
-    else {
-      terms.push(acc)
-      signs.push(op)
-      acc = val
-    }
-  }
-  terms.push(acc)
-
-  return terms.reduce((sum, term, idx) => idx === 0 ? term : sum + (signs[idx - 1] === '−' ? -term : term), 0)
 }
 
 function formatDateShort(date: string, locale: string): string {
@@ -236,6 +216,9 @@ export function MobileCreateFlow({
   }, [mode, switchMode])
 
   const handleSwipeStart = useCallback((event: ReactTouchEvent) => {
+    // Si el gesto arranca sobre un scroller horizontal (Rápidos, chips), no es
+    // un cambio de pestaña: se ignora para que solo haga scroll.
+    if (startsInHorizontalScroller(event.target)) { swipeStart.current = null; return }
     const touch = event.touches[0]
     swipeStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null
   }, [])
@@ -539,25 +522,34 @@ export function MobileCreateFlow({
 
   const openCategoryEditor = (category: Category) => { setEditingCategory(category); setCategoryEditorOpen(true) }
 
-  // Alta por lenguaje natural: «gasté 500 en el súper ayer» rellena tipo, monto,
-  // concepto, fecha y categoría de un tirón. Solo propone — el usuario ve el
-  // formulario ya lleno y confirma. Deja intactos los campos que la frase no
-  // menciona, para poder complementar en vez de sobrescribir.
-  const [smartText, setSmartText] = useState('')
-  const applySmartText = () => {
-    const phrase = smartText.trim()
-    if (!phrase) return
-    const parsed = parseQuickAdd(phrase, categories)
-    // switchMode resetea categoría/nota/cuenta, así que va PRIMERO; los setters
-    // de abajo, al ser llamadas de estado posteriores, ganan sobre ese reset.
-    if (parsed.type !== mode) switchMode(parsed.type)
-    if (parsed.amount !== null) setAmountText(String(parsed.amount))
-    if (parsed.note) setNote(parsed.note)
-    setDate(parsed.date)
-    if (parsed.categoryId) setCategoryId(parsed.categoryId)
-    setSmartText('')
+  // ── Rápidos ───────────────────────────────────────────────
+  // Se derivan del historial en cada render (barato: agrupa y cuenta) y se
+  // filtran/ordenan con las preferencias del usuario. Los fijados mandan sobre
+  // la frecuencia; los ocultos no vuelven a salir.
+  const [manageQuick, setManageQuick] = useState(false)
+  const pinnedQuick = useQuickAdds(s => s.pinned)
+  const hiddenQuick = useQuickAdds(s => s.hidden)
+  const togglePinnedQuick = useQuickAdds(s => s.togglePinned)
+  const toggleHiddenQuick = useQuickAdds(s => s.toggleHidden)
+
+  const allQuickAdds = useMemo(() => deriveQuickAdds(transactions), [transactions])
+  const visibleQuickAdds = useMemo(
+    () => allQuickAdds
+      .filter(q => q.type === mode && !hiddenQuick.includes(q.key))
+      .sort((a, b) => Number(pinnedQuick.includes(b.key)) - Number(pinnedQuick.includes(a.key)) || b.uses - a.uses),
+    [allQuickAdds, mode, hiddenQuick, pinnedQuick],
+  )
+
+  // Rellena el formulario con un rápido. El monto solo si es estable: si el
+  // gasto varía (el súper), se deja vacío para que lo teclees — un importe
+  // inventado se guarda por error con demasiada facilidad.
+  const applyQuickAdd = (q: QuickAdd) => {
+    setNote(q.note)
+    if (q.categoryId) setCategoryId(q.categoryId)
+    if (q.accountId) setAccountId(q.accountId)
+    if (q.amount !== null) setAmountText(String(q.amount))
+    setTriedSave(false)
     playSoftHaptic()
-    toast(t('smartAddFilled'), { icon: 'check', type: 'ok' })
   }
 
   // Pulsación larga sobre una categoría → editarla. Se cancela si el dedo se
@@ -637,12 +629,9 @@ export function MobileCreateFlow({
                 </div>
               )
             })()}
-            {!scannedImage && (
-              <button className="mobile-receipt-scan-btn" onClick={() => setScanMenuOpen(true)}>
-                <Icon name="receipt" size={16} />
-                {t('scanReceipt')}
-              </button>
-            )}
+            {/* El disparador de escanear vive ahora como camarita junto al
+                teclado (ver fila rápida abajo); aquí solo quedan los inputs
+                ocultos que la cámara/galería necesitan. */}
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
               style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) scanReceiptFile(f); e.target.value = '' }} />
@@ -680,23 +669,46 @@ export function MobileCreateFlow({
           ))}
         </div>
 
-        {mode !== 'transfer' && (
-          <div className="mobile-smart-add">
-            <Icon name="bolt" size={16} />
-            <input
-              type="text"
-              value={smartText}
-              placeholder={t('smartAddPlaceholder')}
-              enterKeyHint="done"
-              onChange={e => setSmartText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applySmartText() } }}
-            />
-            {smartText.trim() && (
-              <button className="mobile-smart-add-go" onClick={applySmartText} aria-label={t('smartAddApply')}>
-                <Icon name="arrowUp" size={16} style={{ transform: 'rotate(90deg)' }} />
+        {/* Rápidos: lo que más repites, de un toque. Sustituye al campo de texto
+            que intentaba adivinar frases — aquí no se interpreta nada. Si aún no
+            hay historial suficiente, la fila no aparece. */}
+        {settings.quickAddsEnabled && mode !== 'transfer' && visibleQuickAdds.length > 0 && (
+          <>
+            <div className="mobile-quickadds-head">
+              <span><Icon name="bolt" size={12} /> {t('quickAddsTitle')}</span>
+              <button onClick={() => setManageQuick(v => !v)}>
+                {manageQuick ? t('done') : t('manageLabel')}
               </button>
+            </div>
+            <div className="mobile-quickadds-row">
+              {visibleQuickAdds.map(q => (
+                <button key={q.key} className={`mobile-quickadd${pinnedQuick.includes(q.key) ? ' pinned' : ''}`}
+                  onClick={() => applyQuickAdd(q)}>
+                  <span className="mobile-quickadd-name">
+                    {pinnedQuick.includes(q.key) && <Icon name="star" size={10} />}
+                    {q.note}
+                  </span>
+                  <small>{q.amount !== null ? fmt(q.amount, currency) : t('quickAddNoAmount')}</small>
+                </button>
+              ))}
+            </div>
+            {manageQuick && (
+              <div className="mobile-quickadds-manage">
+                <p>{t('quickAddsManageHint')}</p>
+                {allQuickAdds.map(q => (
+                  <div key={q.key} className="mobile-quickadds-manage-row">
+                    <b>{q.note}</b>
+                    <button className={pinnedQuick.includes(q.key) ? 'on' : ''} onClick={() => togglePinnedQuick(q.key)}>
+                      {t('pinLabel')}
+                    </button>
+                    <button className={hiddenQuick.includes(q.key) ? 'on' : ''} onClick={() => toggleHiddenQuick(q.key)}>
+                      {t('hideLabel')}
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
+          </>
         )}
 
         {mode !== 'transfer' ? (
@@ -773,21 +785,8 @@ export function MobileCreateFlow({
               <Icon name="arrowDn" size={16} />
             </button>
 
-            {/* Recurring toggle */}
-            <button
-              className={`mobile-create-recurring-toggle${recurring ? ' active' : ''}`}
-              onClick={() => setRecurring(r => !r)}
-            >
-              <span className="mobile-recur-icon">
-                <Icon name="repeat" size={16} />
-              </span>
-              <span className="mobile-recur-copy">
-                <span className="mobile-recur-label">{t('repeatMovement')}</span>
-                <small className="mobile-recur-desc">{t('repeatMovementDesc')}</small>
-              </span>
-              <span className={`mobile-recur-switch${recurring ? ' on' : ''}`} />
-            </button>
-
+            {/* El interruptor de repetir pasó al icono junto al teclado; aquí
+                se conservan sus opciones, que aparecen al activarlo. */}
             {recurring && (
               <div className="mobile-create-recurring-opts">
                 <div className="mobile-recur-opt-row">
@@ -919,6 +918,26 @@ export function MobileCreateFlow({
             <Icon name="calendar" size={13} />
             <span>{isToday ? t('today') : formatDateShort(date, locale)}</span>
           </button>
+          {/* Escanear recibo: ya no es una fila ancha arriba, es esta camarita
+              pegada al teclado. Abre el mismo menú de opciones de siempre. */}
+          {!receiptPreview && !scannedImage && (
+            <button className="mobile-quick-icon-btn" onClick={() => setScanMenuOpen(true)} aria-label={t('scanReceipt')}>
+              <Icon name="camera" size={16} />
+            </button>
+          )}
+          {/* Recurrente: mismo interruptor de antes, ahora como icono que se
+              enciende en azul. Las opciones (frecuencia/fin) siguen apareciendo
+              debajo al activarlo. */}
+          {mode !== 'transfer' && (
+            <button
+              className={`mobile-quick-icon-btn${recurring ? ' on' : ''}`}
+              onClick={() => setRecurring(r => !r)}
+              aria-pressed={recurring}
+              aria-label={t('repeatMovement')}
+            >
+              <Icon name="repeat" size={16} />
+            </button>
+          )}
         </div>
 
         {/* Chips de notas anteriores — visibles solo mientras se escribe la nota */}

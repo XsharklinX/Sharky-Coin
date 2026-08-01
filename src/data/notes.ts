@@ -40,6 +40,8 @@ export interface Note {
   /** Cuenta sugerida al registrar el gasto. */
   accountId?: string
   archived?: boolean
+  /** Fijada arriba de la lista, por encima del orden por fecha. */
+  pinned?: boolean
   createdAt: number
   updatedAt: number
 }

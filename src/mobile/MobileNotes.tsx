@@ -9,33 +9,82 @@ import { deleteWithUndo } from '@/lib/undoDelete'
 import { useFinance } from '@/store/finance'
 import { useFmt } from '@/hooks/useFmt'
 import { shareText } from '@/lib/nativeShare'
-import { useT, type LangKey } from '@/i18n'
+import { useT } from '@/i18n'
 import type { Account, IconName, ViewProps } from '@/types'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
 import { useDialogA11y } from './useDialogA11y'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import { SheetPortal } from './SheetPortal'
 
-const TYPE_META: Record<NoteType, { icon: IconName; color: string; key: LangKey; descKey: LangKey }> = {
-  shopping:  { icon: 'cart',  color: '#35d0a2', key: 'noteTypeShopping',  descKey: 'noteTypeShoppingDesc' },
-  checklist: { icon: 'grid',  color: '#5bc0ff', key: 'noteTypeChecklist', descKey: 'noteTypeChecklistDesc' },
-  note:      { icon: 'edit',  color: '#ffdd3d', key: 'noteTypeNote',      descKey: 'noteTypeNoteDesc' },
-}
 
 export function MobileNotes({ mkey }: ViewProps) {
   const t = useT()
   const notes = useNotes(s => s.notes)
   const addNote = useNotes(s => s.addNote)
+  const updateNote = useNotes(s => s.updateNote)
+  const deleteNote = useNotes(s => s.deleteNote)
+  const restoreNote = useNotes(s => s.restoreNote)
+  const duplicateNote = useNotes(s => s.duplicateNote)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [picking, setPicking] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<'all' | 'pending' | 'shopping' | 'notes'>('all')
+  // Lista con su hoja de acciones abierta (mantener pulsado).
+  const [sheetNote, setSheetNote] = useState<Note | null>(null)
 
-  const activeNotes = notes.filter(n => !n.archived).sort((a, b) => b.updatedAt - a.updatedAt)
-  const archivedNotes = notes.filter(n => n.archived).sort((a, b) => b.updatedAt - a.updatedAt)
+  useMobileBackDismiss(!!sheetNote, () => setSheetNote(null))
 
   const finance = useFinance()
   const fmtVal = useFmt()
   const money = (n: number) => fmtVal(n, finance.currency)
+
+  // Búsqueda: título + ítems + cuerpo, sin tildes ni mayúsculas.
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const matchesQuery = (n: Note) => {
+    const q = norm(query.trim())
+    if (!q) return true
+    return norm([n.title, n.body ?? '', ...n.items.map(i => i.text)].join(' ')).includes(q)
+  }
+  const matchesFilter = (n: Note) => {
+    if (filter === 'notes') return n.type === 'note'
+    if (filter === 'shopping') return noteTotals(n).pricedCount > 0
+    if (filter === 'pending') return n.type !== 'note' && n.items.some(i => !i.done)
+    return true
+  }
+  // Fijadas primero, luego por edición reciente.
+  const bySort = (a: Note, b: Note) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt - a.updatedAt
+  const activeNotes = notes.filter(n => !n.archived && matchesQuery(n) && matchesFilter(n)).sort(bySort)
+  const archivedNotes = notes.filter(n => n.archived && matchesQuery(n)).sort(bySort)
+
+  // Acciones de la hoja (mantener pulsado) — reutilizan «Deshacer» y los toasts
+  // del resto de la app.
+  const togglePin = (n: Note) => { updateNote(n.id, { pinned: !n.pinned }); setSheetNote(null) }
+  const toggleArchive = (n: Note) => {
+    updateNote(n.id, { archived: !n.archived })
+    toast(n.archived ? t('listUnarchivedToast') : t('listArchivedToast'), { icon: 'check', type: 'ok' })
+    setSheetNote(null)
+  }
+  const duplicate = (n: Note) => {
+    const id = duplicateNote(n.id)
+    setSheetNote(null)
+    if (id) toast(t('listDuplicatedToast'), { icon: 'check', type: 'ok' })
+  }
+  const remove = (n: Note) => {
+    setSheetNote(null)
+    deleteWithUndo({
+      message: t('listDeleted'),
+      onDelete: () => deleteNote(n.id),
+      onRestore: () => restoreNote(n),
+    })
+  }
+  const share = async (n: Note) => {
+    setSheetNote(null)
+    const withPrices = noteTotals(n).pricedCount > 0
+    const text = noteShareText(n, money, { withPrices })
+    if (await shareText(text, n.title || t('untitledList'))) return
+    try { await navigator.clipboard?.writeText(text); toast(t('listCopiedToast'), { icon: 'check', type: 'ok' }) }
+    catch { toast(t('couldNotShare'), { icon: 'alert' }) }
+  }
 
   const openNote = notes.find(n => n.id === openId) ?? null
   // El back-dismiss del detalle vive AQUÍ, en el padre estable, no dentro de
@@ -43,7 +92,6 @@ export function MobileNotes({ mkey }: ViewProps) {
   // solo bajo StrictMode (su cleanup hace history.back() y cierra el sheet al
   // instante). Al vivir en el padre, el efecto corre una vez al abrir. Mismo
   // patrón que MobileSettings con `activeSheet`.
-  useMobileBackDismiss(picking, () => setPicking(false))
   useMobileBackDismiss(!!openNote, () => setOpenId(null))
 
   // Gasto del mes por categoría — para el aviso de "no cabe en tu presupuesto".
@@ -56,9 +104,12 @@ export function MobileNotes({ mkey }: ViewProps) {
     return map
   }, [finance.transactions, finance.accounts, finance.currency, mkey])
 
-  const createNote = (type: NoteType) => {
+  // Sin selector de tipo: crear abre una lista directa. El tipo por defecto es
+  // 'checklist' — con checks y precios OPCIONALES por ítem, así que sirve para
+  // una lista simple o para una compra sin que el usuario decida nada al crear.
+  // La 'note' (texto libre) queda como opción secundaria explícita.
+  const createNote = (type: NoteType = 'checklist') => {
     const id = addNote({ type })
-    setPicking(false)
     setOpenId(id)
   }
 
@@ -69,20 +120,52 @@ export function MobileNotes({ mkey }: ViewProps) {
           <span className="mnote-empty-icon"><Icon name="clipboard" size={30} /></span>
           <strong>{t('notesEmptyTitle')}</strong>
           <p>{t('notesEmptyDesc')}</p>
-          <button className="mnote-empty-btn" onClick={() => setPicking(true)}>
+          <button className="mnote-empty-btn" onClick={() => createNote()}>
             <Icon name="plus" size={16} /> {t('newListLabel')}
+          </button>
+          <button className="mnote-empty-alt" onClick={() => createNote('note')}>
+            {t('orTextNote')}
           </button>
         </div>
       ) : (
         <>
-          <div className="mnote-list">
-            {activeNotes.map(note => (
-              <NoteCard key={note.id} note={note} money={money} onOpen={() => setOpenId(note.id)} />
+          <div className="mnote-search">
+            <Icon name="search" size={16} />
+            <input
+              type="text"
+              value={query}
+              placeholder={t('searchListsPlaceholder')}
+              onChange={e => setQuery(e.target.value)}
+            />
+            {query && (
+              <button aria-label={t('close')} onClick={() => setQuery('')}><Icon name="close" size={14} /></button>
+            )}
+          </div>
+
+          <div className="mnote-filters" role="tablist" aria-label={t('filterMovements')}>
+            {([['all', t('allLabel')], ['pending', t('pendingLabel')], ['shopping', t('shoppingFilterLabel')], ['notes', t('notesFilterLabel')]] as const).map(([value, label]) => (
+              <button key={value} className={filter === value ? 'on' : ''} role="tab" aria-selected={filter === value} onClick={() => setFilter(value)}>
+                {label}
+              </button>
             ))}
           </div>
-          <button className="mnote-new" onClick={() => setPicking(true)}>
-            <Icon name="plus" size={16} /> {t('newListLabel')}
-          </button>
+
+          <div className="mnote-list">
+            {activeNotes.length === 0
+              ? <p className="mnote-noresults">{t('noListsMatch')}</p>
+              : activeNotes.map(note => (
+                <NoteCard key={note.id} note={note} money={money}
+                  onOpen={() => setOpenId(note.id)} onLongPress={() => setSheetNote(note)} />
+              ))}
+          </div>
+          <div className="mnote-new-row">
+            <button className="mnote-new" onClick={() => createNote()}>
+              <Icon name="plus" size={16} /> {t('newListLabel')}
+            </button>
+            <button className="mnote-new-note" onClick={() => createNote('note')} aria-label={t('orTextNote')}>
+              <Icon name="edit" size={16} />
+            </button>
+          </div>
 
           {archivedNotes.length > 0 && (
             <>
@@ -94,7 +177,8 @@ export function MobileNotes({ mkey }: ViewProps) {
               {showArchived && (
                 <div className="mnote-list mnote-list-archived">
                   {archivedNotes.map(note => (
-                    <NoteCard key={note.id} note={note} money={money} onOpen={() => setOpenId(note.id)} />
+                    <NoteCard key={note.id} note={note} money={money}
+                      onOpen={() => setOpenId(note.id)} onLongPress={() => setSheetNote(note)} />
                   ))}
                 </div>
               )}
@@ -103,7 +187,19 @@ export function MobileNotes({ mkey }: ViewProps) {
         </>
       )}
 
-      {picking && <TypePicker onPick={createNote} onClose={() => setPicking(false)} />}
+      {sheetNote && (
+        <NoteActionSheet
+          note={sheetNote}
+          onClose={() => setSheetNote(null)}
+          onOpen={() => { const id = sheetNote.id; setSheetNote(null); setOpenId(id) }}
+          onPin={() => togglePin(sheetNote)}
+          onDuplicate={() => duplicate(sheetNote)}
+          onShare={() => void share(sheetNote)}
+          onArchive={() => toggleArchive(sheetNote)}
+          onDelete={() => remove(sheetNote)}
+        />
+      )}
+
       {openNote && (
         <NoteDetail
           note={openNote}
@@ -116,72 +212,134 @@ export function MobileNotes({ mkey }: ViewProps) {
   )
 }
 
-function NoteCard({ note, money, onOpen }: { note: Note; money: (n: number) => string; onOpen: () => void }) {
+function NoteCard({ note, money, onOpen, onLongPress }: {
+  note: Note
+  money: (n: number) => string
+  onOpen: () => void
+  onLongPress: () => void
+}) {
   const t = useT()
   const totals = noteTotals(note)
   const pct = Math.round(noteProgress(note) * 100)
-  const showMoney = note.type === 'shopping' && totals.pricedCount > 0
+  // Adaptable: la lista "tiene dinero" si es de compra O si ya tiene algún
+  // precio — así una checklist se vuelve lista de compra sola al ponerle
+  // precios, sin haber elegido tipo al crear.
+  const showMoney = note.type === 'shopping' || totals.pricedCount > 0
+  const preview = note.type === 'note'
+    ? (note.body ?? '').trim().slice(0, 80)
+    : note.items.slice(0, 4)
+
+  // Mantener pulsado (450 ms) abre la hoja de acciones. Se cancela si el dedo
+  // se mueve (>10px) para no dispararse en un scroll; `fired` evita que el
+  // onClick de abrir la lista se dispare además tras el long-press.
+  const press = useRef({ timer: 0, fired: false, x: 0, y: 0 })
+  const pressHandlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      press.current.fired = false
+      press.current.x = e.clientX
+      press.current.y = e.clientY
+      press.current.timer = window.setTimeout(() => { press.current.fired = true; onLongPress() }, 450)
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 10) window.clearTimeout(press.current.timer)
+    },
+    onPointerUp: () => window.clearTimeout(press.current.timer),
+    onPointerCancel: () => window.clearTimeout(press.current.timer),
+  }
+
+  const ring = note.type !== 'note' && totals.totalCount > 0
+  const R = 15, CIRC = 2 * Math.PI * R
 
   return (
-    <button className="mnote-card" onClick={onOpen}>
+    <button
+      className={`mnote-card${note.pinned ? ' pinned' : ''}`}
+      {...pressHandlers}
+      onClick={() => { if (press.current.fired) return; onOpen() }}
+    >
+      <span className="mnote-card-strip" style={{ background: note.color }} />
       <div className="mnote-card-top">
         <span className="mnote-chip" style={{ background: `color-mix(in oklab, ${note.color} 16%, transparent)`, color: note.color }}>
           <Icon name={note.icon} size={18} />
         </span>
         <span className="mnote-card-body">
-          <b>{note.title || t('untitledList')}</b>
+          <b>
+            {note.pinned && <Icon name="star" size={12} className="mnote-pin-star" />}
+            {note.title || t('untitledList')}
+          </b>
           <small>
             {note.type === 'note'
               ? t('noteTypeNote')
               : t('itemsProgress').replace('{done}', String(totals.boughtCount)).replace('{total}', String(totals.totalCount))}
           </small>
         </span>
-        {showMoney && (
+        {showMoney ? (
           <span className="mnote-card-tot">{money(totals.total)}<small>{t('estimatedLabel')}</small></span>
-        )}
+        ) : ring ? (
+          <span className="mnote-card-ring">
+            <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+              <circle cx="19" cy="19" r={R} fill="none" stroke="color-mix(in oklab, var(--m-text) 10%, transparent)" strokeWidth="4" />
+              <circle cx="19" cy="19" r={R} fill="none" stroke={note.color} strokeWidth="4" strokeLinecap="round"
+                strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - pct / 100)} transform="rotate(-90 19 19)" />
+            </svg>
+            <em>{pct}%</em>
+          </span>
+        ) : null}
       </div>
-      {note.type !== 'note' && totals.totalCount > 0 && (
-        <>
-          <div className="mnote-bar"><i style={{ width: `${pct}%`, background: showMoney ? note.color : '#5bc0ff' }} /></div>
-          {showMoney && (
-            <div className="mnote-card-meta">
-              <span>{t('boughtLabel')} {money(totals.bought)}</span>
-              <span>{t('remainingLabel')} {money(totals.remaining)}</span>
-            </div>
-          )}
-        </>
+      {/* Vista previa: reconocer la lista sin abrirla. Los ítems marcados van
+          tachados; el texto de una nota se muestra recortado. */}
+      {Array.isArray(preview) && preview.length > 0 && (
+        <div className="mnote-card-prev">
+          {preview.map(item => (
+            <span key={item.id} className={item.done ? 'done' : ''}>{item.text}</span>
+          ))}
+          {note.items.length > 4 && <span className="more">+{note.items.length - 4}</span>}
+        </div>
+      )}
+      {typeof preview === 'string' && preview && (
+        <div className="mnote-card-prev"><span className="note-body">{preview}{(note.body ?? '').length > 80 ? '…' : ''}</span></div>
+      )}
+      {showMoney && totals.totalCount > 0 && (
+        <div className="mnote-card-meta">
+          <span>{t('boughtLabel')} {money(totals.bought)}</span>
+          <span>{t('remainingLabel')} {money(totals.remaining)}</span>
+        </div>
       )}
     </button>
   )
 }
 
-function TypePicker({ onPick, onClose }: { onPick: (type: NoteType) => void; onClose: () => void }) {
+function NoteActionSheet({ note, onClose, onOpen, onPin, onDuplicate, onShare, onArchive, onDelete }: {
+  note: Note
+  onClose: () => void
+  onOpen: () => void
+  onPin: () => void
+  onDuplicate: () => void
+  onShare: () => void
+  onArchive: () => void
+  onDelete: () => void
+}) {
   const t = useT()
-  const ref = useDialogA11y<HTMLDivElement>(onClose)
+  const ref = useDialogA11y<HTMLDivElement>(onClose, true, false)
   return (
     <SheetPortal>
-      <div ref={ref} className="mobile-detail-sheet" style={{ zIndex: 340 }} role="dialog" aria-modal="true" aria-label={t('newListLabel')} onClick={onClose}>
-        <section className="mnote-typepicker" onClick={e => e.stopPropagation()}>
+      <div ref={ref} className="mobile-detail-sheet" style={{ zIndex: 360 }} role="dialog" aria-modal="true" aria-label={note.title || t('untitledList')} onClick={onClose}>
+        <section className="mnote-actionsheet" onClick={e => e.stopPropagation()}>
           <header>
-            <span>{t('newListLabel')}</span>
-            <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
+            <span className="mnote-chip" style={{ background: `color-mix(in oklab, ${note.color} 16%, transparent)`, color: note.color }}>
+              <Icon name={note.icon} size={18} />
+            </span>
+            <div>
+              <b>{note.title || t('untitledList')}</b>
+              <small>{note.type === 'note' ? t('noteTypeNote') : t('itemsCountLabel').replace('{n}', String(note.items.length))}</small>
+            </div>
           </header>
-          <div className="mnote-type-list">
-            {(['shopping', 'checklist', 'note'] as NoteType[]).map(type => {
-              const m = TYPE_META[type]
-              return (
-                <button key={type} className="mnote-type-row" onClick={() => onPick(type)}>
-                  <span className="mnote-chip" style={{ background: `color-mix(in oklab, ${m.color} 16%, transparent)`, color: m.color }}>
-                    <Icon name={m.icon} size={20} />
-                  </span>
-                  <span className="mnote-type-text">
-                    <b>{t(m.key)}</b>
-                    <small>{t(m.descKey)}</small>
-                  </span>
-                  <Icon name="arrowUp" size={13} className="mnote-chevron" />
-                </button>
-              )
-            })}
+          <div className="mnote-actionsheet-acts">
+            <button onClick={onOpen}><Icon name="book" size={18} /> {t('openLabel')}</button>
+            <button onClick={onPin}><Icon name="star" size={18} /> {note.pinned ? t('unpinLabel') : t('pinAtopLabel')}</button>
+            <button onClick={onDuplicate}><Icon name="repeat" size={18} /> {t('duplicateLabel')}</button>
+            <button onClick={onShare}><Icon name="share" size={18} /> {t('shareLabel')}</button>
+            <button onClick={onArchive}><Icon name={note.archived ? 'eye' : 'eyeOff'} size={18} /> {note.archived ? t('unarchiveLabel') : t('archiveLabel')}</button>
+            <button className="danger" onClick={onDelete}><Icon name="trash" size={18} /> {t('deleteListLabel')}</button>
           </div>
         </section>
       </div>
@@ -213,8 +371,11 @@ function NoteDetail({ note, money, spent, onClose }: {
   const ref = useDialogA11y<HTMLDivElement>(onClose, !editingItem && !picker, false)
 
   const totals = noteTotals(note)
-  const isShopping = note.type === 'shopping'
   const isNote = note.type === 'note'
+  // Adaptable: la lista muestra dinero (precios, total, registrar gasto) si es
+  // de compra O si ya tiene algún precio. Una checklist se vuelve "de compra"
+  // en cuanto le pones el primer precio — sin elegir tipo al crear.
+  const hasMoney = !isNote && (note.type === 'shopping' || totals.pricedCount > 0)
   const category = finance.categories.find(c => c.id === note.categoryId)
   const account = finance.accounts.find(a => a.id === note.accountId)
   // Meta enlazada: una lista con precios es una meta de compra. El total de la
@@ -276,7 +437,7 @@ function NoteDetail({ note, money, spent, onClose }: {
   }
 
   const share = async () => {
-    const text = noteShareText(note, money, { withPrices: isShopping })
+    const text = noteShareText(note, money, { withPrices: hasMoney })
     const shared = await shareText(text, note.title || t('untitledList'))
     if (shared) return
     try {
@@ -314,7 +475,7 @@ function NoteDetail({ note, money, spent, onClose }: {
                 <div className="mnote-items">
                   {note.items.length === 0 && <p className="mnote-items-empty">{t('noItemsYet')}</p>}
                   {orderedItems(note.items).map(item => {
-                    const priceLabel = isShopping ? itemPriceLabel(item, money) : null
+                    const priceLabel = hasMoney ? itemPriceLabel(item, money) : null
                     return (
                       <div key={item.id} className={`mnote-item${item.done ? ' done' : ''}`}>
                         <button className={`mnote-cbox${item.done ? ' on' : ''}`} aria-label={t('toggleDone')} onClick={() => toggleItem(note.id, item.id)}>
@@ -344,7 +505,7 @@ function NoteDetail({ note, money, spent, onClose }: {
                   <button aria-label={t('add')} disabled={!newText.trim()} onClick={addNewItem}><Icon name="plus" size={18} /></button>
                 </div>
 
-                {isShopping && totals.pricedCount > 0 && (
+                {totals.pricedCount > 0 && (
                   <div className="mnote-totbar">
                     <div className="mnote-totrow"><span>{t('boughtLabel')} ({totals.boughtCount})</span><b style={{ color: '#35d0a2' }}>{money(totals.bought)}</b></div>
                     <div className="mnote-totrow"><span>{t('remainingLabel')} ({totals.totalCount - totals.boughtCount})</span><b style={{ color: 'var(--m-muted)' }}>{money(totals.remaining)}</b></div>
@@ -388,7 +549,7 @@ function NoteDetail({ note, money, spent, onClose }: {
 
             {/* Configuración: categoría, cuenta y meta (para registrar el gasto,
                 avisar del presupuesto y ver el progreso de ahorro) */}
-            {isShopping && (
+            {hasMoney && (
               <div className="mnote-config">
                 <button className="mnote-config-row" onClick={() => setPicker('category')}>
                   <span className="mnote-config-k"><Icon name="tag" size={14} /> {t('categoryLabel')}</span>
@@ -407,7 +568,7 @@ function NoteDetail({ note, money, spent, onClose }: {
           </div>
 
           <div className="mnote-actions">
-            {isShopping && (
+            {hasMoney && (
               <button className="mnote-btn-primary" onClick={() => void registerExpense()}>
                 <Icon name="check" size={16} /> {totals.pricedCount > 0
                   ? t('registerExpenseAmount').replace('{amount}', money(totals.bought > 0 ? totals.bought : totals.total))
@@ -459,7 +620,7 @@ function NoteDetail({ note, money, spent, onClose }: {
       {editingItem && (
         <ItemEditor
           item={editingItem}
-          shopping={isShopping}
+          shopping={!isNote}
           currency={finance.currency}
           onSave={patch => { updateItem(note.id, editingItem.id, patch); setEditingItem(null) }}
           onDelete={() => { removeItem(note.id, editingItem.id); setEditingItem(null) }}

@@ -9,9 +9,62 @@ export interface Debt {
   rate: number      // annual interest %
   minPayment: number
   color: string
+  /**
+   * Saldo con el que empezó a rastrearse la deuda — fija el 0% del progreso.
+   * Se pone al crear (= balance) y no cambia al pagar, así la barra «% pagado»
+   * avanza de verdad. Opcional por compatibilidad: las deudas antiguas no lo
+   * tienen y ahí el progreso arranca en 0 (original = saldo actual).
+   */
+  originalBalance?: number
 }
 
 export type PayoffMethod = 'snowball' | 'avalanche'
+
+/** Fracción pagada de una deuda (0–1), a partir de su saldo original. */
+export function debtProgress(debt: Debt): number {
+  const original = debt.originalBalance ?? debt.balance
+  if (original <= 0) return 0
+  return Math.max(0, Math.min(1, 1 - debt.balance / original))
+}
+
+/**
+ * A qué deuda va el pago extra este mes: la primera del orden del método
+ * (menor saldo para «impulso», mayor tasa para «menos intereses»). Es la
+ * «deuda objetivo» que se marca en el plan del mes.
+ */
+export function payoffTargetId(debts: Debt[], method: PayoffMethod): string | null {
+  const active = debts.filter(d => d.balance > 0.01)
+  if (active.length === 0) return null
+  const sorted = method === 'snowball'
+    ? [...active].sort((a, b) => a.balance - b.balance)
+    : [...active].sort((a, b) => b.rate - a.rate)
+  return sorted[0].id
+}
+
+export interface MonthlyPaymentLine { id: string; amount: number; isTarget: boolean }
+
+/**
+ * Lo que se paga a cada deuda ESTE mes: el mínimo de todas + el extra
+ * concentrado en la deuda objetivo. Es el número accionable que faltaba —
+ * lo que de verdad tienes que transferir.
+ */
+export function monthlyPaymentPlan(debts: Debt[], extra: number, method: PayoffMethod): MonthlyPaymentLine[] {
+  const targetId = payoffTargetId(debts, method)
+  return debts
+    .filter(d => d.balance > 0.01)
+    .map(d => {
+      const isTarget = d.id === targetId
+      return { id: d.id, amount: Math.min(d.balance, d.minPayment) + (isTarget ? extra : 0), isTarget }
+    })
+}
+
+/** Fecha (YYYY-MM-01) en la que se liquida todo, a partir de los meses simulados. */
+export function freedomDate(months: number, from = new Date()): string | null {
+  if (months <= 0 || months >= 600) return null
+  const d = new Date(from.getFullYear(), from.getMonth() + months, 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`
+}
 
 export interface PayoffResult {
   months: number
@@ -99,6 +152,8 @@ interface DebtState {
   deleteDebt: (id: string) => void
   /** Reinserta una deuda borrada tal cual (mismo id) — «Deshacer». */
   restoreDebt: (debt: Debt) => void
+  /** Registra un pago: baja el saldo (sin tocar el original, para que el progreso suba). */
+  registerPayment: (id: string, amount: number) => void
   setExtraPayment: (v: number) => void
 }
 
@@ -107,10 +162,21 @@ export const useDebt = create<DebtState>()(
     (set) => ({
       debts: [],
       extraPayment: 0,
-      addDebt: d => set(s => ({ debts: [...s.debts, { ...d, id: crypto.randomUUID() }] })),
+      // originalBalance queda fijado al saldo de partida (salvo que ya venga),
+      // para que el % pagado tenga una referencia estable.
+      addDebt: d => set(s => ({ debts: [...s.debts, { ...d, id: crypto.randomUUID(), originalBalance: d.originalBalance ?? d.balance }] })),
       updateDebt: (id, d) => set(s => ({ debts: s.debts.map(debt => debt.id === id ? { ...debt, ...d } : debt) })),
       deleteDebt: id => set(s => ({ debts: s.debts.filter(d => d.id !== id) })),
       restoreDebt: debt => set(s => s.debts.some(d => d.id === debt.id) ? s : { debts: [...s.debts, debt] }),
+      registerPayment: (id, amount) => set(s => ({
+        debts: s.debts.map(debt => {
+          if (debt.id !== id) return debt
+          // Si nunca tuvo original, el saldo actual pasa a ser la referencia
+          // ANTES de descontar el pago — así este primer pago ya cuenta como progreso.
+          const original = debt.originalBalance ?? debt.balance
+          return { ...debt, balance: Math.max(0, debt.balance - Math.max(0, amount)), originalBalance: original }
+        }),
+      })),
       setExtraPayment: extraPayment => set({ extraPayment }),
     }),
     { name: 'sharky-debts-v1', storage: createJSONStorage(() => localStorage) }

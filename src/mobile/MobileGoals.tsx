@@ -11,7 +11,7 @@ import { CURRENCIES } from '@/data/seed'
 import { playKeySound, playBackspaceSound, playDoneSound, playConfirmSound, playDeleteSound, playAchievementSound } from '@/lib/sound'
 import { useT, type LangKey } from '@/i18n'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
-import { nextWeekdayDate, rampPlan, requiredContribution } from '@/data/goalPlans'
+import { estimatedMonthlyRate, firstMonthDayDate, nextWeekdayDate, projectArrival, rampPlan, requiredContribution } from '@/data/goalPlans'
 import { MobileDatePicker } from './MobileDatePicker'
 import { MobileAmountSheet } from './MobileAmountSheet'
 import type { CurrencyCode, Goal, GoalAutoContribute, IconName, RecurrenceFrequency, ViewProps } from '@/types'
@@ -112,6 +112,15 @@ function currencyPrefix(currency: CurrencyCode): string {
   return CURRENCIES[currency].symbol
 }
 
+// Etiqueta corta de frecuencia para los badges: "/sem", "/mes" o "×2/mes".
+function autoFreqShort(auto: GoalAutoContribute, t: ReturnType<typeof useT>): string {
+  if (auto.frequency === 'weekly') return t('perWeekShort')
+  return auto.monthDays && auto.monthDays.length === 2 ? t('perTwiceMonthShort') : t('perMonthShort')
+}
+
+// Días del mes 1-31 para los selectores de cobro mensual.
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
+
 // Días de la semana empezando en lunes, con su índice JS (0=Dom … 6=Sáb).
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 function weekdayShortLabels(locale: string): string[] {
@@ -161,7 +170,7 @@ function GoalNumpad({
   )
 }
 
-function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; onClick: () => void }) {
+function GoalCard({ goal, currency, projection, onClick }: { goal: Goal; currency: string; projection?: string | null; onClick: () => void }) {
   const t = useT()
   const p = pct(goal.saved, goal.target)
   const cur = currency as Parameters<typeof fmt>[1]
@@ -182,11 +191,19 @@ function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; o
         </div>
         <span className="mgl-pct" style={{ color: goal.color }}>{p}%</span>
       </div>
-      {(deadlineInfo || goal.autoContribute || done) && (
+      {(deadlineInfo || goal.autoContribute || done || projection) && (
         <div className="mgl-card-chips">
           {done && (
             <span className="mgl-chip mgl-chip-done">
               <Icon name="check" size={11} /> {t('goalCompletedLabel')}
+            </span>
+          )}
+          {/* Proyección «a tu ritmo llegas en …» — el dato que motiva. Solo si
+              hay ritmo estimado y la meta no está enlazada a una fecha límite
+              (ahí manda la fecha, no la proyección). */}
+          {!done && projection && !deadlineInfo && (
+            <span className="mgl-chip mgl-chip-proj">
+              <Icon name="trend" size={11} /> {projection}
             </span>
           )}
           {deadlineInfo && (
@@ -199,7 +216,7 @@ function GoalCard({ goal, currency, onClick }: { goal: Goal; currency: string; o
               <Icon name="repeat" size={11} />
               {t('autoContributeBadge')
                 .replace('{amount}', fmt(goal.autoContribute.amount, cur))
-                .replace('{freq}', goal.autoContribute.frequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))}
+                .replace('{freq}', autoFreqShort(goal.autoContribute, t))}
             </span>
           )}
         </div>
@@ -220,7 +237,9 @@ function GoalPurposeSheet({
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose, true)
 
   return createPortal(
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('newGoal')} onClick={onClose}>
+    // No cierra al tocar fuera (se cerraba con cualquier toque accidental); se
+    // sale con la X del encabezado o el gesto de atrás.
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('newGoal')}>
       <section className="mgl-purpose-sheet" onClick={e => e.stopPropagation()}>
         <header>
           <button aria-label={t('close')} onClick={onClose}><Icon name="close" size={18} /></button>
@@ -277,7 +296,11 @@ function GoalForm({
 }) {
   const t = useT()
   const { accounts } = useFinance()
-  const [name, setName]             = useState(initial?.name ?? presetName ?? '')
+  const [name, setName]             = useState(initial?.name ?? '')
+  // Nombre SUGERIDO por el preset elegido: se muestra como placeholder y se usa
+  // solo si el usuario no escribe uno propio — así el preset aporta icono/color
+  // (la parte "categoría") sin obligarte a borrar un nombre puesto a la fuerza.
+  const [suggested, setSuggested]   = useState(presetName ?? '')
   const [amountText, setAmountText] = useState(initial?.target?.toString() ?? '')
   const [color, setColor]           = useState(initial?.color ?? presetColor ?? COLORS[0])
   const [icon, setIcon]             = useState<IconName>(initial?.icon ?? presetIcon ?? 'target')
@@ -299,6 +322,15 @@ function GoalForm({
       ? new Date(`${initial.autoContribute.nextDate}T00:00:00`).getDay()
       : null,
   )
+  // Pagos mensuales: 1 o 2 al mes, con su(s) día(s). Se rehidrata desde
+  // `monthDays` si existe; si no, del día de `nextDate` (metas antiguas).
+  const initMonthDays = initial?.autoContribute?.frequency === 'monthly' ? initial.autoContribute.monthDays : undefined
+  const initMonthDay = initial?.autoContribute?.frequency === 'monthly' && initial.autoContribute.nextDate
+    ? new Date(`${initial.autoContribute.nextDate}T00:00:00`).getDate()
+    : undefined
+  const [monthlyPayments, setMonthlyPayments] = useState<1 | 2>(initMonthDays && initMonthDays.length === 2 ? 2 : 1)
+  const [monthDay1, setMonthDay1] = useState<number>(initMonthDays?.[0] ?? initMonthDay ?? 1)
+  const [monthDay2, setMonthDay2] = useState<number>(initMonthDays?.[1] ?? 15)
 
   const lang = useSettings(s => s.language)
   const cur = currency as CurrencyCode
@@ -351,14 +383,20 @@ function GoalForm({
 
   const save = () => {
     const targetVal = parseFloat(amountText)
-    if (!name.trim() || !targetVal || targetVal <= 0) return
+    if ((!name.trim() && !suggested) || !targetVal || targetVal <= 0) return
     if (autoEnabled && (!autoAmount || autoAmount <= 0 || !autoAccountId)) return
     playConfirmSound()
-    // nextDate: si es semanal y eligieron un día, el próximo de ese día; si no,
-    // se conserva el existente (edición) o el próximo período desde hoy.
+    // Mensual: 1 día = un pago; 2 días = dos pagos al mes (se cobra `amount` en cada uno).
+    const monthDays = autoFrequency === 'monthly'
+      ? (monthlyPayments === 2 ? [...new Set([monthDay1, monthDay2])].sort((a, b) => a - b) : [monthDay1])
+      : undefined
+    // nextDate: semanal → el próximo día elegido; mensual con días → el primero
+    // futuro; si no, se conserva el existente (edición) o el próximo período.
     const nextDate = autoFrequency === 'weekly' && autoWeekday !== null
       ? nextWeekdayDate(today, autoWeekday)
-      : initial?.autoContribute?.nextDate ?? advanceRecurrenceDate(today, autoFrequency)
+      : monthDays && monthDays.length
+        ? firstMonthDayDate(today, monthDays)
+        : initial?.autoContribute?.nextDate ?? advanceRecurrenceDate(today, autoFrequency)
     const autoContribute: GoalAutoContribute | undefined = autoEnabled
       ? {
           amount: autoAmount,
@@ -366,9 +404,10 @@ function GoalForm({
           fromAccountId: autoAccountId,
           nextDate,
           ...(autoPlan === 'ramp' && autoIncrement > 0 ? { increment: autoIncrement } : {}),
+          ...(monthDays && monthDays.length ? { monthDays } : {}),
         }
       : undefined
-    onSave({ name: name.trim(), target: targetVal, color, icon, deadline: deadline || undefined, autoContribute })
+    onSave({ name: name.trim() || suggested, target: targetVal, color, icon, deadline: deadline || undefined, autoContribute })
   }
 
   const deadlineLabel = deadline
@@ -376,7 +415,8 @@ function GoalForm({
     : t('noDeadlineLabel')
 
   return createPortal(
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? t('editGoal') : t('newGoal')} onClick={onClose}>
+    // No cierra al tocar fuera (evita perder lo que escribiste por un toque).
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? t('editGoal') : t('newGoal')}>
       <section className={`mgl-form${showNumpad ? ' mgl-form-numpad' : ''}`} onClick={e => e.stopPropagation()}>
         <header>
           <span>{initial ? t('editGoal') : t('newGoal')}</span>
@@ -392,23 +432,26 @@ function GoalForm({
                 <span>{t('name')}</span>
                 <input
                   className="mgl-input"
-                  placeholder={t('egGoalName')}
+                  placeholder={suggested || t('egGoalName')}
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />
-                {/* Objetivos preestablecidos: un toque rellena el nombre (y el
-                    icono/color si aún están por defecto); escribir sigue libre. */}
+                {/* Presets = icono + color (como una categoría) + sugerencia de
+                    nombre (placeholder). Un toque NO pisa lo que escribiste: solo
+                    cambia el icono/color y la sugerencia, para no tener que borrar. */}
                 <div className="mgl-preset-chips">
                   {GOAL_PRESETS.map(preset => {
                     const presetLabel = preset.nameKey ? t(preset.nameKey) : ''
+                    const on = icon === preset.icon && color === preset.color
                     return (
                       <button
                         key={preset.id}
                         type="button"
-                        className={`mgl-preset-chip${name.trim() === presetLabel ? ' on' : ''}`}
+                        className={`mgl-preset-chip${on ? ' on' : ''}`}
                         onClick={() => {
-                          setName(presetLabel)
-                          if (!initial) { setIcon(preset.icon); setColor(preset.color) }
+                          setIcon(preset.icon)
+                          setColor(preset.color)
+                          setSuggested(presetLabel)
                         }}
                       >
                         <Icon name={preset.icon} size={13} style={{ color: preset.color }} />
@@ -614,6 +657,49 @@ function GoalForm({
                     </div>
                   )}
 
+                  {autoFrequency === 'monthly' && (
+                    <>
+                      <div className="mpr-form-section">
+                        <span className="mpr-overdraft-label">{t('monthlyPaymentsLabel')}</span>
+                        <div className="mpr-pill-row">
+                          {([1, 2] as const).map(n => (
+                            <button
+                              key={n}
+                              className={`mpr-pill${monthlyPayments === n ? ' on' : ''}`}
+                              style={monthlyPayments === n ? { borderColor: color, color } : {}}
+                              onClick={() => setMonthlyPayments(n)}
+                            >
+                              {n === 1 ? t('onePaymentLabel') : t('twoPaymentsLabel')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <label className="mgl-field">
+                        <span>{monthlyPayments === 2 ? t('firstChargeDayLabel') : t('chargeDayMonthLabel')}</span>
+                        <select className="mgl-input" value={monthDay1} onChange={e => setMonthDay1(Number(e.target.value))}>
+                          {MONTH_DAYS.map(d => (
+                            <option key={d} value={d}>{t('dayNumberLabel').replace('{d}', String(d))}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {monthlyPayments === 2 && (
+                        <label className="mgl-field">
+                          <span>{t('secondChargeDayLabel')}</span>
+                          <select className="mgl-input" value={monthDay2} onChange={e => setMonthDay2(Number(e.target.value))}>
+                            {MONTH_DAYS.map(d => (
+                              <option key={d} value={d}>{t('dayNumberLabel').replace('{d}', String(d))}</option>
+                            ))}
+                          </select>
+                          <small className="mgl-weekday-hint">
+                            {t('twiceMonthlyHint').replace('{amount}', fmt(autoAmount, cur))}
+                          </small>
+                        </label>
+                      )}
+                    </>
+                  )}
+
                   <label className="mgl-field">
                     <span>{t('sourceAccount')}</span>
                     <select className="mgl-input" value={autoAccountId} onChange={e => setAutoAccountId(e.target.value)}>
@@ -700,7 +786,8 @@ function GoalDetailSheet({
   const dialogRef = useDialogA11y<HTMLDivElement>(onClose, true)
 
   return createPortal(
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={goal.name} onClick={onClose}>
+    // No cierra al tocar fuera: era el más molesto (detalle corto = mucho fondo).
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={goal.name}>
       <section className="mgl-form mgl-detail" onClick={e => e.stopPropagation()}>
         <header>
           <span>{goal.name}</span>
@@ -745,7 +832,7 @@ function GoalDetailSheet({
               <Icon name="repeat" size={12} />
               {t('autoContributeBadge')
                 .replace('{amount}', fmt(goal.autoContribute.amount, cur))
-                .replace('{freq}', goal.autoContribute.frequency === 'weekly' ? t('perWeekShort') : t('perMonthShort'))}
+                .replace('{freq}', autoFreqShort(goal.autoContribute, t))}
             </div>
           )}
 
@@ -819,7 +906,8 @@ function ContributeSheet({ goal, currency, onClose }: { goal: Goal; currency: st
 
   return createPortal(
     <>
-    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('contributeToGoal').replace('{name}', goal.name)} onClick={onClose}>
+    // No cierra al tocar fuera (evita cancelar el aporte por un toque).
+    <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={t('contributeToGoal').replace('{name}', goal.name)}>
       <section className="mgl-form" onClick={e => e.stopPropagation()}>
         <header>
           <span>{t('contributeToGoal').replace('{name}', goal.name)}</span>
@@ -902,6 +990,21 @@ export function MobileGoals(_props: ViewProps) {
   const backedSavings = savingsBalance(accounts)
   const savingsCoverage = totalSaved > 0 ? Math.min(999, Math.round(backedSavings / totalSaved * 100)) : 0
   const cur = currency as Parameters<typeof fmt>[1]
+  const lang = useSettings(s => s.language)
+  const today = localToday()
+
+  // Proyección «a tu ritmo» por meta — texto ya formateado para la tarjeta.
+  const projections = useMemo(() => {
+    const map: Record<string, string | null> = {}
+    for (const g of goals) {
+      const rate = estimatedMonthlyRate(g, goalContributions, today)
+      const arr = projectArrival(g, rate, today)
+      map[g.id] = arr && !arr.reached
+        ? t('goalArrivalAtPace').replace('{date}', new Date(`${arr.dateISO}T00:00:00`).toLocaleDateString(dateLocale(lang), { month: 'short', year: 'numeric' }))
+        : null
+    }
+    return map
+  }, [goals, goalContributions, today, lang, t])
 
   return (
     <div className="mgl-root">
@@ -939,7 +1042,7 @@ export function MobileGoals(_props: ViewProps) {
         <div className="mgl-list">
           {goals.map(g => (
             <div key={g.id} className="mgl-card-wrap">
-              <GoalCard goal={g} currency={currency} onClick={() => setSheet({ type: 'detail', goal: g })} />
+              <GoalCard goal={g} currency={currency} projection={projections[g.id]} onClick={() => setSheet({ type: 'detail', goal: g })} />
               <div className="mgl-card-actions">
                 <button className="mgl-action-btn" onClick={() => setContributeGoal(g)}>
                   <Icon name="plus" size={15} /> {t('contribute')}

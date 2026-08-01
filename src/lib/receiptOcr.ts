@@ -82,12 +82,21 @@ export function extractAmount(text: string): number | null {
 export function extractCardLast4(text: string): string | null {
   for (const line of text.split(/\r?\n/)) {
     if (!CARD_LINE_RE.test(line)) continue
+    // "****4500" / "** 4500"
     const star = line.match(/\*+\s*(\d{4})\b/)
     if (star) return star[1]
+    // "terminada en 4500"
     const terminated = line.match(/termin\w*\s+en\s+(\d{4})\b/i)
     if (terminated) return terminated[1]
+    // 4 dígitos justo tras un marcador de tarjeta (VISA/TARJETA/#/:…). Es donde
+    // está el número; evita agarrar el MONTO que suele ir después en la misma
+    // línea, ej. "TARJETA VISA : #:4500  3,313.68" → 4500, no 3313.
+    const nearMarker = line.match(/(?:visa|mastercard|tarjeta|cuenta|card|#|:)\D{0,8}(\d{4})\b/i)
+    if (nearMarker) return nearMarker[1]
+    // Último recurso: el PRIMER grupo de 4 dígitos (la tarjeta suele preceder al
+    // monto), no el último.
     const groups = line.match(/\b\d{4}\b/g)
-    if (groups) return groups[groups.length - 1]
+    if (groups) return groups[0]
   }
   return null
 }

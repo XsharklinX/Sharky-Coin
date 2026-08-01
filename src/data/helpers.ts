@@ -171,9 +171,32 @@ export function accountBalanceInBase(account: Account, base: CurrencyCode): numb
   return cur === base ? account.balance : convertCurrency(account.balance, cur, base)
 }
 
-/** Suma de saldos de las cuentas visibles, convertidos a la divisa base. */
+/**
+ * PATRIMONIO NETO: suma de TODOS los saldos (incluye la deuda de tarjeta como
+ * negativo). Es lo correcto para un estado de patrimonio, no para "el dinero que
+ * tienes disponible" — para eso está `availableBalanceInBase`.
+ */
 export function totalBalanceInBase(accounts: Account[], base: CurrencyCode): number {
   return visibleAccounts(accounts).reduce((sum, account) => sum + accountBalanceInBase(account, base), 0)
+}
+
+/**
+ * DINERO DISPONIBLE: solo el de cuentas de dinero real (efectivo, débito,
+ * ahorro). NO incluye tarjetas de crédito — el crédito es dinero que el banco te
+ * presta, no tuyo, y mezclarlo en el "Balance total" confunde. La deuda de las
+ * tarjetas se muestra aparte (ver `creditCardsOwedInBase`).
+ */
+export function availableBalanceInBase(accounts: Account[], base: CurrencyCode): number {
+  return visibleAccounts(accounts)
+    .filter(account => account.type !== 'credit')
+    .reduce((sum, account) => sum + accountBalanceInBase(account, base), 0)
+}
+
+/** Total ADEUDADO en tarjetas de crédito (lo gastado y no pagado), en divisa base. */
+export function creditCardsOwedInBase(accounts: Account[], base: CurrencyCode): number {
+  return visibleAccounts(accounts)
+    .filter(account => account.type === 'credit')
+    .reduce((sum, account) => sum + Math.abs(Math.min(0, accountBalanceInBase(account, base))), 0)
 }
 
 export interface NetWorthBreakdown { assets: number; liabilities: number }

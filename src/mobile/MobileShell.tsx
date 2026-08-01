@@ -90,7 +90,10 @@ function internalTitles(t: ReturnType<typeof useT>): Partial<Record<ViewId, stri
     budgets: t('budgets'),
     subscriptions: t('subscriptions'),
     notes: t('listsTitle'),
-    debt: t('debtCalculator'),
+    // «Deudas», no «Calculadora de deudas»: el título largo se apretaba entre
+    // los iconos de la barra centrada (se veía cortado) y además ya no describe
+    // la pantalla — dejó de ser una calculadora al pasar a «Libre de deudas».
+    debt: t('debtsLabel'),
     cashflow: t('cashflowTitle'),
     accounts: t('accounts'),
     goals: t('goals'),

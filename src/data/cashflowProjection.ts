@@ -39,6 +39,56 @@ function addDays(date: string, days: number): string {
   return localToday(d)
 }
 
+export interface SafeToSpend {
+  /** Lo que se puede gastar hoy sin quedarse corto para lo que viene. */
+  amount: number
+  /** Colchón que se reserva aparte (no forma parte de lo gastable). */
+  buffer: number
+  /** Suma de los cargos comprometidos antes del próximo ingreso. */
+  committed: number
+  /** Próximo ingreso previsto, o null si no hay ninguno en el horizonte. */
+  nextIncome: { date: string; note: string; amount: number } | null
+  daysUntilIncome: number | null
+  /** Cargos (salidas) que hay que cubrir antes del próximo ingreso, en orden. */
+  bills: CashflowEvent[]
+  /** true si el saldo proyectado cae por debajo de cero antes del ingreso. */
+  dipsNegative: boolean
+}
+
+/**
+ * «¿Cuánto puedo gastar tranquilo?» — el número que la pantalla de flujo no
+ * daba. Toma la proyección ya calculada y responde: saldo de hoy menos lo que
+ * tienes comprometido antes de tu próximo ingreso, menos el colchón que quieras
+ * reservar. Es puro: solo lee la proyección.
+ */
+export function safeToSpend(projection: CashflowProjection, buffer = 0): SafeToSpend {
+  // Primer ingreso futuro (entra dinero). Marca la frontera: lo que caiga antes
+  // hay que cubrirlo con el saldo de hoy; lo de después ya lo cubre el ingreso.
+  let nextIncome: SafeToSpend['nextIncome'] = null
+  for (const day of projection.days) {
+    const inc = day.events.find(e => e.amount > 0)
+    if (inc) { nextIncome = { date: day.date, note: inc.note, amount: inc.amount }; break }
+  }
+
+  const boundary = nextIncome?.date ?? null
+  const bills = projection.days
+    .filter(day => !boundary || day.date < boundary)
+    .flatMap(day => day.events.filter(e => e.amount < 0))
+
+  const committed = bills.reduce((sum, e) => sum + Math.abs(e.amount), 0)
+  const amount = projection.startBalance - committed - buffer
+
+  const dipsNegative = projection.series
+    .filter(point => !boundary || point.date < boundary)
+    .some(point => point.balance < 0)
+
+  const daysUntilIncome = nextIncome
+    ? Math.max(0, Math.round((new Date(`${nextIncome.date}T00:00:00`).getTime() - new Date(`${projection.series[0]?.date ?? nextIncome.date}T00:00:00`).getTime()) / 86_400_000) + 1)
+    : null
+
+  return { amount, buffer, committed, nextIncome, daysUntilIncome, bills, dipsNegative }
+}
+
 /** Saldo agregado actual: mismas reglas que los totales del Home (convertido a base si aplica). */
 export function currentTotalBalance(accounts: Account[], base?: CurrencyCode): number {
   return accounts

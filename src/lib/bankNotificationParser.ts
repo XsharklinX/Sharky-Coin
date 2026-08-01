@@ -172,7 +172,11 @@ export function classifyBankNotification(pkg: string, title: string, text: strin
 
   const isEmail = includesAny(norm(pkg), EMAIL_PACKAGE_HINTS)
   const isTelecomApp = includesAny(norm(pkg), TELECOM_PACKAGE_HINTS)
-  const bankRecognized = includesAny(source, BANK_HINTS)
+  // Reconoce el banco tanto en el paquete/remitente/asunto como en el CUERPO del
+  // mensaje: en los correos (Gmail/Outlook) el nombre del banco casi siempre va
+  // en el texto ("Notificaciones Banreservas…"), no en el remitente. Sin esto,
+  // un aviso de consumo reenviado por Gmail se descartaba como "no es un banco".
+  const bankRecognized = includesAny(source, BANK_HINTS) || includesAny(body, BANK_HINTS)
 
   // 1) Monto: sin un monto en moneda no hay nada que registrar.
   const amount = extractAmount(rawContent)
@@ -198,9 +202,12 @@ export function classifyBankNotification(pkg: string, title: string, text: strin
   //    trae estas palabras, así que el riesgo de falso descarte es mínimo).
   if (PROMO_RE.test(body) && !(cardLast4 && hasTxVerb)) return { ok: false, reason: 'promotional' }
 
-  // 5) Correo: exige remitente bancario reconocido; no convertir cualquier correo
-  //    con un precio (Amazon, facturas, etc.) en un movimiento.
-  if (isEmail && !bankRecognized) return { ok: false, reason: 'not-financial' }
+  // 5) Correo: normalmente exige banco reconocido (remitente o cuerpo) para no
+  //    convertir cualquier correo con un precio (Amazon, facturas…) en un
+  //    movimiento. PERO si el correo trae tarjeta + verbo de transacción
+  //    (consumo/compra/pago), ES una confirmación de pago aunque el banco no esté
+  //    en la lista: la cuenta (últimos 4) y el monto bastan para registrarlo.
+  if (isEmail && !bankRecognized && !(cardLast4 && hasTxVerb)) return { ok: false, reason: 'not-financial' }
 
   // 6) Debe estar anclado a un banco/tarjeta…
   if (!financialAnchor) return { ok: false, reason: 'not-financial' }

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { projectCashflow } from '@/data/cashflowProjection'
-import { accountBalanceInBase, localToday, totalBalanceInBase, visibleAccounts } from '@/data/helpers'
+import { accountBalanceInBase, availableBalanceInBase, localToday, visibleAccounts } from '@/data/helpers'
 import { useFmt } from '@/hooks/useFmt'
 import { useT, type LangKey } from '@/i18n'
 import { AvatarCropper } from '@/components/AvatarCropper'
@@ -94,7 +94,9 @@ export function MobileProfile({
   }
 
   const activeAccounts = visibleAccounts(accounts)
-  const totalBalance = totalBalanceInBase(accounts, currency)
+  // "Balance total" = dinero disponible (sin crédito); la deuda de tarjetas se
+  // muestra aparte en `debtBalance` más abajo.
+  const totalBalance = availableBalanceInBase(accounts, currency)
   const bankingAccounts = activeAccounts.filter(account => account.type === 'debit' || account.type === 'savings')
   const creditAccounts = activeAccounts.filter(account => account.type === 'credit')
   const debtBalance = Math.abs(creditAccounts.reduce((sum, account) => sum + Math.min(0, accountBalanceInBase(account, currency)), 0))

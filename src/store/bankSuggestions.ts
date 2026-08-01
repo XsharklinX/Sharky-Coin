@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
+import { isDuplicateMovement, type ProcessedMovement } from '@/data/bankIngest'
 
 const MAX_ITEMS = 50
+const MAX_PROCESSED = 120
 
 export interface BankSuggestion {
   id: string
@@ -20,24 +22,38 @@ export interface BankSuggestion {
 
 interface BankSuggestionsState {
   enabled: boolean
+  /** Si está activo, cuando el aviso se puede resolver a una cuenta (por los 4
+   *  dígitos o el mapeo por app) el movimiento se CREA solo, sin pedir confirmar. */
+  autoCreate: boolean
   items: BankSuggestion[]
   /** Recuerda a qué cuenta asignar los avisos de cada app bancaria, una vez que el usuario confirma una. */
   packageAccountMap: Record<string, string>
+  /** Firmas de movimientos ya procesados (para no duplicar cuando llegan 2-3
+   *  notificaciones del mismo consumo). Se poda para no crecer sin límite. */
+  processed: ProcessedMovement[]
   setEnabled: (enabled: boolean) => void
+  setAutoCreate: (autoCreate: boolean) => void
   add: (item: Omit<BankSuggestion, 'id'>) => void
   remove: (id: string) => void
   clear: () => void
   rememberAccountForPackage: (pkg: string, accountId: string) => void
   forgetAccountForPackage: (pkg: string) => void
+  /** true si ya se procesó un movimiento con esta firma hace poco (duplicado). */
+  isRecentlyProcessed: (key: string, postTime: number) => boolean
+  /** Registra una firma como procesada (evita duplicar los avisos que siguen). */
+  markProcessed: (key: string, postTime: number) => void
 }
 
 export const useBankSuggestions = create<BankSuggestionsState>()(
   persist(
     (set, get) => ({
       enabled: false,
+      autoCreate: true,
       items: [],
       packageAccountMap: {},
+      processed: [],
       setEnabled: (enabled) => set({ enabled }),
+      setAutoCreate: (autoCreate) => set({ autoCreate }),
       add: (item) => {
         // Evita duplicados cuando el banco actualiza/reemplaza la misma notificación.
         const isDuplicate = get().items.some(existing =>
@@ -62,6 +78,10 @@ export const useBankSuggestions = create<BankSuggestionsState>()(
         const { [pkg]: _removed, ...rest } = state.packageAccountMap
         return { packageAccountMap: rest }
       }),
+      isRecentlyProcessed: (key, postTime) => isDuplicateMovement(get().processed, key, postTime),
+      markProcessed: (key, postTime) => set((state) => ({
+        processed: [{ key, postTime }, ...state.processed].slice(0, MAX_PROCESSED),
+      })),
     }),
     {
       name: 'sharky-bank-suggestions-v1',

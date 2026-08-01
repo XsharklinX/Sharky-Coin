@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { nextWeekdayDate, periodsUntil, rampPlan, requiredContribution } from './goalPlans'
+import { estimatedMonthlyRate, firstMonthDayDate, nextMonthDayDate, nextWeekdayDate, periodsUntil, projectArrival, rampPlan, requiredContribution } from './goalPlans'
+import type { Goal, GoalContribution } from '@/types'
+
+const goal = (over: Partial<Goal> = {}): Goal => ({
+  id: 'g1', name: 'Meta', target: 100000, saved: 40000, color: '#fff', icon: 'target', ...over,
+})
 
 describe('rampPlan (reto incremental)', () => {
   it('calcula el reto 50+25: 50, 75, 100… hasta cubrir la meta', () => {
@@ -68,6 +73,46 @@ describe('nextWeekdayDate (día de cobro)', () => {
   })
 })
 
+describe('nextMonthDayDate (pagos mensuales con día fijo)', () => {
+  it('un pago: avanza al mismo día del mes siguiente', () => {
+    expect(nextMonthDayDate('2026-07-05', [5])).toBe('2026-08-05')
+    expect(nextMonthDayDate('2026-07-20', [20])).toBe('2026-08-20')
+  })
+
+  it('dos pagos: recorre los dos días dentro del mes y salta al siguiente', () => {
+    expect(nextMonthDayDate('2026-07-05', [5, 20])).toBe('2026-07-20') // 5 → 20 mismo mes
+    expect(nextMonthDayDate('2026-07-20', [5, 20])).toBe('2026-08-05') // 20 → 5 mes siguiente
+  })
+
+  it('día 31 se recorta al último real de meses cortos', () => {
+    expect(nextMonthDayDate('2026-01-31', [31])).toBe('2026-02-28') // febrero
+    expect(nextMonthDayDate('2026-03-31', [31])).toBe('2026-04-30') // abril
+  })
+
+  it('desordenado o duplicado no afecta el resultado', () => {
+    expect(nextMonthDayDate('2026-07-05', [20, 5, 20])).toBe('2026-07-20')
+  })
+
+  it('cruza fin de año', () => {
+    expect(nextMonthDayDate('2026-12-15', [15])).toBe('2027-01-15')
+  })
+})
+
+describe('firstMonthDayDate (primer cobro, nunca hoy)', () => {
+  it('elige el primer día futuro del mes', () => {
+    expect(firstMonthDayDate('2026-07-03', [5, 20])).toBe('2026-07-05')
+    expect(firstMonthDayDate('2026-07-10', [5, 20])).toBe('2026-07-20')
+  })
+
+  it('si ya pasaron todos, salta al primero del mes siguiente', () => {
+    expect(firstMonthDayDate('2026-07-25', [5, 20])).toBe('2026-08-05')
+  })
+
+  it('el mismo día elegido no cuenta como hoy: va al siguiente', () => {
+    expect(firstMonthDayDate('2026-07-05', [5])).toBe('2026-08-05')
+  })
+})
+
 describe('periodsUntil / requiredContribution (calculadora inversa)', () => {
   it('cuenta semanas y meses completos hasta la fecha', () => {
     expect(periodsUntil('2026-07-09', '2026-07-23', 'weekly')).toBe(2)
@@ -96,5 +141,49 @@ describe('periodsUntil / requiredContribution (calculadora inversa)', () => {
     expect(requiredContribution(5_000, 5_000, '2026-10-09', 'monthly', '2026-07-09')).toBeNull()
     expect(requiredContribution(5_000, 6_000, '2026-10-09', 'monthly', '2026-07-09')).toBeNull()
     expect(requiredContribution(5_000, 0, '2026-07-10', 'monthly', '2026-07-09')).toBeNull()
+  })
+})
+
+describe('estimatedMonthlyRate / projectArrival (proyección a tu ritmo)', () => {
+  const contrib = (goalId: string, amount: number, date: string): GoalContribution =>
+    ({ id: date + amount, goalId, amount, fromAccountId: 'a', date })
+
+  it('el aporte automático mensual manda como ritmo', () => {
+    const g = goal({ autoContribute: { amount: 5000, frequency: 'monthly', fromAccountId: 'a', nextDate: '2026-08-01' } })
+    expect(estimatedMonthlyRate(g, [], '2026-07-15')).toBe(5000)
+  })
+
+  it('dos pagos mensuales cuentan como 2× el monto al mes', () => {
+    const g = goal({ autoContribute: { amount: 5000, frequency: 'monthly', fromAccountId: 'a', nextDate: '2026-08-05', monthDays: [5, 20] } })
+    expect(estimatedMonthlyRate(g, [], '2026-07-15')).toBe(10000)
+  })
+
+  it('el aporte semanal se convierte a mensual (×52/12)', () => {
+    const g = goal({ autoContribute: { amount: 1000, frequency: 'weekly', fromAccountId: 'a', nextDate: '2026-08-01' } })
+    expect(Math.round(estimatedMonthlyRate(g, [], '2026-07-15'))).toBe(4333)
+  })
+
+  it('sin aporte automático, promedia los aportes recientes por mes', () => {
+    const rows = [contrib('g1', 6000, '2026-05-01'), contrib('g1', 6000, '2026-06-01'), contrib('g1', 6000, '2026-07-01')]
+    // 18,000 en ~2 meses de span → ~9,000/mes
+    const rate = estimatedMonthlyRate(goal(), rows, '2026-07-15')
+    expect(rate).toBeGreaterThan(6000)
+  })
+
+  it('sin señal de ritmo → 0 y proyección null', () => {
+    expect(estimatedMonthlyRate(goal(), [], '2026-07-15')).toBe(0)
+    expect(projectArrival(goal(), 0, '2026-07-15')).toBeNull()
+  })
+
+  it('proyecta la fecha de llegada a partir del ritmo', () => {
+    // faltan 60,000 a 10,000/mes → 6 meses → enero 2027
+    const arr = projectArrival(goal({ target: 100000, saved: 40000 }), 10000, '2026-07-15')!
+    expect(arr.reached).toBe(false)
+    expect(arr.months).toBe(6)
+    expect(arr.dateISO).toBe('2027-01-01')
+  })
+
+  it('meta ya cumplida → reached', () => {
+    expect(projectArrival(goal({ saved: 100000, target: 100000 }), 5000)!.reached).toBe(true)
   })
 })

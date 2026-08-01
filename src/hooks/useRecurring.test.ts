@@ -18,6 +18,17 @@ describe('advanceRecurrenceDate (fechas de recurrentes)', () => {
     expect(advanceRecurrenceDate('2026-07-01', 'monthly')).toBe('2026-08-01')
     expect(advanceRecurrenceDate('2026-01-28', 'monthly')).toBe('2026-02-28')
   })
+
+  it('mensual día 31: recorta al último día del mes corto, NO se salta el mes', () => {
+    // Antes 31-ene → 3-mar (febrero desaparecía). Ahora cae en el 28.
+    expect(advanceRecurrenceDate('2026-01-31', 'monthly')).toBe('2026-02-28')
+    // 2028 es bisiesto → 29 de febrero.
+    expect(advanceRecurrenceDate('2028-01-31', 'monthly')).toBe('2028-02-29')
+    // 31-mar → 30-abr (abril no tiene 31).
+    expect(advanceRecurrenceDate('2026-03-31', 'monthly')).toBe('2026-04-30')
+    // 30-nov → 31-dic (diciembre sí tiene 30; se conserva el día).
+    expect(advanceRecurrenceDate('2026-11-30', 'monthly')).toBe('2026-12-30')
+  })
 })
 
 describe('firstRecurrenceDate (primera ocurrencia de una plantilla)', () => {

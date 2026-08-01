@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accountActivity, accountBalanceInBase, accountMovementsTotal, accountSavingsRate, amountForCategory, byCategory, categoryParts, convertTxAmountsToBase, getAccount, getCategory, monthlyAccountSeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, totalBalanceInBase, visibleAccounts, transactionsForTotals } from './helpers'
+import { accountActivity, accountBalanceInBase, accountMovementsTotal, accountSavingsRate, amountForCategory, availableBalanceInBase, byCategory, categoryParts, convertTxAmountsToBase, creditCardsOwedInBase, getAccount, getCategory, monthlyAccountSeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, totalBalanceInBase, visibleAccounts, transactionsForTotals } from './helpers'
 import type { Account, Category, Transaction } from '@/types'
 
 const TXNS: Transaction[] = [
@@ -131,6 +131,18 @@ describe('multi-moneda', () => {
   it('totalBalanceInBase suma cuentas convertidas y respeta exclusiones', () => {
     const hidden: Account = { ...usdAccount, id: 'acc_h', includeInTotal: false }
     expect(totalBalanceInBase([usdAccount, dopAccount, hidden], 'DOP')).toBeCloseTo(6850)
+  })
+
+  it('el dinero disponible NO incluye tarjetas de crédito; la deuda va aparte', () => {
+    const debtCard: Account = { id: 'cc', name: 'Visa', short: 'V', type: 'credit', color: '#fff', balance: -1500, last4: null, limit: 50000 }
+    const freshCard: Account = { id: 'cc2', name: 'MC', short: 'M', type: 'credit', color: '#fff', balance: 0, last4: null, limit: 30000 }
+    const accts = [dopAccount, debtCard, freshCard]
+    // Disponible = solo el efectivo (1000). Las tarjetas NO suman ni restan.
+    expect(availableBalanceInBase(accts, 'DOP')).toBe(1000)
+    // Patrimonio (totalBalanceInBase) sí resta la deuda: 1000 − 1500 = −500.
+    expect(totalBalanceInBase(accts, 'DOP')).toBe(-500)
+    // Adeudado en tarjetas = 1500 (la fresca no debe nada).
+    expect(creditCardsOwedInBase(accts, 'DOP')).toBe(1500)
   })
 
   it('convertTxAmountsToBase convierte montos y splits de cuentas foráneas', () => {

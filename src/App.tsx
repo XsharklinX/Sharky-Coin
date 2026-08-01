@@ -36,6 +36,7 @@ import { MobileBiometricGate } from '@/mobile/MobileBiometricGate'
 import { MobilePinGate } from '@/mobile/MobilePinGate'
 import { MobilePatternGate } from '@/mobile/MobilePatternGate'
 import { MobileShell } from '@/mobile/MobileShell'
+import { useExitConfirm } from '@/mobile/useExitConfirm'
 import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
 import { MobileBudgets } from '@/mobile/MobileBudgets'
@@ -91,6 +92,7 @@ export default function App() {
 
   useRecurring()
   useGoalAutoContributions()
+  useExitConfirm()
   useNotifications()
   useUpcomingPaymentAlerts()
   useNotificationActions()
@@ -130,7 +132,13 @@ export default function App() {
   const themeProps = {
     'data-theme':   resolvedTheme,
     'data-density': s.density,
-    style: { '--accent': s.accent, fontFamily: `"${s.font}", system-ui, sans-serif` } as React.CSSProperties,
+    // `--fs` escala toda la UI (zoom en `.app`, ver base.css). Las alturas de
+    // viewport (100dvh/100vw) se dividen por él para que el zoom no desborde.
+    style: {
+      '--accent': s.accent,
+      '--fs': s.fontScale,
+      fontFamily: `"${s.font}", system-ui, sans-serif`,
+    } as React.CSSProperties,
   }
 
   if (!hydrated) return <div className="app mobile-app" {...themeProps} />

@@ -177,13 +177,57 @@ export const BANKS: Record<Exclude<BankId, 'auto'>, BankProfile> = {
 }
 
 const CATEGORY_RULES: Array<[RegExp, string]> = [
-  [/supermercado|super\b|jumbo|nacional|bravo|sirena|pricesmart|plaza lama|pola|aprezio|colmado/i, 'cat_super'],
-  [/uber|didi|cabify|indrive|combustible|gasolina|gasolinera|texaco|shell|esso|isla\b|sunix|peaje|parqueo|paso a paso/i, 'cat_trans'],
-  [/edesur|edenorte|edeeste|edes\b|claro|altice|viva|tricom|internet|caasd|netflix|spotify|hbo|disney|youtube premium|amazon prime/i, 'cat_serv'],
-  [/restaurante|resto|pizza|burger|mcdonald|wendy|kfc|domino|pica pollo|adrian tropical|pedidosya|uber eats|delivery|victorina|cafe|cafeteria/i, 'cat_rest'],
-  [/farmacia|carol|gbc|medvida|hospiten|cedimat|clinica|hospital|laboratorio|referencia|gimnasio|gym/i, 'cat_salud'],
-  [/nomina|salario|sueldo|pago de nomina|quincena/i, 'cat_salario'],
+  [/supermercado|super\b|jumbo|nacional|bravo|sirena|pricesmart|price smart|plaza lama|pola|aprezio|olé|ole\b|colmado/i, 'cat_super'],
+  [/uber(?! ?eats)|didi|cabify|indrive|combustible|gasolina|gasolinera|texaco|shell|esso|isla\b|sunix|total\b|peaje|parqueo|parking|paso a paso/i, 'cat_trans'],
+  // Recargas: va ANTES de Servicios para que "CLARO RECAR" prefiera la categoría
+  // "Recargas" del usuario si la tiene; si no, cae a Servicios (la regla de abajo).
+  [/recarga|\brecar\b|recargas?|tu ?cola|pin.*(claro|altice)/i, 'cat_recargas'],
+  [/edesur|edenorte|edeeste|edes\b|claro|altice|viva|tricom|internet|caasd|netflix|spotify|hbo|max\b|disney|youtube|prime video|amazon prime|apple\.com\/bill|icloud|google.*storage/i, 'cat_serv'],
+  [/restaurante|resto|pizza|burger|mcdonald|wendy|kfc|domino|pica pollo|adrian tropical|pedidosya|uber eats|delivery|victorina|cafe|cafeteria|starbucks|helado|bar\b/i, 'cat_rest'],
+  [/farmacia|carol|gbc|medvida|hospiten|cedimat|clinica|hospital|laboratorio|referencia|gimnasio|\bgym\b/i, 'cat_salud'],
+  [/cine|caribbean cinemas|teatro|boleto|ticket|casino|playstation|xbox|steam|nintendo|game\b/i, 'cat_ocio'],
+  [/universidad|colegio|instituto|pucmm|unphu|intec|uasd|apec|matricula|matrícula|inscripcion|libreria|librería/i, 'cat_edu'],
+  [/zara|forever 21|nike|adidas|payless|boutique|\bropa\b|calzado|ferreteria|ferretería|ikea|jumbo home/i, 'cat_compras'],
+  [/nomina|nómina|salario|sueldo|pago de nomina|quincena/i, 'cat_salario'],
 ]
+
+/**
+ * Icono semántico de cada categoría-objetivo del seed. Es la clave para que la
+ * auto-categorización funcione AUNQUE el usuario haya recreado sus categorías
+ * con otros IDs: un icono `car` significa "transporte" venga con el ID que venga.
+ */
+const RULE_ICON: Record<string, string> = {
+  cat_super: 'cart', cat_trans: 'car', cat_serv: 'bolt', cat_rest: 'food',
+  cat_salud: 'heart', cat_ocio: 'play', cat_edu: 'book', cat_compras: 'bag',
+  cat_salario: 'wallet', cat_recargas: 'phone',
+}
+
+/**
+ * Algunas reglas no existen en el seed (ej. "Recargas") pero el usuario suele
+ * tener una categoría con ese nombre. Se intenta casar por el NOMBRE antes que
+ * por el icono, para respetar cómo el usuario llama a sus categorías.
+ */
+const RULE_NAME_HINT: Record<string, RegExp> = {
+  cat_recargas: /recarg/i,
+}
+
+/**
+ * Resuelve una regla de comercio a una categoría REAL del usuario, en orden:
+ * 1) por ID exacto del seed (usuario con el seed intacto),
+ * 2) por el NOMBRE (ej. una categoría "Recargas"),
+ * 3) por el icono equivalente (categorías propias del mismo significado).
+ * `undefined` si nada casa → el llamador prueba la siguiente regla.
+ */
+function resolveRuleCategory(seedId: string, categories: Category[], type: 'income' | 'expense'): string | undefined {
+  const byId = categories.find(category => category.id === seedId && category.type === type)
+  if (byId) return byId.id
+  const nameHint = RULE_NAME_HINT[seedId]
+  const byName = nameHint ? categories.find(category => category.type === type && nameHint.test(category.name)) : undefined
+  if (byName) return byName.id
+  const icon = RULE_ICON[seedId]
+  const byIcon = icon ? categories.find(category => category.icon === icon && category.type === type) : undefined
+  return byIcon?.id
+}
 const LEARNED_RULES_KEY = 'sharky-bank-rules-v1'
 
 const clean = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
@@ -403,7 +447,16 @@ export function guessCategoryId(
   const learned = learnedRules()
   const learnedRule = learned[normalized] ?? learned[normalizedMerchant] ?? Object.entries(learned)
     .find(([pattern]) => pattern.length >= 3 && (normalized.includes(pattern) || normalizedMerchant.includes(pattern)))?.[1]
-  const rule = learnedRule ?? CATEGORY_RULES.find(([pattern]) => pattern.test(note))?.[1]
-  if (categories.some(category => category.id === rule && category.type === type)) return rule
+  // 1) Regla aprendida: es un ID REAL de categoría del usuario → se usa si existe.
+  if (learnedRule && categories.some(category => category.id === learnedRule && category.type === type)) return learnedRule
+  // 2) Reglas de comercio: se recorren EN ORDEN y gana la primera que resuelve a
+  //    una categoría real. Así "CLARO RECAR" prueba "Recargas" primero y, si el
+  //    usuario no la tiene, cae a "Servicios" — sin quedarse sin categoría.
+  for (const [pattern, seedId] of CATEGORY_RULES) {
+    if (!pattern.test(note)) continue
+    const resolved = resolveRuleCategory(seedId, categories, type)
+    if (resolved) return resolved
+  }
+  // 3) Sin coincidencia: primera categoría del tipo (CSV) o nada (avisos).
   return allowFallback ? categories.find(category => category.type === type)?.id : undefined
 }

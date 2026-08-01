@@ -7,8 +7,19 @@ import type { RecurrenceFrequency, Transaction } from '@/types'
 
 export function advanceRecurrenceDate(date: string, frequency: RecurrenceFrequency): string {
   const next = new Date(`${date}T00:00:00`)
-  if (frequency === 'weekly') next.setDate(next.getDate() + 7)
-  else next.setMonth(next.getMonth() + 1)
+  if (frequency === 'weekly') {
+    next.setDate(next.getDate() + 7)
+  } else {
+    // Mensual: NO usar setMonth(+1) a secas — en día 29-31 desborda al mes
+    // siguiente (31-ene → 3-mar), SALTÁNDOSE el mes corto: una suscripción del
+    // día 31 no se generaría en febrero. Se fija el día 1 antes de avanzar y
+    // luego se recorta al último día real del mes destino (31 → 28/30).
+    const day = next.getDate()
+    next.setDate(1)
+    next.setMonth(next.getMonth() + 1)
+    const lastDayOfMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+    next.setDate(Math.min(day, lastDayOfMonth))
+  }
   return localToday(next)
 }
 

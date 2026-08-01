@@ -82,9 +82,19 @@ function RowTile({ item, fallbackColor, fallbackIcon, size = 46, glyph = 22 }: {
   )
 }
 
+function nextDate(tx: Transaction): string {
+  return tx.recurringNext ?? tx.date
+}
+
 function nextLabel(tx: Transaction, locale: string): string {
-  const next = tx.recurringNext ?? tx.date
-  return new Date(`${next}T00:00:00`).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+  return new Date(`${nextDate(tx)}T00:00:00`).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+}
+
+/** Días desde hoy hasta la fecha ISO (negativo = ya pasó). */
+function daysUntil(iso: string, todayISO: string): number {
+  const a = new Date(`${iso}T00:00:00`).getTime()
+  const b = new Date(`${todayISO}T00:00:00`).getTime()
+  return Math.round((a - b) / 86_400_000)
 }
 
 function freqLabel(tx: Transaction, t: ReturnType<typeof useT>) {
@@ -295,6 +305,12 @@ export function MobileSubscriptions() {
             <strong>{nextRecurring ? nextLabel(nextRecurring, locale) : '—'}</strong>
           </article>
         </div>
+      )}
+
+      {/* Próximos cobros: la secuencia real de lo que viene, ordenada por fecha */}
+      {recurring.length > 0 && (
+        <UpcomingChargesSection txs={recurring} categories={categories} accounts={accounts}
+          currency={currency} locale={locale} lang={lang} t={t} onOpen={tx => setSheet({ tx, confirm: false })} />
       )}
 
       {/* Detected subscriptions */}
@@ -510,6 +526,75 @@ function Section({ title, txs, categories, accounts, currency, locale, lang, t, 
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * «Próximos cobros»: los siguientes cargos de todas las suscripciones activas,
+ * ordenados por fecha. Antes había que abrir cada grupo y sumar de cabeza qué
+ * venía primero; aquí se lee la secuencia real de un vistazo, con un contador
+ * relativo («en 3 días», «hoy», «vencido») que es lo que de verdad importa.
+ */
+function UpcomingChargesSection({ txs, categories, accounts, currency, locale, lang, t, onOpen }: {
+  txs: Transaction[]
+  categories: Category[]
+  accounts: Account[]
+  currency: CurrencyCode
+  locale: string
+  lang: 'en' | 'es'
+  t: ReturnType<typeof useT>
+  onOpen: (tx: Transaction) => void
+}) {
+  const todayISO = today()
+  const upcoming = useMemo(
+    () => [...txs]
+      .filter(tx => !tx.recurringEnd || nextDate(tx) <= tx.recurringEnd)
+      .sort((a, b) => nextDate(a).localeCompare(nextDate(b)))
+      .slice(0, 6),
+    [txs],
+  )
+  if (upcoming.length === 0) return null
+
+  const relLabel = (iso: string): string => {
+    const d = daysUntil(iso, todayISO)
+    if (d < 0) return t('overdueLabel')
+    if (d === 0) return t('todayLabel')
+    if (d === 1) return t('tomorrowLabel')
+    return t('inDaysLabel').replace('{n}', String(d))
+  }
+
+  return (
+    <div className="msub-section">
+      <div className="msub-section-header">
+        <span>{t('upcomingChargesTitle')}</span>
+      </div>
+      <div className="msub-timeline">
+        {upcoming.map(tx => {
+          const cat = categories.find(c => c.id === tx.categoryId)
+          const acct = accounts.find(a => a.id === tx.accountId)
+          const service = tx.serviceId ? SUBSCRIPTION_CATALOG.find(c => c.id === tx.serviceId) : undefined
+          const iso = nextDate(tx)
+          const overdue = daysUntil(iso, todayISO) < 0
+          const lowFunds = !!acct && lacksFunds(acct, tx.amount)
+          return (
+            <button key={tx.id} className="msub-timeline-row" onClick={() => onOpen(tx)}>
+              <span className={`msub-timeline-date${overdue ? ' overdue' : ''}`}>
+                <b>{new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { day: 'numeric' })}</b>
+                <small>{new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { month: 'short' }).replace('.', '')}</small>
+              </span>
+              <RowTile item={service} fallbackColor={service?.color ?? cat?.color ?? '#888'} fallbackIcon={cat?.icon ?? 'repeat'} size={38} glyph={18} />
+              <div className="msub-timeline-info">
+                <b>{tx.note || (cat ? translateCategoryName(cat, lang) : '—')}</b>
+                <small className={overdue ? 'msub-overdue' : lowFunds ? 'msub-lowfunds' : ''}>
+                  {relLabel(iso)}{lowFunds && !overdue && ` · ${t('lowFundsWarningShort')}`}
+                </small>
+              </div>
+              <strong className="text-expense">−{fmt(tx.amount, currency)}</strong>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

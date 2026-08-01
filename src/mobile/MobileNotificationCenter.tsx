@@ -9,7 +9,7 @@ import { useNotificationHistory } from '@/store/notificationHistory'
 import { useSettings } from '@/store/settings'
 import { useNotificationFeed } from '@/hooks/useNotificationFeed'
 import type { NotificationTargetType } from '@/hooks/useNotificationTarget'
-import { useT } from '@/i18n'
+import { translateCategoryName, useT } from '@/i18n'
 import type { IconName, Transaction } from '@/types'
 import { SheetPortal } from './SheetPortal'
 import { useMobileBackDismiss } from './useMobileBackDismiss'
@@ -66,7 +66,7 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
   const { currency, transactions } = useFinance()
   const suggestionStore = useBankSuggestions()
   const { suggestions, alerts, total } = useNotificationFeed()
-  const { handleAdd, openPicker, resolveFor, pickerNode } = useBankSuggestionActions()
+  const { handleAdd, openPicker, openCategoryPicker, categoryFor, resolveFor, pickerNode } = useBankSuggestionActions()
   const history = useNotificationHistory(s => s.entries)
   const removeHistoryEntry = useNotificationHistory(s => s.remove)
   const historyTotal = total + history.length
@@ -138,6 +138,7 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
                     <div className="mnc-card-list">
                       {suggestions.map(item => {
                         const account = resolveFor(item)
+                        const suggestedCat = categoryFor(item)
                         const isIncome = item.type === 'income'
                         return (
                           <article key={item.id} className="mnc-card">
@@ -158,11 +159,22 @@ export function MobileNotificationCenter({ onClose, onGotoBudgets, onGotoTarget,
                               </strong>
                             </div>
 
-                            <button className="mnc-card-account" onClick={() => openPicker(item)}>
-                              <Icon name={account ? ACCT_ICONS[account.type] : 'alert'} size={12} />
-                              {account ? account.name : t('chooseAccountLabel')}
-                              <Icon name="edit" size={10} className="mnc-card-account-edit" />
-                            </button>
+                            <div className="mnc-card-chips">
+                              <button
+                                className="mnc-card-chip mnc-card-cat"
+                                style={suggestedCat ? { color: suggestedCat.color } : undefined}
+                                onClick={() => openCategoryPicker(item)}
+                              >
+                                <Icon name={suggestedCat?.icon ?? 'tag'} size={12} />
+                                {suggestedCat ? translateCategoryName(suggestedCat, lang) : t('chooseCategoryChip')}
+                                <Icon name="edit" size={10} className="mnc-card-account-edit" />
+                              </button>
+                              <button className="mnc-card-chip mnc-card-account" onClick={() => openPicker(item)}>
+                                <Icon name={account ? ACCT_ICONS[account.type] : 'alert'} size={12} />
+                                {account ? account.name : t('chooseAccountLabel')}
+                                <Icon name="edit" size={10} className="mnc-card-account-edit" />
+                              </button>
+                            </div>
 
                             <div className="mnc-card-actions">
                               <button className="mnc-card-dismiss" onClick={() => suggestionStore.remove(item.id)}>

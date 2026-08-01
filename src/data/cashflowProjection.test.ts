@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentTotalBalance, projectCashflow } from './cashflowProjection'
+import { currentTotalBalance, projectCashflow, safeToSpend, type CashflowProjection } from './cashflowProjection'
 import type { Account, Goal, Transaction } from '@/types'
 
 const account = (over: Partial<Account> = {}): Account => ({
@@ -87,5 +87,54 @@ describe('projectCashflow', () => {
     const projection = projectCashflow([transfer], [account()], [], '2026-07-31', '2026-07-07')
     expect(projection.days).toHaveLength(0)
     expect(projection.endBalance).toBe(1000)
+  })
+})
+
+describe('safeToSpend', () => {
+  const ev = (date: string, note: string, amount: number, kind: 'income' | 'expense' | 'goal' = amount > 0 ? 'income' : 'expense') =>
+    ({ date, note, amount, kind, sourceId: note })
+  const projection: CashflowProjection = {
+    startBalance: 10000,
+    endBalance: 56900,
+    minBalance: 7700,
+    minDate: '2026-07-03',
+    days: [
+      { date: '2026-07-02', events: [ev('2026-07-02', 'Netflix', -300)], net: -300, balance: 9700 },
+      { date: '2026-07-03', events: [ev('2026-07-03', 'Renta', -2000)], net: -2000, balance: 7700 },
+      { date: '2026-07-06', events: [ev('2026-07-06', 'Nómina', 50000)], net: 50000, balance: 57700 },
+      { date: '2026-07-10', events: [ev('2026-07-10', 'Gimnasio', -800)], net: -800, balance: 56900 },
+    ],
+    series: [
+      { date: '2026-07-02', balance: 9700 }, { date: '2026-07-03', balance: 7700 },
+      { date: '2026-07-06', balance: 57700 }, { date: '2026-07-10', balance: 56900 },
+    ],
+  }
+
+  it('resta lo comprometido ANTES del próximo ingreso, no lo posterior', () => {
+    const s = safeToSpend(projection, 0)
+    expect(s.nextIncome?.note).toBe('Nómina')
+    expect(s.committed).toBe(2300)          // Netflix + Renta, no el gimnasio (post-ingreso)
+    expect(s.amount).toBe(7700)             // 10000 − 2300
+    expect(s.bills.map(b => b.note)).toEqual(['Netflix', 'Renta'])
+  })
+
+  it('el colchón se aparta del gastable', () => {
+    expect(safeToSpend(projection, 3000).amount).toBe(4700)
+  })
+
+  it('marca dipsNegative si el saldo caería bajo cero antes del ingreso', () => {
+    const broke = { ...projection, series: [{ date: '2026-07-03', balance: -500 }, { date: '2026-07-06', balance: 100 }] }
+    expect(safeToSpend(broke, 0).dipsNegative).toBe(true)
+  })
+
+  it('sin ingreso futuro, compromete todas las salidas del horizonte', () => {
+    const noIncome = {
+      ...projection,
+      days: projection.days.filter(d => d.events.every(e => e.amount < 0)),
+      series: projection.series,
+    }
+    const s = safeToSpend(noIncome, 0)
+    expect(s.nextIncome).toBeNull()
+    expect(s.committed).toBe(3100)          // Netflix + Renta + Gimnasio
   })
 })

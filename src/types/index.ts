@@ -130,6 +130,10 @@ export interface Transaction {
   /** Solo suscripciones creadas desde el catálogo: id en SUBSCRIPTION_CATALOG, para mostrar el logo real de la marca. */
   serviceId?:   string
   tags?:        string[]            // ej. ['trabajo', 'viaje']
+  /** Origen cuando el movimiento se creó SOLO (no lo tecleó el usuario): un aviso
+   *  bancario detectado. Se usa para marcarlo con un badge "automático" y para que
+   *  el usuario pueda revisarlo/deshacerlo con confianza. */
+  detectedFrom?: 'notification'
 }
 
 export interface GoalAutoContribute {
@@ -139,6 +143,12 @@ export interface GoalAutoContribute {
   nextDate:      string      // YYYY-MM-DD
   /** Reto tipo "52 semanas": si >0, cada aporte sube este monto respecto al anterior. */
   increment?:    number
+  /**
+   * Solo mensual: día(s) del mes (1-31) en que se cobra `amount`. 1 día = un pago
+   * mensual; 2 días = dos pagos al mes (se cobra `amount` en cada fecha). Ausente
+   * = comportamiento antiguo (un pago al mes en el día de `nextDate`).
+   */
+  monthDays?:    number[]
 }
 
 export interface Goal {

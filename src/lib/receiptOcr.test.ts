@@ -17,6 +17,14 @@ describe('extractCardLast4', () => {
   it('null si no hay ninguna señal de tarjeta', () => {
     expect(extractCardLast4('SUPERMERCADO NACIONAL\nTOTAL RD$500.00')).toBeNull()
   })
+  // Formato real del recibo Domit: "TARJETA VISA : #:**4500  3,313.68". Debe dar
+  // la tarjeta (4500), NO los dígitos del monto que van en la misma línea.
+  it('recibo real con "#:**4500" y el monto en la misma línea → 4500', () => {
+    expect(extractCardLast4('TARJETA VISA : #:**4500   3,313.68')).toBe('4500')
+  })
+  it('si el OCR pierde los asteriscos, lo toma tras el marcador (no el monto)', () => {
+    expect(extractCardLast4('TARJETA VISA : #:4500 3313')).toBe('4500')
+  })
 })
 
 describe('extractMerchant', () => {

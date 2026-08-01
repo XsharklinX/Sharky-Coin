@@ -34,9 +34,9 @@
     --m-brand-line: rgba(255,255,255,.14);
     background: var(--m-bg);
     display: block;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
+    height: calc(100dvh / var(--fs, 1));
+    max-height: calc(100dvh / var(--fs, 1));
+    min-height: calc(100dvh / var(--fs, 1));
     min-width: 0;
     overflow: hidden;
     touch-action: pan-y pinch-zoom;
@@ -67,21 +67,21 @@
   .app.mobile-app {
     display: block;
     grid-template-columns: none;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
-    min-width: 100vw;
+    height: calc(100dvh / var(--fs, 1));
+    max-height: calc(100dvh / var(--fs, 1));
+    min-height: calc(100dvh / var(--fs, 1));
+    min-width: calc(100vw / var(--fs, 1));
     overflow: hidden;
-    width: 100vw;
+    width: calc(100vw / var(--fs, 1));
   }
   .mobile-shell {
     background: var(--m-bg);
     color: var(--m-text);
     display: flex;
     flex-direction: column;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
+    height: calc(100dvh / var(--fs, 1));
+    max-height: calc(100dvh / var(--fs, 1));
+    min-height: calc(100dvh / var(--fs, 1));
     overflow: hidden;
     width: 100%;
     -webkit-tap-highlight-color: transparent;
@@ -352,7 +352,7 @@
   }
   /* ── Currency converter (MobileCurrencyConverter) ── */
   .mconv-sheet {
-    max-height: calc(100dvh - env(safe-area-inset-top) - 10px);
+    max-height: calc(calc(100dvh / var(--fs, 1)) - env(safe-area-inset-top) - 10px);
     overflow-y: auto;
   }
   .mconv-body {
@@ -479,7 +479,10 @@
   /* ── Goals (MobileGoals) ── */
   .mgl-root { display: flex; flex-direction: column; min-height: 100%; padding: 10px 0 120px; position: relative; }
   .mgl-ring { position: relative; flex-shrink: 0; }
-  .mgl-ring svg { display: block; transform: rotate(-90deg); }
+  /* Solo el SVG del anillo (hijo directo) se rota para empezar el progreso
+     arriba. Antes era `.mgl-ring svg` (descendiente) y rotaba también el <svg>
+     del icono de la meta → los iconos salían "de lado". */
+  .mgl-ring > svg { display: block; transform: rotate(-90deg); }
   .mgl-ring-content {
     align-items: center;
     display: flex;
@@ -547,6 +550,7 @@
   }
   .mgl-chip-done { background: color-mix(in oklab, #30d158 18%, transparent); color: #30d158; }
   .mgl-chip-warn { background: color-mix(in oklab, #ff6b35 18%, transparent); color: #ff6b35; }
+  .mgl-chip-proj { background: color-mix(in oklab, var(--m-primary) 15%, transparent); color: var(--m-primary); }
   .mgl-card-actions {
     align-items: center;
     background: color-mix(in oklab, var(--m-text) 4%, transparent);
@@ -616,7 +620,7 @@
     color: var(--text);
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - env(safe-area-inset-top) - 10px);
+    max-height: calc(calc(100dvh / var(--fs, 1)) - env(safe-area-inset-top) - 10px);
     min-height: 0;
     overflow: hidden;
     padding: 0;
@@ -660,7 +664,7 @@
     color: var(--text);
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - env(safe-area-inset-top) - 10px);
+    max-height: calc(calc(100dvh / var(--fs, 1)) - env(safe-area-inset-top) - 10px);
     min-height: 0;
     overflow: hidden;
     width: 100%;
@@ -1163,35 +1167,70 @@
     text-align: center;
     width: 100%;
   }
-  .mcal-day.ok { background: color-mix(in oklab, #30d158 14%, transparent); }
-  .mcal-day.over { background: color-mix(in oklab, #ff453a 14%, transparent); }
+  .mcal-day.over { background: color-mix(in oklab, #ff453a 12%, transparent); }
   .mcal-day.today { outline: 2px solid var(--accent); }
   .mcal-day.selected { outline: 2px solid #5bc0ff; }
   .mcal-day-num { font-size: 13px; font-weight: 700; }
-  .mcal-amt {
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1.2;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  /* Totales del mes: un vistazo a lo que entró y salió sin sumar celdas. */
+  .mcal-totals {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr 1fr;
+    padding: 0 0 10px;
   }
-  .mcal-amt.inc { color: #30d158; }
-  .mcal-amt.exp { color: #ff453a; }
+  .mcal-totals > div {
+    background: color-mix(in oklab, var(--text) 5%, transparent);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+  }
+  .mcal-totals small { color: var(--text-dim); font-size: 11px; }
+  .mcal-totals strong { font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+  .mcal-t-inc { color: #30d158; }
+  .mcal-t-exp { color: #ff453a; }
+  /* Puntos por día: se empujan al fondo de la celda. */
+  .mcal-dots {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+    margin-top: auto;
+    min-height: 8px;
+  }
   .mcal-footer { display: flex; flex-direction: column; gap: 6px; padding: 12px 4px 0; }
   .mcal-budget-label { color: var(--text-dim); font-size: 13px; }
   .mcal-budget-label strong { color: var(--text); }
-  .mcal-legend { color: var(--text-dim); display: flex; font-size: 12px; gap: 16px; }
+  .mcal-legend { align-items: center; color: var(--text-dim); display: flex; flex-wrap: wrap; font-size: 12px; gap: 8px 16px; }
+  .mcal-legend span { align-items: center; display: inline-flex; }
   .mcal-dot {
     border-radius: 50%;
     display: inline-block;
     height: 8px;
-    margin-right: 4px;
     width: 8px;
   }
-  .mcal-dot.ok   { background: #30d158; }
-  .mcal-dot.over { background: #ff453a; }
+  .mcal-legend .mcal-dot { margin-right: 4px; }
+  .mcal-dot.inc  { background: #30d158; }
+  .mcal-dot.exp  { background: #ff453a; }
+  .mcal-dot.bill { background: #5bc0ff; }
+  /* Cobros previstos del día tocado. */
+  .mcal-upcoming {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .mcal-upcoming-title { color: var(--text-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+  .mcal-upcoming-row {
+    align-items: center;
+    background: color-mix(in oklab, #5bc0ff 10%, transparent);
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .mcal-upcoming-note { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcal-upcoming-amt { color: #5bc0ff; font-size: 14px; font-weight: 700; }
   .mcal-detail { margin-top: 16px; }
   .mcal-empty-day { color: var(--text-dim); font-size: 14px; padding: 16px 4px; text-align: center; }
   .mobile-content {
@@ -1936,7 +1975,7 @@
     border: 1px solid var(--border);
     border-radius: 26px 26px 0 0;
     color: var(--text);
-    max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top) - 12px));
+    max-height: min(88dvh, calc(calc(100dvh / var(--fs, 1)) - env(safe-area-inset-top) - 12px));
     overflow-y: auto;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
@@ -1952,7 +1991,7 @@
   }
   .mobile-detail-sheet.centered section {
     border-radius: 24px;
-    max-height: calc(100dvh - 32px);
+    max-height: calc(calc(100dvh / var(--fs, 1)) - 32px);
     max-width: 420px;
     padding: 18px;
   }
@@ -2303,7 +2342,9 @@
   }
   .mnc-card-amount.income { color: var(--m-income); }
   .mnc-card-amount.expense { color: var(--m-expense); }
-  .mnc-card-account {
+  .mnc-card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0 51px; }
+  .mnc-card-account,
+  .mnc-card-chip {
     align-items: center;
     background: color-mix(in oklab, var(--m-text) 6%, transparent);
     border: 0;
@@ -2313,10 +2354,12 @@
     font-size: 12px;
     font-weight: 700;
     gap: 5px;
-    margin: 10px 0 0 51px;
     padding: 5px 10px 5px 9px;
   }
-  .mnc-card-account:active { background: color-mix(in oklab, var(--m-text) 11%, transparent); }
+  /* Chip de categoría sugerida: tinte del color de la propia categoría. */
+  .mnc-card-cat { background: color-mix(in oklab, currentColor 14%, transparent); }
+  .mnc-card-account:active,
+  .mnc-card-chip:active { background: color-mix(in oklab, var(--m-text) 11%, transparent); }
   .mnc-card-account-edit { color: color-mix(in oklab, var(--m-muted) 70%, transparent); }
   .mnc-card-actions {
     display: flex;

@@ -22,12 +22,55 @@
   .mhome-balance-acct-name { color: var(--m-muted); flex: 1; font-weight: 700; }
   .mhome-balance-row strong { font-size: 13px; font-weight: 850; font-variant-numeric: tabular-nums; }
   .mhome-balance-row strong.expense { color: var(--m-expense); }
+  .mhome-balance-row strong.muted-amt { color: var(--m-muted); }
+  /* Encabezado de la sección de tarjetas de crédito dentro del desglose: deja
+     claro que su deuda va aparte y NO cuenta en el balance total. */
+  .mhome-balance-credit-head {
+    align-items: baseline;
+    border-top: 1px solid var(--m-border);
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding-top: 8px;
+  }
+  .mhome-balance-credit-head span { color: var(--m-muted); font-size: 11px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+  .mhome-balance-credit-head small { color: var(--m-muted); font-size: 11px; opacity: .8; }
   .neg { color: var(--m-expense); }
   .mobile-movements-screen {
     display: grid;
     gap: 10px;
     padding: 10px 0 24px;
   }
+  /* Resumen semanal proactivo: los últimos 7 días de un vistazo, sin abrir Análisis. */
+  .mweek-card {
+    background: linear-gradient(155deg, color-mix(in oklab, var(--m-primary) 12%, var(--m-surface)), var(--m-surface));
+    border: 1px solid var(--m-border);
+    border-radius: 18px;
+    padding: 12px 14px;
+  }
+  .mweek-head { align-items: center; display: flex; justify-content: space-between; }
+  .mweek-title {
+    align-items: center; color: var(--m-muted); display: inline-flex; gap: 5px;
+    font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase;
+  }
+  .mweek-dismiss { background: none; border: 0; color: var(--m-muted); padding: 2px; }
+  .mweek-body { align-items: flex-end; display: flex; gap: 10px; justify-content: space-between; margin-top: 8px; }
+  .mweek-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .mweek-main small { color: var(--m-muted); font-size: 11px; }
+  .mweek-main strong { font-size: 22px; font-weight: 900; letter-spacing: -.02em; }
+  .mweek-delta {
+    align-items: center; display: inline-flex; font-size: 11px; font-weight: 800; gap: 2px; margin-top: 2px;
+  }
+  .mweek-delta.up { color: var(--m-expense); }
+  .mweek-delta.down { color: var(--m-income); }
+  .mweek-top {
+    align-items: center; background: color-mix(in oklab, var(--m-text) 6%, transparent);
+    border-radius: 12px; display: flex; gap: 6px; max-width: 55%; padding: 7px 10px;
+  }
+  .mweek-top-dot { border-radius: 50%; flex: none; height: 8px; width: 8px; }
+  .mweek-top-name { color: var(--m-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mweek-top strong { font-size: 13px; font-weight: 800; margin-left: auto; white-space: nowrap; }
   .mobile-movements-hero {
     align-items: center;
     background: linear-gradient(160deg, var(--m-surface), color-mix(in oklab, var(--m-primary) 8%, var(--m-bg)));
@@ -1002,7 +1045,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 100dvh;
+    min-height: calc(100dvh / var(--fs, 1));
     padding: calc(env(safe-area-inset-top, 0px) + 40px) 24px calc(env(safe-area-inset-bottom, 0px) + 28px);
   }
   .mobile-welcome-top {
@@ -1123,6 +1166,22 @@
   /* Tutorial progress dots — theme-aware en la intro; el carrusel de slides
      (fondo oscuro fijo, ver .mwh-slide-body más abajo) mantiene su versión
      en blanco porque ahí sí el fondo es siempre oscuro por diseño. */
+  /* ── Onboarding: pantalla "Así funciona" (express, 3 puntos de valor) ── */
+  .mwh-how-screen { color: #f5f5f5; }
+  .mwh-how-title { color: #f5f5f5; font-size: 24px; font-weight: 900; letter-spacing: -.02em; margin: 8px 0 0; text-align: center; }
+  .mwh-how-rows { display: flex; flex-direction: column; gap: 14px; }
+  .mwh-how-row {
+    align-items: flex-start;
+    background: color-mix(in oklab, #ffffff 4%, transparent);
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px;
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+  }
+  .mwh-how-ic { width: 46px; height: 46px; border-radius: 13px; flex: none; display: grid; place-items: center; }
+  .mwh-how-row b { color: #f5f5f5; display: block; font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+  .mwh-how-row p { color: #9fb0c8; font-size: 13.5px; line-height: 1.45; margin: 4px 0 0; }
   .mwh-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0 4px; }
   .mwh-dot { background: color-mix(in oklab, var(--m-text) 20%, transparent); border-radius: 99px; height: 6px; transition: width .2s ease, background .2s ease; width: 6px; }
   .mwh-dot.on { background: var(--m-primary, #ffdd3d); width: 20px; }

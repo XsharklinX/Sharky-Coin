@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Icon } from '@/components/ui/Icon'
-import { projectCashflow } from '@/data/cashflowProjection'
+import { projectCashflow, safeToSpend } from '@/data/cashflowProjection'
 import { currentMonthKey, dateLocale, fmtCompact, localToday, txForMonth } from '@/data/helpers'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
 import { useFmt } from '@/hooks/useFmt'
 import { useT } from '@/i18n'
+import { MobileAmountSheet } from './MobileAmountSheet'
+import { useMobileBackDismiss } from './useMobileBackDismiss'
 
 type Horizon = 'month' | '30d' | '60d'
 
@@ -31,7 +33,12 @@ export function MobileCashflow() {
   const fmtVal = useFmt()
   const lang = useSettings(s => s.language)
   const { transactions, accounts, goals, currency } = useFinance()
+  const buffer = useSettings(s => s.cashflowBuffer)
+  const setBuffer = useSettings(s => s.setCashflowBuffer)
   const [horizon, setHorizon] = useState<Horizon>('month')
+  const [bufferSheet, setBufferSheet] = useState(false)
+
+  useMobileBackDismiss(bufferSheet, () => setBufferSheet(false))
 
   const today = localToday()
   const projection = useMemo(
@@ -39,11 +46,19 @@ export function MobileCashflow() {
     [transactions, accounts, goals, horizon, today, currency],
   )
 
+  const safe = useMemo(() => safeToSpend(projection, buffer), [projection, buffer])
+
+  // Saldo proyectado por día hasta el próximo ingreso (o los primeros 14 días),
+  // para la pista visual: verde donde aguantas, rojo donde caerías bajo cero.
+  const runway = useMemo(() => {
+    const boundary = safe.nextIncome?.date
+    return projection.series.filter(p => !boundary || p.date <= boundary).slice(0, 14)
+  }, [projection.series, safe.nextIncome])
+
   const locale = dateLocale(lang)
   const dayLabel = (date: string) =>
     new Date(`${date}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
 
-  const delta = projection.endBalance - projection.startBalance
   const goesNegative = projection.minBalance < 0
 
   const [cutPct, setCutPct] = useState(20)
@@ -94,15 +109,67 @@ export function MobileCashflow() {
         </div>
       </div>
 
-      <div className="mcash-hero">
-        <small>{horizon === 'month' ? t('cashflowEndOfMonth') : t('cashflowProjectedBalance')}</small>
-        <strong className={projection.endBalance < 0 ? 'text-expense' : ''}>
-          {fmtVal(projection.endBalance, currency)}
-        </strong>
-        <span className={`mcash-delta ${delta < 0 ? 'down' : 'up'}`}>
-          {delta >= 0 ? '+' : ''}{fmtCompact(delta, currency)} · {t('cashflowVsToday')}
-        </span>
+      {/* Héroe: lo que puedes gastar tranquilo */}
+      <div className={`mcash-safe${safe.amount < 0 ? ' neg' : ''}`}>
+        <small>{t('cashflowSafeLabel')}</small>
+        <strong>{fmtVal(Math.max(0, safe.amount), currency)}</strong>
+        <button className="mcash-safe-sub" onClick={() => setBufferSheet(true)}>
+          {safe.nextIncome
+            ? t('cashflowSafeUntil').replace('{days}', String(safe.daysUntilIncome ?? 0))
+            : t('cashflowSafeNoIncome')}
+          {buffer > 0 && ` · ${t('cashflowBufferAside').replace('{amount}', fmtCompact(buffer, currency))}`}
+          <Icon name="sliders" size={12} />
+        </button>
+        {safe.amount < 0 && <div className="mcash-safe-warn">{t('cashflowSafeNegative')}</div>}
       </div>
+
+      {/* Pista de días hasta el próximo ingreso */}
+      {runway.length > 1 && (
+        <>
+          <div className="mcash-runway">
+            {runway.map(point => (
+              <i key={point.date} style={{ background: point.balance < 0 ? 'var(--m-expense)' : 'color-mix(in oklab, var(--m-income) 55%, transparent)' }}
+                title={`${dayLabel(point.date)}: ${fmtCompact(point.balance, currency)}`} />
+            ))}
+          </div>
+          <p className="mcash-runway-cap">{t('cashflowRunwayCaption')}</p>
+        </>
+      )}
+
+      {/* Antes de tu próximo ingreso */}
+      {(safe.bills.length > 0 || safe.nextIncome) && (
+        <div className="mcash-before">
+          <div className="mcash-before-title">{t('cashflowBeforeIncome')}</div>
+          {(() => {
+            let after = projection.startBalance
+            return safe.bills.map((bill, i) => {
+              after += bill.amount
+              return (
+                <div key={`${bill.sourceId}:${i}`} className="mcash-before-row">
+                  <span className={`mcash-event-icon mcash-event-${bill.kind}`}>
+                    <Icon name={bill.kind === 'goal' ? 'target' : 'repeat'} size={13} />
+                  </span>
+                  <span className="mcash-before-main">
+                    <b>{bill.kind === 'goal' ? `${t('cashflowGoalPrefix')} ${bill.note}` : bill.note}</b>
+                    <small>{dayLabel(bill.date)} · {t('cashflowLeavesYou').replace('{amount}', fmtCompact(after, currency))}</small>
+                  </span>
+                  <b className="text-expense">{fmtCompact(bill.amount, currency)}</b>
+                </div>
+              )
+            })
+          })()}
+          {safe.nextIncome && (
+            <div className="mcash-before-row income">
+              <span className="mcash-event-icon mcash-event-income"><Icon name="arrowUp" size={13} /></span>
+              <span className="mcash-before-main">
+                <b>{safe.nextIncome.note}</b>
+                <small>{dayLabel(safe.nextIncome.date)}</small>
+              </span>
+              <b className="mcash-event-income">+{fmtCompact(safe.nextIncome.amount, currency)}</b>
+            </div>
+          )}
+        </div>
+      )}
 
       {scenario.hasData && (
         <div className="mcash-scenario">
@@ -218,6 +285,16 @@ export function MobileCashflow() {
       <p className="mcash-note">
         <Icon name="info" size={12} /> {t('cashflowNote')}
       </p>
+
+      {bufferSheet && (
+        <MobileAmountSheet
+          title={t('cashflowBufferTitle')}
+          value={buffer}
+          currency={currency}
+          onDone={v => { setBuffer(Math.max(0, v)); setBufferSheet(false) }}
+          onClose={() => setBufferSheet(false)}
+        />
+      )}
     </div>
   )
 }

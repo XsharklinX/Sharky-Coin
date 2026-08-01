@@ -7,6 +7,17 @@ const tauriDismissStack: (() => void)[] = []
 let unlistenTauriBack: { unregister(): Promise<void> } | null = null
 let isRegistering = false
 
+// Handler RAÍZ: se ejecuta cuando el botón atrás se pulsa y NO hay overlays que
+// cerrar (estás en la pantalla principal). Lo usa `useExitConfirm` para el
+// "pulsa de nuevo para salir". Mientras exista, el listener de Tauri se mantiene
+// registrado siempre — así interceptamos el atrás raíz en vez de dejar que el
+// sistema cierre la app de golpe.
+let rootBackHandler: (() => void) | null = null
+export function setRootBackHandler(fn: (() => void) | null): void {
+  rootBackHandler = fn
+  void updateTauriBackButtonListener()
+}
+
 // ── Camino navegador/PWA ────────────────────────────────────────────────────
 // UN solo listener `popstate` global + una pila de overlays (igual que el
 // camino de Tauri de arriba).
@@ -41,15 +52,20 @@ function ensurePopStateBound() {
 }
 
 async function updateTauriBackButtonListener() {
-  if (tauriDismissStack.length > 0) {
+  // Se mantiene el listener si hay overlays que cerrar O un handler raíz (salir).
+  const shouldListen = tauriDismissStack.length > 0 || rootBackHandler !== null
+  if (shouldListen) {
     if (!unlistenTauriBack && !isRegistering) {
       isRegistering = true
       try {
         const { onBackButtonPress } = await import('@tauri-apps/api/app')
         unlistenTauriBack = await onBackButtonPress(() => {
-          // Executing back button handler pops and runs the top overlay dismiss action
+          // Prioridad: cerrar el overlay de arriba. Si no hay ninguno, el handler
+          // raíz decide (doble-atrás para salir). En ambos casos consumimos el
+          // evento, evitando que el sistema cierre la app sin avisar.
           const handler = tauriDismissStack.pop()
           if (handler) handler()
+          else rootBackHandler?.()
           void updateTauriBackButtonListener()
         })
       } catch (err) {

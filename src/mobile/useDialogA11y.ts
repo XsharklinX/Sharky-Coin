@@ -40,6 +40,16 @@ function unlockMobileContent() {
 export function useDialogA11y<T extends HTMLElement>(onClose: () => void, active = true, autoFocus = true) {
   const ref = useRef<T>(null)
 
+  // `onClose` casi siempre llega como flecha inline (nueva referencia en cada
+  // render del padre). Si estuviera en las dependencias del efecto, este se
+  // re-ejecutaría en CADA render —incluido cada tecla mientras escribes dentro
+  // de la hoja— y su cleanup (`previous?.focus()`) le robaría el foco al input
+  // al instante: por eso no se podía escribir el título de una lista. Guardarlo
+  // en un ref hace que el handler de Escape lea siempre la última versión sin
+  // que el efecto dependa de su identidad.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     if (!active) return
 
@@ -52,7 +62,7 @@ export function useDialogA11y<T extends HTMLElement>(onClose: () => void, active
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') onCloseRef.current()
     }
     window.addEventListener('keydown', onKeyDown)
     lockMobileContent()
@@ -62,7 +72,7 @@ export function useDialogA11y<T extends HTMLElement>(onClose: () => void, active
       previous?.focus()
       unlockMobileContent()
     }
-  }, [onClose, active, autoFocus])
+  }, [active, autoFocus])
 
   return ref
 }
