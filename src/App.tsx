@@ -8,8 +8,6 @@ import { currentMonthKey, monthKeys } from '@/data/helpers'
 import { ToastHost } from '@/components/ui/Toast'
 import { deleteWithUndo } from '@/lib/undoDelete'
 import { DialogProvider } from '@/components/ui/DialogProvider'
-import { MobileWelcomeHub } from '@/mobile/MobileWelcomeHub'
-import { TransactionForm } from '@/modals/TransactionForm'
 import { useRecurring } from '@/hooks/useRecurring'
 import { useGoalAutoContributions } from '@/hooks/useGoalAutoContributions'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -27,7 +25,6 @@ import { useAutoBackup } from '@/hooks/useAutoBackup'
 import { useScheduledBackup } from '@/hooks/useScheduledBackup'
 import { useWeeklyAutoBackup } from '@/hooks/useWeeklyAutoBackup'
 import { useUpdateCheck } from '@/hooks/useUpdateCheck'
-import { MobileUpdateDialog } from '@/mobile/MobileUpdateDialog'
 import { useCloudWorkspace } from '@/hooks/useCloudWorkspace'
 import { useAutoCloudSync } from '@/hooks/useAutoCloudSync'
 import { useLiveExchangeRates } from '@/hooks/useLiveExchangeRates'
@@ -37,13 +34,20 @@ import { MobilePinGate } from '@/mobile/MobilePinGate'
 import { MobilePatternGate } from '@/mobile/MobilePatternGate'
 import { MobileShell } from '@/mobile/MobileShell'
 import { useExitConfirm } from '@/mobile/useExitConfirm'
-import { MobileSettings } from '@/mobile/MobileSettings'
 import { MobileSplash } from '@/mobile/MobileSplash'
-import { MobileBudgets } from '@/mobile/MobileBudgets'
-import { MobileGoals } from '@/mobile/MobileGoals'
 import { useMobileBackDismiss } from '@/mobile/useMobileBackDismiss'
 import type { Sheet } from '@/mobile/settings/shared'
 import type { Transaction, ViewId, ViewProps } from '@/types'
+
+// Diferidas: no hacen falta en el primer render de Movimientos. Se cargan al
+// abrirlas (agregar, engranaje, navegar a Presupuestos/Metas, onboarding), lo
+// que reduce el bundle inicial y el tiempo hasta interactivo en gama baja.
+const MobileWelcomeHub = lazy(() => import('@/mobile/MobileWelcomeHub').then(m => ({ default: m.MobileWelcomeHub })))
+const TransactionForm = lazy(() => import('@/modals/TransactionForm').then(m => ({ default: m.TransactionForm })))
+const MobileUpdateDialog = lazy(() => import('@/mobile/MobileUpdateDialog').then(m => ({ default: m.MobileUpdateDialog })))
+const MobileSettings = lazy(() => import('@/mobile/MobileSettings').then(m => ({ default: m.MobileSettings })))
+const MobileBudgets = lazy(() => import('@/mobile/MobileBudgets').then(m => ({ default: m.MobileBudgets })))
+const MobileGoals = lazy(() => import('@/mobile/MobileGoals').then(m => ({ default: m.MobileGoals })))
 
 const CalendarView = lazy(() => import('@/views/Calendar').then(m => ({ default: m.Calendar })))
 const MobileNotesView = lazy(() => import('@/mobile/MobileNotes').then(m => ({ default: m.MobileNotes })))
@@ -162,7 +166,7 @@ export default function App() {
 
   if (!s.hasSeenOnboarding) return (
     <div className="app mobile-app" {...themeProps}>
-      <MobileWelcomeHub />
+      <Suspense fallback={null}><MobileWelcomeHub /></Suspense>
     </div>
   )
 
@@ -193,8 +197,12 @@ export default function App() {
   }
 
   const mobileViews = {
-    budgets: (props: ViewProps) => <MobileBudgets {...props} />,
-    goals: (props: ViewProps) => <MobileGoals {...props} />,
+    budgets: (props: ViewProps) => (
+      <Suspense fallback={null}><MobileBudgets {...props} /></Suspense>
+    ),
+    goals: (props: ViewProps) => (
+      <Suspense fallback={null}><MobileGoals {...props} /></Suspense>
+    ),
     notes: (props: ViewProps) => (
       <Suspense fallback={<div style={{ padding: 24, color: 'var(--text-dim)' }}>{t('loading')}</div>}>
         <MobileNotesView {...props} />
@@ -233,20 +241,22 @@ export default function App() {
           onConsumeNotificationTarget={consumeNotificationTarget}
         />
         <ToastHost />
-        {availableUpdate && !s.dismissedAlerts.includes(`update-${availableUpdate.version}`) && (
-          <MobileUpdateDialog update={availableUpdate} onDismiss={() => s.dismissAlert(`update-${availableUpdate.version}`)} />
-        )}
-        {txForm       && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
-        {settingsOpen && (
-          <MobileSettings
-            mkey={mkey}
-            initialSheet={settingsInitialSheet}
-            onClose={() => {
-              setSettingsOpen(false)
-              setSettingsInitialSheet(null)
-            }}
-          />
-        )}
+        <Suspense fallback={null}>
+          {availableUpdate && !s.dismissedAlerts.includes(`update-${availableUpdate.version}`) && (
+            <MobileUpdateDialog update={availableUpdate} onDismiss={() => s.dismissAlert(`update-${availableUpdate.version}`)} />
+          )}
+          {txForm && <TransactionForm value={txForm} mkey={mkey} onClose={() => setTxForm(null)} onDelete={handleDeleteTx} />}
+          {settingsOpen && (
+            <MobileSettings
+              mkey={mkey}
+              initialSheet={settingsInitialSheet}
+              onClose={() => {
+                setSettingsOpen(false)
+                setSettingsInitialSheet(null)
+              }}
+            />
+          )}
+        </Suspense>
       </DialogProvider>
     </div>
   )

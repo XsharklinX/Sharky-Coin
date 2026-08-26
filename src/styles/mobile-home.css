@@ -39,9 +39,36 @@
   .neg { color: var(--m-expense); }
   .mobile-movements-screen {
     display: grid;
+    /* minmax(0,1fr) evita que un hijo ancho (p. ej. el aviso de PIN con fuente
+       grande) estire toda la pantalla vía la columna `auto` y arrastre la tira
+       de resumen fuera de pantalla — misma clase de bug que .mobile-create-bottom. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
     padding: 10px 0 24px;
   }
+  /* Insight proactivo: aviso accionable (presupuesto, gasto inusual, buen ritmo). */
+  .minsight-card {
+    align-items: flex-start;
+    background: var(--m-surface);
+    border: 1px solid var(--m-border);
+    border-left-width: 3px;
+    border-radius: 14px;
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .minsight-card.minsight-warn { border-left-color: #f59e0b; }
+  .minsight-card.minsight-info { border-left-color: #5b9bff; }
+  .minsight-card.minsight-good { border-left-color: #35d0a2; }
+  .minsight-ico { align-items: center; border-radius: 10px; display: flex; flex-shrink: 0; height: 32px; justify-content: center; width: 32px; }
+  .minsight-warn .minsight-ico { background: #f59e0b22; color: #f59e0b; }
+  .minsight-info .minsight-ico { background: #5b9bff22; color: #5b9bff; }
+  .minsight-good .minsight-ico { background: #35d0a222; color: #35d0a2; }
+  .minsight-body { flex: 1; min-width: 0; }
+  .minsight-body strong { display: block; font-size: 13px; font-weight: 800; }
+  .minsight-body p { color: var(--m-muted); font-size: 12.5px; line-height: 1.4; margin: 2px 0 0; }
+  .minsight-dismiss { align-items: center; background: transparent; border: 0; color: var(--m-muted); display: grid; flex-shrink: 0; height: 28px; margin: -4px -6px -4px 0; place-items: center; width: 28px; }
+
   /* Resumen semanal proactivo: los últimos 7 días de un vistazo, sin abrir Análisis. */
   .mweek-card {
     background: linear-gradient(155deg, color-mix(in oklab, var(--m-primary) 12%, var(--m-surface)), var(--m-surface));

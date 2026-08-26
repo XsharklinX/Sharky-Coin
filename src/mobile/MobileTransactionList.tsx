@@ -69,6 +69,7 @@ export function MobileTransactionList({
   onDelete,
   compact = false,
   showSearch = true,
+  showFilters = false,
   className = '',
 }: {
   transactions: Transaction[]
@@ -76,6 +77,7 @@ export function MobileTransactionList({
   onDelete?: (id: string) => void
   compact?: boolean
   showSearch?: boolean
+  showFilters?: boolean
   className?: string
 }) {
   const { accounts, categories, currency, addTx } = useFinance()
@@ -90,6 +92,9 @@ export function MobileTransactionList({
   const filters = getFilters(t)
   const [filter, setFilter] = useState<TxFilter>('all')
   const [searchOpen, setSearchOpen] = useState(false)
+  // filterOnly: el overlay se abrió desde el embudo "Filtrar" (solo cuenta/
+  // categoría/fecha, sin buscador de texto — de eso ya se encarga la lupa de arriba).
+  const [filterOnly, setFilterOnly] = useState(false)
   const [query, setQuery] = useState('')
   const [fAccount, setFAccount] = useState('all')
   const [fCategory, setFCategory] = useState('all')
@@ -227,6 +232,7 @@ export function MobileTransactionList({
   })
 
   const showSearchChip = showSearch && !compact
+  const showFilterChip = showFilters && !compact
 
   // Duplica un movimiento: misma info, id nuevo, con la fecha de hoy (el caso
   // típico de duplicar es «lo mismo que ayer, otra vez»). Solo gasto/ingreso;
@@ -408,14 +414,23 @@ export function MobileTransactionList({
                 {item.label}
               </button>
             ))}
-            {showSearchChip && (
-              <button className={`mobile-search-chip${activeFilters > 0 ? ' has-filters' : ''}`} onClick={() => setSearchOpen(true)}>
-                <Icon name="search" size={16} />
-                {t('search')}
-                {activeFilters > 0 && <span className="mobile-filter-badge">{activeFilters}</span>}
-              </button>
-            )}
           </div>
+          {/* Chips de acción FUERA de la fila scrolleable: quedan fijos a la
+              derecha y siempre visibles (antes se salían de vista al hacer scroll). */}
+          {showSearchChip && (
+            <button className={`mobile-search-chip${activeFilters > 0 ? ' has-filters' : ''}`} onClick={() => { setFilterOnly(false); setSearchOpen(true) }}>
+              <Icon name="search" size={16} />
+              {t('search')}
+              {activeFilters > 0 && <span className="mobile-filter-badge">{activeFilters}</span>}
+            </button>
+          )}
+          {showFilterChip && (
+            <button className={`mobile-search-chip${activeFilters > 0 ? ' has-filters' : ''}`} onClick={() => { setFilterOnly(true); setSearchOpen(true) }}>
+              <Icon name="sliders" size={15} />
+              {t('filterLabel')}
+              {activeFilters > 0 && <span className="mobile-filter-badge">{activeFilters}</span>}
+            </button>
+          )}
         </div>
       )}
 
@@ -466,14 +481,18 @@ export function MobileTransactionList({
         >
           <div className="mobile-search-head">
             <button onClick={() => setSearchOpen(false)}>{t('cancel')}</button>
-            <strong>{t('searchAndFilter')}</strong>
+            <strong>{filterOnly ? t('filterLabel') : t('searchAndFilter')}</strong>
             <button className="mobile-search-clear" disabled={activeFilters === 0 && !query} onClick={clearFilters}>{t('clearFiltersLabel')}</button>
           </div>
 
-          <label className="mobile-search-input">
-            <Icon name="search" size={18} />
-            <input value={query} placeholder={t('noteCategoryAccountPlaceholder')} onChange={event => setQuery(event.target.value)} />
-          </label>
+          {/* En modo "Filtrar" no se muestra el buscador de texto: de eso ya se
+              encarga la lupa de arriba (búsqueda global). */}
+          {!filterOnly && (
+            <label className="mobile-search-input">
+              <Icon name="search" size={18} />
+              <input value={query} placeholder={t('noteCategoryAccountPlaceholder')} onChange={event => setQuery(event.target.value)} />
+            </label>
+          )}
 
           <div className="mobile-filter-panel">
             <div className="mobile-filter-field">

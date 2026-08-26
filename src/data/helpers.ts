@@ -284,8 +284,10 @@ export function transactionsForTotals(
  * categoría, a partir de las transacciones de gasto del mes anterior.
  * Devuelve 0 si la categoría no tiene rollover activado o no tiene presupuesto.
  */
-export function categoryRollover(category: Category, prevMonthTx: Transaction[]): number {
-  if (!category.rolloverEnabled || category.budget <= 0) return 0
+export function categoryRollover(category: Category, prevMonthTx: Transaction[], globalEnabled = false): number {
+  // El arrastre aplica si la categoría lo tiene activado O si el ajuste global
+  // (Configuración) lo enciende para todos los presupuestos.
+  if ((!category.rolloverEnabled && !globalEnabled) || category.budget <= 0) return 0
   const spent = prevMonthTx
     .filter(t => t.type === 'expense')
     .reduce((s, t) => s + amountForCategory(t, category.id), 0)

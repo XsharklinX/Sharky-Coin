@@ -74,6 +74,24 @@
     overflow: hidden;
     width: calc(100vw / var(--fs, 1));
   }
+
+  /* Tablet / pantalla grande: en vez de estirar la UI móvil a lo ancho (que se
+     ve mal y Play lo marca), se centra en una columna tipo teléfono con un fondo
+     alrededor. El `transform` es clave: convierte a .mobile-app en el bloque
+     contenedor de sus descendientes `position: fixed` (bottom nav, sheets, que
+     se montan aquí vía SheetPortal), anclándolos a la columna y no al viewport
+     completo. En teléfonos (< 700px) no aplica y todo queda igual. */
+  @media (min-width: 700px) {
+    html, body, #root { background: #05070d; }
+    .app.mobile-app {
+      width: calc(clamp(380px, 44vw, 540px) / var(--fs, 1));
+      min-width: auto;
+      max-width: calc(540px / var(--fs, 1));
+      margin-inline: auto;
+      transform: translateZ(0);
+      box-shadow: 0 0 0 1px var(--m-border), 0 24px 80px rgba(0,0,0,.5);
+    }
+  }
   .mobile-shell {
     background: var(--m-bg);
     color: var(--m-text);
@@ -156,8 +174,11 @@
     gap: 2px;
     min-width: 0;
   }
-  .mobile-topbar-left { justify-self: start; }
-  .mobile-topbar-right { justify-self: end; }
+  /* stretch (no start/end): el lado se ciñe a su celda del grid y, con fuente
+     grande, sus botones encogen DENTRO de la celda en vez de desbordar e
+     invadir el título. `justify-content` mantiene los iconos pegados al borde. */
+  .mobile-topbar-left { justify-self: stretch; justify-content: flex-start; }
+  .mobile-topbar-right { justify-self: stretch; justify-content: flex-end; }
   .mobile-topbar-menu {
     margin-left: -6px;
   }
@@ -187,6 +208,10 @@
     justify-content: center;
     place-items: center;
     width: 44px;
+    /* Permite encoger el botón (no el icono) cuando la barra está apretada
+       (fuente grande), evitando que los grupos de iconos invadan el título. */
+    min-width: 32px;
+    flex-shrink: 1;
   }
   .mobile-icon-btn:active { background: color-mix(in oklab, var(--m-text) 10%, transparent); }
   .mobile-bell-btn { position: relative; }
@@ -216,9 +241,11 @@
     border-radius: 999px;
     color: var(--m-muted);
     display: flex;
+    flex-shrink: 0; /* no encoger la moneda (clipa "BRL"); que achiquen los iconos */
     gap: 5px;
     height: 44px;
     padding: 0 10px;
+    white-space: nowrap;
   }
   .mobile-currency-btn:active { background: color-mix(in oklab, var(--m-text) 10%, transparent); }
   .mobile-currency-flag { font-size: 15px; line-height: 1; }
@@ -811,6 +838,35 @@
   }
   .mgl-field { display: flex; flex-direction: column; gap: 6px; }
   .mgl-field > span { color: var(--text-dim); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+
+  /* Aporte automático: tarjeta cohesiva (antes eran bloques sueltos apilados que
+     se sentían sobrecargados). El resumen en lenguaje natural encabeza. */
+  .mgl-auto-card {
+    border: 1px solid var(--m-border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 4px;
+    padding: 14px;
+  }
+  .mgl-auto-summary {
+    align-items: center;
+    background: color-mix(in oklab, currentColor 12%, transparent);
+    border-radius: 10px;
+    display: flex;
+    font-size: 12.5px;
+    font-weight: 800;
+    gap: 8px;
+    line-height: 1.35;
+    padding: 10px 12px;
+  }
+  .mgl-auto-summary svg { flex-shrink: 0; }
+  /* Días de cobro mensual lado a lado cuando son 2 pagos. */
+  .mgl-day-selects { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  .mgl-day-selects .mgl-field:only-child { grid-column: 1 / -1; }
+  /* El interruptor del reto se separa con una línea sutil arriba. */
+  .mgl-auto-ramp-toggle { border-top: 1px solid var(--m-border); margin-top: 2px; padding-top: 14px; }
   /* Vista previa del reto incremental de ahorro */
   .mgl-ramp-preview {
     background: color-mix(in oklab, var(--text) 4%, transparent);
@@ -1482,11 +1538,17 @@
   }
   .mobile-summary-strip-movements .mini-stat {
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
   }
   .mobile-summary-strip-movements .mini-stat strong {
     display: block;
     font-size: 15px;
     line-height: 1.15;
+    /* max-width:100% es imprescindible: sin él, con ellipsis pero sin límite de
+       ancho el número toma su ancho completo y, centrado en la columna, se sale
+       de pantalla con saldos grandes + fuente grande (el ellipsis nunca actúa). */
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1533,12 +1595,15 @@
     box-shadow: none;
   }
   .mobile-movement-tools {
+    align-items: center;
     background: var(--m-surface);
     border-bottom: 1px solid var(--m-border);
-    display: grid;
-    gap: 10px;
+    display: flex;
+    gap: 8px;
     padding: 12px 16px;
   }
+  .mobile-movement-tools .mobile-filter-chips { flex: 1; min-width: 0; }
+  .mobile-movement-tools .mobile-search-chip { flex-shrink: 0; }
   .mobile-balance-breakdown-inline {
     border-left: 0;
     border-radius: 0;
@@ -2735,7 +2800,12 @@
     bottom: 0;
     box-shadow: 0 -18px 32px rgba(0,0,0,.22);
     display: grid;
-    grid-template-columns: 1fr 1fr 82px 1fr 1fr;
+    /* minmax(0,1fr), no `1fr` a secas: con `1fr` el mínimo es el min-content de
+       la etiqueta ("Movimientos"), así que con fuente grande (fontScale 1.35) las
+       columnas crecen, el grid rebasa el ancho fijo y empuja "Cuentas"/"Perfil"
+       fuera de pantalla (se perdía el acceso a esas pestañas). minmax(0,...) deja
+       encoger las columnas y la etiqueta se recorta con ellipsis si hace falta. */
+    grid-template-columns: repeat(2, minmax(0, 1fr)) 82px repeat(2, minmax(0, 1fr));
     left: 0;
     min-height: 78px;
     padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
@@ -2762,7 +2832,15 @@
     gap: 5px;
     justify-content: center;
     min-height: 58px;
+    min-width: 0;
     transition: color var(--m-duration-fast) var(--m-ease);
+  }
+  /* La etiqueta se recorta antes que empujar la pestaña fuera de pantalla. */
+  .mobile-bottom-nav > button > span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .mobile-bottom-nav > button.on {
     color: var(--m-primary);

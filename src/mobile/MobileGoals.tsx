@@ -414,6 +414,31 @@ function GoalForm({
     ? new Date(`${deadline}T00:00:00`).toLocaleDateString(dateLocale(lang), { day: 'numeric', month: 'short', year: 'numeric' })
     : t('noDeadlineLabel')
 
+  // Resumen en lenguaje natural del aporte automático: de un vistazo, qué pasará.
+  // Reemplaza tener que leer 5 controles sueltos por una frase clara.
+  const weekdayLabelFor = (wd: number) => weekdayLabels[WEEKDAY_ORDER.indexOf(wd)] ?? ''
+  const autoSummary = (() => {
+    const amt = fmt(autoAmount, cur)
+    const acct = validAccounts.find(a => a.id === autoAccountId)?.name ?? ''
+    const freqPhrase = autoFrequency === 'weekly'
+      ? t('autoEveryWeek')
+      : monthlyPayments === 2 ? t('autoTwiceMonth') : t('autoEveryMonth')
+    let when = ''
+    if (autoFrequency === 'weekly') {
+      if (autoWeekday !== null) when = t('autoOnWeekday').replace('{day}', weekdayLabelFor(autoWeekday))
+    } else if (monthlyPayments === 2) {
+      const [d1, d2] = [monthDay1, monthDay2].sort((a, b) => a - b)
+      when = t('autoOnDays').replace('{d1}', String(d1)).replace('{d2}', String(d2))
+    } else {
+      when = t('autoOnDay').replace('{d}', String(monthDay1))
+    }
+    const lead = autoPlan === 'ramp' && autoIncrement > 0
+      ? t('autoSummaryRampLead').replace('{amount}', amt).replace('{inc}', fmt(autoIncrement, cur))
+      : amt
+    return [lead, freqPhrase, when, acct ? t('autoFromAccount').replace('{account}', acct) : '']
+      .filter(Boolean).join(' ')
+  })()
+
   return createPortal(
     // No cierra al tocar fuera (evita perder lo que escribiste por un toque).
     <div ref={dialogRef} className="mobile-detail-sheet" role="dialog" aria-modal="true" aria-label={initial ? t('editGoal') : t('newGoal')}>
@@ -561,22 +586,14 @@ function GoalForm({
               )}
 
               {autoEnabled && (
-                <>
-                  <div className="mpr-form-section">
-                    <span className="mpr-overdraft-label">{t('savingsPlanLabel')}</span>
-                    <div className="mpr-pill-row">
-                      {(['fixed', 'ramp'] as const).map(pl => (
-                        <button
-                          key={pl}
-                          className={`mpr-pill${autoPlan === pl ? ' on' : ''}`}
-                          style={autoPlan === pl ? { borderColor: color, color } : {}}
-                          onClick={() => setAutoPlan(pl)}
-                        >
-                          {pl === 'fixed' ? t('planFixedLabel') : t('planRampLabel')}
-                        </button>
-                      ))}
+                <div className="mgl-auto-card" style={{ borderColor: color + '44' }}>
+                  {/* Resumen en lenguaje natural: qué pasará exactamente, de un vistazo. */}
+                  {autoAmount > 0 && (
+                    <div className="mgl-auto-summary" style={{ color }}>
+                      <Icon name="repeat" size={13} />
+                      <span>{autoSummary}</span>
                     </div>
-                  </div>
+                  )}
 
                   <div className="mgl-field">
                     <span>{autoPlan === 'ramp' ? t('firstContributionLabel') : t('autoContributeAmountLabel')}</span>
@@ -585,36 +602,6 @@ function GoalForm({
                       <Icon name="edit" size={14} style={{ opacity: .4 }} />
                     </button>
                   </div>
-
-                  {autoPlan === 'ramp' && (
-                    <>
-                      <div className="mgl-field">
-                        <span>{t('rampIncrementLabel')}</span>
-                        <button className="mgl-amount-tap" onClick={() => setAutoIncrementSheet(true)}>
-                          <span>+{fmt(autoIncrement, cur)}</span>
-                          <Icon name="edit" size={14} style={{ opacity: .4 }} />
-                        </button>
-                      </div>
-                      {rampPreview && autoIncrement > 0 && (
-                        <div className="mgl-ramp-preview" style={{ borderColor: color + '55' }}>
-                          <div className="mgl-ramp-seq">
-                            {rampPreview.first.map((v, i) => (
-                              <span key={i}>{fmt(v, cur)}</span>
-                            ))}
-                            <span className="mgl-ramp-dots">···</span>
-                          </div>
-                          {parseFloat(amountText) > 0 && (
-                            <small>
-                              {t('rampPreviewSummary')
-                                .replace('{n}', String(rampPreview.periods))
-                                .replace('{freq}', autoFrequency === 'weekly' ? t('weeksLabel') : t('monthsLabel'))
-                                .replace('{total}', fmt(rampPreview.total, cur))}
-                            </small>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
 
                   <div className="mpr-form-section">
                     <span className="mpr-overdraft-label">{t('frequencyLabel')}</span>
@@ -675,28 +662,26 @@ function GoalForm({
                         </div>
                       </div>
 
-                      <label className="mgl-field">
-                        <span>{monthlyPayments === 2 ? t('firstChargeDayLabel') : t('chargeDayMonthLabel')}</span>
-                        <select className="mgl-input" value={monthDay1} onChange={e => setMonthDay1(Number(e.target.value))}>
-                          {MONTH_DAYS.map(d => (
-                            <option key={d} value={d}>{t('dayNumberLabel').replace('{d}', String(d))}</option>
-                          ))}
-                        </select>
-                      </label>
-
-                      {monthlyPayments === 2 && (
+                      <div className="mgl-day-selects">
                         <label className="mgl-field">
-                          <span>{t('secondChargeDayLabel')}</span>
-                          <select className="mgl-input" value={monthDay2} onChange={e => setMonthDay2(Number(e.target.value))}>
+                          <span>{monthlyPayments === 2 ? t('firstChargeDayLabel') : t('chargeDayMonthLabel')}</span>
+                          <select className="mgl-input" value={monthDay1} onChange={e => setMonthDay1(Number(e.target.value))}>
                             {MONTH_DAYS.map(d => (
                               <option key={d} value={d}>{t('dayNumberLabel').replace('{d}', String(d))}</option>
                             ))}
                           </select>
-                          <small className="mgl-weekday-hint">
-                            {t('twiceMonthlyHint').replace('{amount}', fmt(autoAmount, cur))}
-                          </small>
                         </label>
-                      )}
+                        {monthlyPayments === 2 && (
+                          <label className="mgl-field">
+                            <span>{t('secondChargeDayLabel')}</span>
+                            <select className="mgl-input" value={monthDay2} onChange={e => setMonthDay2(Number(e.target.value))}>
+                              {MONTH_DAYS.map(d => (
+                                <option key={d} value={d}>{t('dayNumberLabel').replace('{d}', String(d))}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
                     </>
                   )}
 
@@ -708,7 +693,55 @@ function GoalForm({
                       ))}
                     </select>
                   </label>
-                </>
+
+                  {/* Reto incremental: opción avanzada, al final y como interruptor
+                      (antes eran unos pills prominentes arriba que confundían). */}
+                  <div className="mpr-form-section mpr-toggle-row mgl-auto-ramp-toggle">
+                    <div className="mpr-toggle-row-text">
+                      <span className="mpr-toggle-row-label">{t('planRampLabel')}</span>
+                      <small className="mpr-toggle-row-desc">{t('rampToggleDesc')}</small>
+                    </div>
+                    <label className="mset-toggle-wrap">
+                      <input
+                        type="checkbox"
+                        className="mset-toggle-input"
+                        checked={autoPlan === 'ramp'}
+                        onChange={e => setAutoPlan(e.target.checked ? 'ramp' : 'fixed')}
+                      />
+                      <span className="mset-toggle" />
+                    </label>
+                  </div>
+
+                  {autoPlan === 'ramp' && (
+                    <>
+                      <div className="mgl-field">
+                        <span>{t('rampIncrementLabel')}</span>
+                        <button className="mgl-amount-tap" onClick={() => setAutoIncrementSheet(true)}>
+                          <span>+{fmt(autoIncrement, cur)}</span>
+                          <Icon name="edit" size={14} style={{ opacity: .4 }} />
+                        </button>
+                      </div>
+                      {rampPreview && autoIncrement > 0 && (
+                        <div className="mgl-ramp-preview" style={{ borderColor: color + '55' }}>
+                          <div className="mgl-ramp-seq">
+                            {rampPreview.first.map((v, i) => (
+                              <span key={i}>{fmt(v, cur)}</span>
+                            ))}
+                            <span className="mgl-ramp-dots">···</span>
+                          </div>
+                          {parseFloat(amountText) > 0 && (
+                            <small>
+                              {t('rampPreviewSummary')
+                                .replace('{n}', String(rampPreview.periods))
+                                .replace('{freq}', autoFrequency === 'weekly' ? t('weeksLabel') : t('monthsLabel'))
+                                .replace('{total}', fmt(rampPreview.total, cur))}
+                            </small>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
             </div>
 

@@ -197,6 +197,19 @@ export function SettingsAppearance({ activeSheet, onOpen, onClose, only }: Sheet
             </div>
           </>
         )}
+
+        {finance.categories.some(c => c.type === 'expense' && c.budget > 0) && (
+          <>
+            {!only && <span className="mset-section-title">{t('budgets')}</span>}
+            <div className="mset-card">
+              <div className="mset-row">
+                <span className="mset-row-icon" style={{ background: '#22c55e22', color: '#22c55e' }}><Icon name="repeat" size={18} /></span>
+                <div className="mset-row-text"><b>{t('budgetRolloverLabel')}</b><small>{t('budgetRolloverDesc')}</small></div>
+                <label className="mset-toggle-wrap"><input type="checkbox" className="mset-toggle-input" checked={settings.budgetRollover} onChange={e => settings.setBudgetRollover(e.target.checked)} /><span className="mset-toggle" /></label>
+              </div>
+            </div>
+          </>
+        )}
       </div>
       )}
 

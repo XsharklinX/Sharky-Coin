@@ -352,6 +352,12 @@ button.man-quick-card {
   font-weight: 850;
   letter-spacing: .05em;
   text-transform: uppercase;
+  /* Nombres largos (p. ej. "Suscripciones") se recortan y quedan centrados en
+     vez de desbordar y descentrar el texto del centro del donut. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .man-donut strong {
@@ -429,6 +435,32 @@ button.man-quick-card {
   font-size: 11px;
   font-weight: 750;
 }
+
+/* Fila "Otros": agrega las categorías fuera del top. Informativa, no enfocable. */
+.man-legend-row.man-legend-others,
+.man-legend-row.man-legend-others:active { background: transparent; cursor: default; }
+.man-legend-others i { background: color-mix(in oklab, var(--m-text) 22%, transparent) !important; }
+
+/* Detalle de la categoría enfocada (al tocar una porción o la leyenda). */
+.man-cat-detail {
+  border-top: 1px solid var(--m-border);
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.man-cat-detail-head { align-items: center; display: flex; gap: 8px; }
+.man-cat-detail-head i { border-radius: 999px; flex-shrink: 0; height: 12px; width: 12px; }
+.man-cat-detail-head strong { font-size: 14px; font-weight: 850; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.man-cat-detail-head b { color: var(--m-muted); flex-shrink: 0; font-size: 12px; font-weight: 800; margin-left: auto; }
+.man-cat-stats { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.man-cat-stat { background: color-mix(in oklab, var(--m-text) 4%, transparent); border-radius: 12px; min-width: 0; padding: 8px 10px; }
+.man-cat-stat small { color: var(--m-muted); display: block; font-size: 10.5px; font-weight: 750; }
+.man-cat-stat strong { display: block; font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 850; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.man-cat-detail-budget { display: grid; gap: 5px; }
+.man-cat-detail-budget-track { background: color-mix(in oklab, var(--m-text) 8%, transparent); border-radius: 999px; height: 6px; overflow: hidden; }
+.man-cat-detail-budget-fill { border-radius: 999px; height: 100%; }
+.man-cat-detail-budget small { color: var(--m-muted); font-size: 11px; font-weight: 750; }
 
 .man-budget-chip {
   background: color-mix(in oklab, var(--m-text) 6%, transparent);

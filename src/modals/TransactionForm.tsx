@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { toast } from '@/components/ui/Toast'
 import { useDialogs } from '@/components/ui/DialogProvider'
@@ -99,10 +99,17 @@ export function TransactionForm({ value, mkey, onClose, onDelete }: {
   }, [])
 
   const visibleCats = categories.filter(c => c.type === type)
+  // La categoría solo se limpia cuando el usuario cambia el TIPO (gasto/ingreso)
+  // a uno donde la categoría elegida ya no aplica. NO se limpia en el montaje:
+  // al editar, la categoría ya viene cargada y coincide con su tipo. El efecto
+  // anterior corría en cada render y, en el montaje, pisaba con '' la categoría
+  // recién cargada (dos setStates en el mismo commit, ganaba el vacío) → al
+  // editar cualquier movimiento se perdía la categoría.
+  const didInitCat = useRef(false)
   useEffect(() => {
-    if (!visibleCats.some(c => c.id === categoryId))
-      setCategoryId('')
-  }, [categoryId, visibleCats])
+    if (!didInitCat.current) { didInitCat.current = true; return }
+    setCategoryId(prev => (!prev || categories.some(c => c.id === prev && c.type === type)) ? prev : '')
+  }, [type, categories])
 
   const activeAccount  = accounts.find(a => a.id === accountId)  ?? null
   const activeCategory = visibleCats.find(c => c.id === categoryId) ?? null

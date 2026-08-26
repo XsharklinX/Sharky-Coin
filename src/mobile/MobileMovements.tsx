@@ -3,6 +3,7 @@ import { AnimatedMoney } from '@/components/ui/AnimatedMoney'
 import { Icon } from '@/components/ui/Icon'
 import { accountBalanceInBase, availableBalanceInBase, convertTxAmountsToBase, fmt, localToday, totals, transactionsForTotals, txForMonth, visibleAccounts } from '@/data/helpers'
 import { weeklyDigest } from '@/data/weeklyDigest'
+import { proactiveInsights } from '@/data/proactiveInsights'
 import { translateCategoryName, useT } from '@/i18n'
 import { useFinance } from '@/store/finance'
 import { useSettings } from '@/store/settings'
@@ -36,6 +37,15 @@ export function MobileMovements({
   // datos frescos en vez de quedar oculto para siempre.
   const digest = useMemo(() => weeklyDigest(transactions, categories, localToday()), [transactions, categories])
   const weeklyDismissId = `weekly-${digest.weekStart}`
+
+  // Insights proactivos: el aviso accionable más urgente del mes (presupuesto a
+  // punto de agotarse, gasto inusual, etc.), descartable por id.
+  const insights = useMemo(() => proactiveInsights({
+    txns: transactions, categories, mkey, today: localToday(),
+    fmt: (n) => fmt(n, currency),
+    translateCategory: (c) => translateCategoryName(c, lang),
+  }), [transactions, categories, mkey, currency, lang])
+  const topInsight = insights.find(i => !dismissedAlerts.includes(i.id))
   const showWeekly = digest.txCount > 0 && digest.expense > 0 && !dismissedAlerts.includes(weeklyDismissId)
   const topCategory = digest.topCategoryId ? categories.find(c => c.id === digest.topCategoryId) : undefined
   const [showBalanceBreakdown, setShowBalanceBreakdown] = useState(false)
@@ -144,6 +154,19 @@ export function MobileMovements({
         </div>
       )}
 
+      {topInsight && (
+        <div className={`minsight-card minsight-${topInsight.severity}`}>
+          <span className="minsight-ico"><Icon name={topInsight.icon} size={16} /></span>
+          <div className="minsight-body">
+            <strong>{t(topInsight.titleKey)}</strong>
+            <p>{Object.entries(topInsight.params).reduce((s, [k, v]) => s.replace(`{${k}}`, String(v)), t(topInsight.messageKey))}</p>
+          </div>
+          <button className="minsight-dismiss" aria-label={t('dismiss')} onClick={() => dismissAlert(topInsight.id)}>
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      )}
+
       {showWeekly && (
         <div className="mweek-card">
           <div className="mweek-head">
@@ -190,6 +213,8 @@ export function MobileMovements({
           transactions={monthTx}
           onEdit={onEditTx}
           onDelete={onDeleteTx}
+          showSearch={false}
+          showFilters
           className="mobile-list-card-flat"
         />
       ) : (

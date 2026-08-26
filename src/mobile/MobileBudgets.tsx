@@ -47,7 +47,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
   const rollover: Record<string, number> = {}
   const effectiveBudget: Record<string, number> = {}
   cats.forEach(c => {
-    rollover[c.id] = categoryRollover(c, prevMonthTx)
+    rollover[c.id] = categoryRollover(c, prevMonthTx, settings.budgetRollover)
     effectiveBudget[c.id] = c.budget > 0 ? Math.max(0, c.budget + rollover[c.id]) : c.budget
   })
 
@@ -277,7 +277,7 @@ export function MobileBudgets({ txns, mkey }: ViewProps) {
                         : t('spentAmount').replace('{amount}', fmtCompact(s, currency))}
                     </span>
                   </div>
-                  {cat.rolloverEnabled && roll !== 0 && (
+                  {(cat.rolloverEnabled || settings.budgetRollover) && roll !== 0 && (
                     <div className="mbud-row-rollover">
                       <Icon name="repeat" size={11} />
                       {roll > 0

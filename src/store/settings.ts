@@ -58,6 +58,8 @@ interface SettingsState {
   hiddenShowInMovements: boolean
   hiddenCountInBalance: boolean
   hiddenCountInSummary: boolean
+  /** Global: arrastra el sobrante/exceso de CADA presupuesto al mes siguiente. */
+  budgetRollover: boolean
   widgetAccountIds: string[]
   /** Cuándo se guardó la última copia MANUAL (ISO). El backup semanal usa
    *  lastWeeklyBackupAt; la tarjeta de estado toma la más reciente de las dos. */
@@ -111,6 +113,7 @@ interface SettingsState {
   setHiddenShowInMovements: (v: boolean) => void
   setHiddenCountInBalance: (v: boolean) => void
   setHiddenCountInSummary: (v: boolean) => void
+  setBudgetRollover: (v: boolean) => void
   setWidgetAccountIds: (ids: string[]) => void
   setLastWeeklyBackupAt: (v: string | null) => void
   setLastManualBackupAt: (v: string | null) => void
@@ -163,6 +166,7 @@ export const useSettings = create<SettingsState>()(
       hiddenShowInMovements: true,
       hiddenCountInBalance: false,
       hiddenCountInSummary: false,
+      budgetRollover: false,
       widgetAccountIds: [],
       lastManualBackupAt: null,
       cashflowBuffer: 0,
@@ -240,6 +244,7 @@ export const useSettings = create<SettingsState>()(
       setHiddenShowInMovements: (hiddenShowInMovements) => set({ hiddenShowInMovements }),
       setHiddenCountInBalance: (hiddenCountInBalance) => set({ hiddenCountInBalance }),
       setHiddenCountInSummary: (hiddenCountInSummary) => set({ hiddenCountInSummary }),
+      setBudgetRollover: (budgetRollover) => set({ budgetRollover }),
       setWidgetAccountIds: (widgetAccountIds) => set({ widgetAccountIds }),
       setLastWeeklyBackupAt: (lastWeeklyBackupAt) => set({ lastWeeklyBackupAt }),
       setLastManualBackupAt: (lastManualBackupAt) => set({ lastManualBackupAt }),

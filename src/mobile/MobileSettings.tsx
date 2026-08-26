@@ -256,7 +256,6 @@ export function MobileSettings({
                     {settings.profilePhoto
                       ? <img src={settings.profilePhoto} alt="" className="mset-summary-avatar-img" />
                       : (settings.displayName || '$').slice(0, 1).toUpperCase()}
-                    <span className="mset-summary-avatar-badge"><Icon name="camera" size={11} /></span>
                   </span>
                   <input
                     ref={photoInputRef}

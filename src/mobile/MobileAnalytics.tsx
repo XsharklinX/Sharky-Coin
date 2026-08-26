@@ -7,7 +7,7 @@ import { compareCategoryTotals } from '@/data/comparisons'
 import { exportCsv, exportExcel, exportMonthlyPdf } from '@/data/professionalExport'
 import { advanceRecurrenceDate } from '@/hooks/useRecurring'
 import { playConfirmSound } from '@/lib/sound'
-import { accountSavingsRate, byCategory, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, shortMonth, totalBalanceInBase, totals, transactionsForTotals, txForMonth, type NetWorthPoint } from '@/data/helpers'
+import { accountSavingsRate, amountForCategory, byCategory, categoryParts, currentMonthKey, dateLocale, monthLabel, monthlySeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, shortMonth, totalBalanceInBase, totals, transactionsForTotals, txForMonth, type NetWorthPoint } from '@/data/helpers'
 import { projectNetWorth } from '@/data/netWorthProjection'
 import { useAnalyticsSections, type AnalyticsSectionId } from '@/store/analyticsSections'
 import { useDismissals } from '@/store/dismissals'
@@ -273,7 +273,14 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
   const savedAmount = savingsBalance(accounts)
   const savingsRate = accountSavingsRate(accounts)
   const currentNetWorth = totalBalanceInBase(accounts, currency)
-  const categoryRows = byCategory(scopedTx, 'expense', categories).slice(0, 6)
+  // Todas las categorías del periodo (no recortadas): las top se muestran una a
+  // una y el resto se agrega en "Otros" para que nada quede oculto y el donut
+  // sume el 100% del gasto.
+  const allExpenseRows = useMemo(() => byCategory(scopedTx, 'expense', categories), [scopedTx, categories])
+  const LEGEND_TOP = 5
+  const topRows = allExpenseRows.slice(0, LEGEND_TOP)
+  const othersRows = allExpenseRows.slice(LEGEND_TOP)
+  const othersAmount = othersRows.reduce((sum, r) => sum + r.amount, 0)
   const totalExpense = Math.max(1, summary.expense)
   const monthly = monthlySeries(visTx, year)
   const netWorth = netWorthSeries(accounts, transactions, goalContributions, year, dateLocale(lang), currency)
@@ -351,16 +358,48 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
 
   // Solo cuenta como enfoque si la categoría sigue en el periodo visible (evita
   // un enfoque "fantasma" al cambiar de mes/periodo sin tener que resetearlo).
-  const activeFocus = focusCat && categoryRows.some(row => row.category.id === focusCat) ? focusCat : null
-  const focusRow = activeFocus ? categoryRows.find(row => row.category.id === activeFocus) : null
+  const activeFocus = focusCat && topRows.some(row => row.category.id === focusCat) ? focusCat : null
+  const focusRow = activeFocus ? topRows.find(row => row.category.id === activeFocus) : null
+
+  // Estadísticas de la categoría enfocada (al tocar una porción o la leyenda):
+  // nº de movimientos, promedio, mayor gasto y % del total. Respeta splits.
+  const focusStats = useMemo(() => {
+    if (!activeFocus) return null
+    const amounts: number[] = []
+    for (const tx of scopedTx) {
+      if (tx.type !== 'expense') continue
+      const a = amountForCategory(tx, activeFocus)
+      if (a > 0) amounts.push(a)
+    }
+    const count = amounts.length
+    const sum = amounts.reduce((s, a) => s + a, 0)
+    return { count, sum, avg: count ? sum / count : 0, max: count ? Math.max(...amounts) : 0, pct: Math.round(sum / totalExpense * 100) }
+  }, [activeFocus, scopedTx, totalExpense])
+  // Conteo de movimientos por categoría (para mostrar "N mov." en la leyenda).
+  const countByCategory = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const tx of scopedTx) {
+      if (tx.type !== 'expense') continue
+      for (const p of categoryParts(tx)) if (p.categoryId && p.amount > 0) m[p.categoryId] = (m[p.categoryId] ?? 0) + 1
+    }
+    return m
+  }, [scopedTx])
+  const focusCategory = activeFocus ? categories.find(c => c.id === activeFocus) : null
+  const focusBudgetPct = focusCategory && focusCategory.budget > 0 && focusStats
+    ? Math.min(100, Math.round(focusStats.sum / focusCategory.budget * 100))
+    : null
 
   const donutValueLabel = fmtVal(focusRow ? focusRow.amount : summary.expense, currency)
   const donutCaption = focusRow ? translateCategoryName(focusRow.category, lang) : t('expenses')
   const donutValueSize = donutValueLabel.length > 11 ? 12 : donutValueLabel.length > 8 ? 14 : 16
 
-  const donut = categoryRows.length
-    ? `conic-gradient(${categoryRows.map((row, i) => {
-        const start = categoryRows.slice(0, i).reduce((sum, current) => sum + current.amount / totalExpense * 100, 0)
+  // Donut: top categorías + segmento gris "Otros" (resto), para sumar el 100%.
+  const donutSegments = othersAmount > 0
+    ? [...topRows, { category: { id: '__others__', color: 'color-mix(in oklab, var(--m-text) 22%, transparent)' }, amount: othersAmount }]
+    : topRows
+  const donut = donutSegments.length
+    ? `conic-gradient(${donutSegments.map((row, i) => {
+        const start = donutSegments.slice(0, i).reduce((sum, current) => sum + current.amount / totalExpense * 100, 0)
         const end = start + row.amount / totalExpense * 100
         const color = activeFocus && activeFocus !== row.category.id
           ? 'color-mix(in oklab, var(--m-text) 9%, transparent)'
@@ -375,10 +414,10 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
       ? String(year)
       : monthLabel(mkey, dateLocale(lang))
 
-  const topCategory = categoryRows[0]
+  const topCategory = allExpenseRows[0]
   const topCategoryPrevious = topCategory ? (prevCategoryMap.get(topCategory.category.id) ?? 0) : 0
   const topCategoryDelta = topCategory ? topCategory.amount - topCategoryPrevious : 0
-  const overBudgetCategory = categoryRows.find(row => {
+  const overBudgetCategory = allExpenseRows.find(row => {
     const category = categories.find(item => item.id === row.category.id)
     return !!category && category.budget > 0 && row.amount >= category.budget * 0.8
   })
@@ -609,11 +648,12 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
           </button>
 
           <div className="man-legend">
-            {categoryRows.slice(0, 5).map(row => {
+            {topRows.map(row => {
               const pct = Math.round(row.amount / totalExpense * 100)
               const category = categories.find(item => item.id === row.category.id)
               const budgetUsagePct = category && category.budget > 0 ? Math.min(100, row.amount / category.budget * 100) : null
               const dimmed = activeFocus !== null && activeFocus !== row.category.id
+              const count = countByCategory[row.category.id] ?? 0
               return (
                 <button
                   type="button"
@@ -633,14 +673,63 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
                   </div>
                   <div className="man-legend-amount">
                     {fmtVal(row.amount, currency)}
-                    <small>{pct}%</small>
+                    <small>{pct}% · {t('txCountShort').replace('{n}', String(count))}</small>
                   </div>
                 </button>
               )
             })}
-            {!categoryRows.length && <p className="man-empty">{t('noExpensesToAnalyze')}</p>}
+            {othersAmount > 0 && (
+              <div className="man-legend-row man-legend-others">
+                <i />
+                <div className="man-legend-main">
+                  <strong>{t('othersLabel')}</strong>
+                  <span>{t('otherCategoriesCount').replace('{n}', String(othersRows.length))}</span>
+                </div>
+                <div className="man-legend-amount">
+                  {fmtVal(othersAmount, currency)}
+                  <small>{Math.round(othersAmount / totalExpense * 100)}%</small>
+                </div>
+              </div>
+            )}
+            {!allExpenseRows.length && <p className="man-empty">{t('noExpensesToAnalyze')}</p>}
           </div>
         </div>
+
+        {/* Detalle de la categoría enfocada: aparece al tocar una porción o fila. */}
+        {focusStats && focusRow && (
+          <div className="man-cat-detail">
+            <div className="man-cat-detail-head">
+              <i style={{ background: focusRow.category.color }} />
+              <strong>{translateCategoryName(focusRow.category, lang)}</strong>
+              <b>{t('pctOfTotalShort').replace('{pct}', String(focusStats.pct))}</b>
+            </div>
+            <div className="man-cat-stats">
+              <div className="man-cat-stat">
+                <small>{t('movementsCountLabel')}</small>
+                <strong>{focusStats.count}</strong>
+              </div>
+              <div className="man-cat-stat">
+                <small>{t('averageLabel')}</small>
+                <strong>{fmtVal(focusStats.avg, currency)}</strong>
+              </div>
+              <div className="man-cat-stat">
+                <small>{t('largestLabel')}</small>
+                <strong>{fmtVal(focusStats.max, currency)}</strong>
+              </div>
+            </div>
+            {focusBudgetPct !== null && (
+              <div className="man-cat-detail-budget">
+                <div className="man-cat-detail-budget-track">
+                  <div
+                    className="man-cat-detail-budget-fill"
+                    style={{ width: `${focusBudgetPct}%`, background: focusBudgetPct >= 100 ? 'var(--m-expense)' : focusRow.category.color }}
+                  />
+                </div>
+                <small>{t('pctOfBudget').replace('{pct}', String(focusBudgetPct))}</small>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <AnalyticsFold id="metrics" title={t('analyticsMetricsTitle')} subtitle={t('analyticsMetricsDesc')}>
@@ -834,15 +923,15 @@ export function MobileAnalytics({ mkey, onBudgets, onImport, onEditTx, initialPe
         </AnalyticsFold>
       )}
 
-      {categoryRows.length > 0 && (
+      {allExpenseRows.length > 0 && (
         <AnalyticsFold
           id="categories"
           title={t('topCategoriesTitle')}
           subtitle={t('topExpenseOfPeriod')}
-          count={categoryRows.length}
+          count={allExpenseRows.length}
         >
           <div className="man-category-list">
-            {categoryRows.map((row, index) => {
+            {allExpenseRows.map((row, index) => {
               const category = categories.find(item => item.id === row.category.id)
               const pct = row.amount / totalExpense * 100
               return (

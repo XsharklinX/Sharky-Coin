@@ -732,7 +732,7 @@
   .mpr-explore-grid {
     display: grid;
     gap: 10px;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     padding: 6px 16px 16px;
   }
   .mpr-explore-tile {
@@ -743,6 +743,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
     padding: 14px 6px 12px;
     text-align: center;
   }
@@ -757,7 +758,7 @@
     justify-content: center;
     width: 38px;
   }
-  .mpr-explore-tile b { color: var(--m-text); font-size: 12px; font-weight: 750; line-height: 1.25; }
+  .mpr-explore-tile b { color: var(--m-text); font-size: 12px; font-weight: 750; line-height: 1.25; max-width: 100%; overflow-wrap: anywhere; }
 
   .mpr-link-list { display: flex; flex-direction: column; }
   .mpr-link-list button,
@@ -921,6 +922,7 @@
     font-size: 18px;
     font-weight: 800;
     letter-spacing: -.02em;
+    min-width: 0; /* sin esto, el placeholder empuja el botón de cerrar (X) fuera de pantalla */
     outline: none;
     padding: 2px 0;
     position: relative;
@@ -1071,7 +1073,9 @@
     letter-spacing: .03em;
     white-space: nowrap;
   }
-  .mpr-pill-row { display: flex; gap: 5px; flex: 1; }
+  /* flex-wrap: con fuente grande / pantallas estrechas los pills (Sobregiro,
+     frecuencia, etc.) pasan a una segunda línea en vez de salirse de pantalla. */
+  .mpr-pill-row { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
   .mpr-pill {
     background: transparent;
     border: 1.5px solid var(--m-border);
@@ -1966,7 +1970,7 @@
   .mhome-insight-chip.warn { border-color: #f59e0b44; color: #f59e0b; }
 
 /* -- Avisos (usado por MobileMovements) ---------------------- */
-  .mhome-alert { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 14px; display: flex; gap: 10px; padding: 12px 14px; }
+  .mhome-alert { align-items: center; background: var(--m-surface); border: 1px solid var(--m-border); border-radius: 14px; display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
   .mhome-alert.warn   { border-color: #f59e0b44; }
   .mhome-alert.danger { border-color: var(--m-expense)44; }
   .mhome-alert-ico { align-items: center; border-radius: 10px; display: flex; flex-shrink: 0; height: 34px; justify-content: center; width: 34px; }

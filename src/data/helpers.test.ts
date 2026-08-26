@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accountActivity, accountBalanceInBase, accountMovementsTotal, accountSavingsRate, amountForCategory, availableBalanceInBase, byCategory, categoryParts, convertTxAmountsToBase, creditCardsOwedInBase, getAccount, getCategory, monthlyAccountSeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, totalBalanceInBase, visibleAccounts, transactionsForTotals } from './helpers'
+import { accountActivity, accountBalanceInBase, accountMovementsTotal, accountSavingsRate, amountForCategory, availableBalanceInBase, byCategory, categoryParts, categoryRollover, convertTxAmountsToBase, creditCardsOwedInBase, getAccount, getCategory, monthlyAccountSeries, netWorthBreakdown, netWorthSeries, rollingNetWorthSeries, savingsBalance, totalBalanceInBase, visibleAccounts, transactionsForTotals } from './helpers'
 import type { Account, Category, Transaction } from '@/types'
 
 const TXNS: Transaction[] = [
@@ -234,5 +234,30 @@ describe('getCategory / getAccount', () => {
     expect(getCategory(undefined, cats)).toBeUndefined()
     expect(getAccount('a1', accs)?.name).toBe('Efectivo')
     expect(getAccount('missing', accs)).toBeUndefined()
+  })
+})
+
+describe('categoryRollover (arrastre de presupuesto)', () => {
+  const cat = (over: Partial<Category> = {}): Category => ({ id: 'c1', name: 'Comida', type: 'expense', color: '#fff', budget: 5000, icon: 'food', ...over })
+  const tx = (amount: number): Transaction => ({ id: 't' + amount, type: 'expense', amount, date: '2026-07-10', note: '', categoryId: 'c1', accountId: 'a1' })
+
+  it('resta el exceso (gasto > presupuesto) cuando el arrastre está activo por categoría', () => {
+    expect(categoryRollover(cat({ rolloverEnabled: true }), [tx(6000)])).toBe(-1000)
+  })
+
+  it('suma el sobrante (gasto < presupuesto)', () => {
+    expect(categoryRollover(cat({ rolloverEnabled: true }), [tx(3000)])).toBe(2000)
+  })
+
+  it('sin arrastre por categoría ni global → 0', () => {
+    expect(categoryRollover(cat({ rolloverEnabled: false }), [tx(6000)])).toBe(0)
+  })
+
+  it('el flag GLOBAL activa el arrastre aunque la categoría no lo tenga', () => {
+    expect(categoryRollover(cat({ rolloverEnabled: false }), [tx(6000)], true)).toBe(-1000)
+  })
+
+  it('sin presupuesto → 0 aunque el global esté activo', () => {
+    expect(categoryRollover(cat({ rolloverEnabled: false, budget: 0 }), [tx(6000)], true)).toBe(0)
   })
 })
